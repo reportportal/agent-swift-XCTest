@@ -11,7 +11,7 @@ import XCTest
 
 public class RPListener: NSObject, XCTestObservation {
   
-  private var reportingService: ReportingService!
+  private var reportingService: ReportingService?
   private let queue = DispatchQueue(label: "com.report_portal.reporting", qos: .utility)
   
   public override init() {
@@ -77,10 +77,11 @@ public class RPListener: NSObject, XCTestObservation {
       print("Set 'YES' for 'PushTestDataToReportPortal' property in Info.plist if you want to put data to report portal")
       return
     }
-    reportingService = ReportingService(configuration: configuration)
+    let reportingService = ReportingService(configuration: configuration)
+    self.reportingService = reportingService
     queue.async {
       do {
-        try self.reportingService.startLaunch()
+        try reportingService.startLaunch()
       } catch let error {
         print(error)
       }
@@ -88,6 +89,8 @@ public class RPListener: NSObject, XCTestObservation {
   }
   
   public func testSuiteWillStart(_ testSuite: XCTestSuite) {
+    guard let reportingService = self.reportingService else { return }
+    
     guard
       !testSuite.name.contains("All tests"),
       !testSuite.name.contains("Selected tests") else
@@ -98,9 +101,9 @@ public class RPListener: NSObject, XCTestObservation {
     queue.async {
       do {
         if testSuite.name.contains(".xctest") {
-          try self.reportingService.startRootSuite(testSuite)
+          try reportingService.startRootSuite(testSuite)
         } else {
-          try self.reportingService.startTestSuite(testSuite)
+          try reportingService.startTestSuite(testSuite)
         }
       } catch let error {
         print(error)
@@ -113,9 +116,11 @@ public class RPListener: NSObject, XCTestObservation {
   }
   
   public func testCaseWillStart(_ testCase: XCTestCase) {
+    guard let reportingService = self.reportingService else { return }
+
     queue.async {
       do {
-        try self.reportingService.startTest(testCase)
+        try reportingService.startTest(testCase)
       } catch let error {
         print(error)
       }
@@ -123,9 +128,11 @@ public class RPListener: NSObject, XCTestObservation {
   }
   
   public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
+    guard let reportingService = self.reportingService else { return }
+    
     queue.async {
       do {
-        try self.reportingService.reportError(message: "Test '\(String(describing: testCase.name)))' failed on line \(lineNumber), \(description)")
+        try reportingService.reportError(message: "Test '\(String(describing: testCase.name)))' failed on line \(lineNumber), \(description)")
       } catch let error {
         print(error)
       }
@@ -133,9 +140,12 @@ public class RPListener: NSObject, XCTestObservation {
   }
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
+    guard let reportingService = self.reportingService else { return }
+
+    
     queue.async {
       do {
-        try self.reportingService.finishTest(testCase)
+        try reportingService.finishTest(testCase)
       } catch let error {
         print(error)
       }
@@ -143,6 +153,9 @@ public class RPListener: NSObject, XCTestObservation {
   }
   
   public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
+    guard let reportingService = self.reportingService else { return }
+
+    
     guard
       !testSuite.name.contains("All tests"),
       !testSuite.name.contains("Selected tests") else
@@ -153,9 +166,9 @@ public class RPListener: NSObject, XCTestObservation {
     queue.async {
       do {
         if testSuite.name.contains(".xctest") {
-          try self.reportingService.finishRootSuite()
+          try reportingService.finishRootSuite()
         } else {
-          try self.reportingService.finishTestSuite()
+          try reportingService.finishTestSuite()
         }
       } catch let error {
         print(error)
@@ -164,9 +177,11 @@ public class RPListener: NSObject, XCTestObservation {
   }
   
   public func testBundleDidFinish(_ testBundle: Bundle) {
+    guard let reportingService = self.reportingService else { return }
+
     queue.sync() {
       do {
-        try self.reportingService.finishLaunch()
+        try reportingService.finishLaunch()
       } catch let error {
         print(error)
       }
