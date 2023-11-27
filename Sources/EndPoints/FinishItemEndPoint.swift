@@ -13,14 +13,15 @@ struct FinishItemEndPoint: EndPoint {
   let method: HTTPMethod = .put
   let relativePath: String
   let parameters: [String : Any]
-  
-  init(itemID: String, status: TestStatus) {
+
+  init(itemID: String, status: TestStatus, launchID: String) {
     relativePath = "item/\(itemID)"
     parameters = [
       "end_time": TimeHelper.currentTimeAsString(),
+      "launchUuid": launchID,
       "issue": [
         "comment": "",
-        "issue_type": status == .failed ? "TO_INVESTIGATE" : ""
+        "issue_type": status == .failed ? "TO_INVESTIGATE" : "NOT_ISSUE"
       ],
       "status": status.rawValue
     ]
