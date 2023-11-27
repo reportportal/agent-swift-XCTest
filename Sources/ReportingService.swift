@@ -58,7 +58,7 @@ class ReportingService {
         
         do {
           try self.httpClient.callEndPoint(endPoint) { (result: Launch) in
-            self.launchID = result.id
+            self.launchID = String(result.id)
             self.semaphore.signal()
           }
         } catch let error {
@@ -140,7 +140,7 @@ class ReportingService {
       launchStatus = .failed
     }
     
-    let endPoint = FinishItemEndPoint(itemID: testID, status: testStatus)
+      let endPoint = FinishItemEndPoint(itemID: testID, status: testStatus, launchID: self.launchID ?? "")
     
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
       self.semaphore.signal()
@@ -152,7 +152,7 @@ class ReportingService {
     guard let testSuiteID = testSuiteID else {
       throw ReportingServiceError.testSuiteIdNotFound
     }
-    let endPoint = FinishItemEndPoint(itemID: testSuiteID, status: testSuiteStatus)
+    let endPoint = FinishItemEndPoint(itemID: testSuiteID, status: testSuiteStatus, launchID: self.launchID ?? "")
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
       self.semaphore.signal()
     }
@@ -163,7 +163,7 @@ class ReportingService {
     guard let rootSuiteID = rootSuiteID else {
       throw ReportingServiceError.testSuiteIdNotFound
     }
-    let endPoint = FinishItemEndPoint(itemID: rootSuiteID, status: launchStatus)
+    let endPoint = FinishItemEndPoint(itemID: rootSuiteID, status: launchStatus, launchID: self.launchID ?? "")
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
       self.semaphore.signal()
     }
@@ -179,7 +179,7 @@ class ReportingService {
       throw ReportingServiceError.launchIdNotFound
     }
     let endPoint = FinishLaunchEndPoint(launchID: launchID, status: launchStatus)
-    try httpClient.callEndPoint(endPoint) { (result: Finish) in
+    try httpClient.callEndPoint(endPoint) { (result: FinishLaunch) in
       self.semaphore.signal()
     }
     _ = semaphore.wait(timeout: .now() + timeOutForRequestExpectation)
