@@ -9,17 +9,17 @@
 import Foundation
 
 struct StartItemEndPoint: EndPoint {
-  
+
   let method: HTTPMethod = .post
   var relativePath: String
   let parameters: [String : Any]
-  
+
   init(itemName: String, parentID: String? = nil, launchID: String, type: TestType) {
     relativePath = "item"
     if let parentID = parentID {
       relativePath += "/\(parentID)"
     }
-    
+
     parameters = [
       "description": "",
       "launch_id": launchID,
@@ -29,5 +29,5 @@ struct StartItemEndPoint: EndPoint {
       "type": type.rawValue
     ]
   }
-  
+
 }

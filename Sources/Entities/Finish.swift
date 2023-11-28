@@ -15,10 +15,10 @@ enum FinishKeys: String, CodingKey {
 
 struct Finish: Decodable {
   let message: String
-  
-  init(from decoder: Decoder) throws {
-    let container = try decoder.container(keyedBy: FinishKeys.self)
-    message = try container.decode(String.self, forKey: .msg)
-  }
-  
+}
+
+struct LaunchFinish: Decodable {
+    let id: String
+    let link: String
+    let number: Int
 }

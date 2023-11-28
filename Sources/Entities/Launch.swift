@@ -34,6 +34,12 @@ struct Statistics: Decodable {
     let executions: [String: Int32]?
 }
 
+struct LaunchList: Decodable {
+    let uuid: String
+    let number: Int
+    let status: String?
+}
+
 struct LaunchListInfo: Decodable {
   let content: [Launch]
   let page: Page?

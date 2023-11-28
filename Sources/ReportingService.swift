@@ -38,15 +38,15 @@ class ReportingService {
   private func getStoredLaunchID(completion: @escaping (String?) -> Void) throws {
     let endPoint = GetCurrentLaunchEndPoint()
     try httpClient.callEndPoint(endPoint) { (result: LaunchListInfo) in
-      guard let launch = result.content.first, let status = launch.status, status == "IN_PROGRESS" else {
+      guard let launch = result.content.first, launch.status == "IN_PROGRESS" else {
         completion(nil)
         return
       }
       
-      completion(launch.id)
+      completion(launch.uuid)
     }
   }
-  
+
   func startLaunch() throws {
     try getStoredLaunchID { (savedLaunchID: String?) in
       guard let savedLaunchID = savedLaunchID else {

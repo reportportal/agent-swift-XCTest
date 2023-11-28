@@ -9,11 +9,11 @@
 import Foundation
 
 struct StartLaunchEndPoint: EndPoint {
-  
+
   let method: HTTPMethod = .post
   let relativePath: String = "launch"
   let parameters: [String : Any]
-  
+
   init(launchName: String, tags: [String], mode: LaunchMode) {
     parameters = [
       "description": "",
@@ -23,5 +23,5 @@ struct StartLaunchEndPoint: EndPoint {
       "tags": TagHelper.defaultTags + tags
     ]
   }
-  
+
 }

@@ -9,11 +9,11 @@
 import Foundation
 
 struct FinishLaunchEndPoint: EndPoint {
-  
+
   let method: HTTPMethod = .put
   let relativePath: String
   let parameters: [String : Any]
-  
+
   init(launchID: String, status: TestStatus) {
     relativePath = "launch/\(launchID)/finish"
     parameters = [
@@ -21,5 +21,5 @@ struct FinishLaunchEndPoint: EndPoint {
       "end_time": TimeHelper.currentTimeAsString()
     ]
   }
-  
+
 }

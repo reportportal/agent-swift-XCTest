@@ -19,7 +19,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSPrincipalClass</key>
-	<string>RPListener</string>
+	<string>ReportPortalAgent.RPListener</string>
 	<key>PushTestDataToReportPortal</key>
 	<true/>
 	<key>ReportPortalLaunchName</key>

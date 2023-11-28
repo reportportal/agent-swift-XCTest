@@ -8,15 +8,15 @@
 import Foundation
 
 struct GetCurrentLaunchEndPoint: EndPoint {
-  
+
   let encoding: ParameterEncoding = .url
   let relativePath: String = "launch/latest"
   let parameters: [String : Any]
-  
+
   init() {
     parameters = [
-      "page.sort": "start_time"
+      "page.sort": "startTime"
     ]
   }
-  
+
 }

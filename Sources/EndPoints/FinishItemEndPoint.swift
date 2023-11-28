@@ -9,7 +9,7 @@
 import Foundation
 
 struct FinishItemEndPoint: EndPoint {
-  
+
   let method: HTTPMethod = .put
   let relativePath: String
   let parameters: [String : Any]
@@ -26,5 +26,5 @@ struct FinishItemEndPoint: EndPoint {
       "status": status.rawValue
     ]
   }
-  
+
 }
