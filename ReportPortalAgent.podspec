@@ -15,7 +15,7 @@ Pod::Spec.new do |s|
     s.ios.deployment_target = '10.3'
     s.tvos.deployment_target = '10.3'
     s.swift_version = '4.1.2'
-    s.source_files = 'Sources/**/*'
+    s.source_files = 'Sources/**/*.swift'
 
     s.weak_framework = "XCTest"
     s.pod_target_xcconfig = {

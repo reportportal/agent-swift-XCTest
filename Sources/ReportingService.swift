@@ -57,8 +57,8 @@ class ReportingService {
         )
         
         do {
-          try self.httpClient.callEndPoint(endPoint) { (result: Launch) in
-            self.launchID = String(result.id)
+          try self.httpClient.callEndPoint(endPoint) { (result: FirstLaunch) in
+            self.launchID = result.id
             self.semaphore.signal()
           }
         } catch let error {
@@ -179,7 +179,7 @@ class ReportingService {
       throw ReportingServiceError.launchIdNotFound
     }
     let endPoint = FinishLaunchEndPoint(launchID: launchID, status: launchStatus)
-    try httpClient.callEndPoint(endPoint) { (result: FinishLaunch) in
+    try httpClient.callEndPoint(endPoint) { (result: LaunchFinish) in
       self.semaphore.signal()
     }
     _ = semaphore.wait(timeout: .now() + timeOutForRequestExpectation)

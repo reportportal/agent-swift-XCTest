@@ -110,11 +110,7 @@ public class RPListener: NSObject, XCTestObservation {
       }
     }
   }
-  
-  public func testSuite(_ testSuite: XCTestSuite, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
-    
-  }
-  
+
   public func testCaseWillStart(_ testCase: XCTestCase) {
     guard let reportingService = self.reportingService else { return }
 
@@ -126,19 +122,24 @@ public class RPListener: NSObject, XCTestObservation {
       }
     }
   }
-  
-  public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
+
+  public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
     guard let reportingService = self.reportingService else { return }
-    
+
     queue.async {
       do {
-        try reportingService.reportError(message: "Test '\(String(describing: testCase.name)))' failed on line \(lineNumber), \(description)")
+        let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
+          ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
+          : ""
+        let errorMessage = "Test '\(String(describing: issue.description))' failed\(lineNumberString), \(issue.description)"
+
+        try reportingService.reportError(message: errorMessage)
       } catch let error {
         print(error)
       }
     }
   }
-  
+
   public func testCaseDidFinish(_ testCase: XCTestCase) {
     guard let reportingService = self.reportingService else { return }
 
