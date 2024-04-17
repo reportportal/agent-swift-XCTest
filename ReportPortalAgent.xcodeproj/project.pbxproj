@@ -114,6 +114,7 @@
 		92FEE093212EEE2D00ADB1ED /* FinishItemEndPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinishItemEndPoint.swift; sourceTree = "<group>"; };
 		92FEE095212EF30700ADB1ED /* StartItemEndPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartItemEndPoint.swift; sourceTree = "<group>"; };
 		92FEE097212F028B00ADB1ED /* PostLogEndPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostLogEndPoint.swift; sourceTree = "<group>"; };
+		9497CEB02BC6C1BE00A23B73 /* Example.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Example.xctestplan; sourceTree = "<group>"; };
 		B298DF4C300965F413082F68 /* Pods_RPAgentSwiftXCTest.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RPAgentSwiftXCTest.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -204,6 +205,7 @@
 		9203A38D2135C20C00BFAF82 /* Example */ = {
 			isa = PBXGroup;
 			children = (
+				9497CEB02BC6C1BE00A23B73 /* Example.xctestplan */,
 				9203A38E2135C20C00BFAF82 /* AppDelegate.swift */,
 				9203A3902135C20C00BFAF82 /* SummatorViewController.swift */,
 				9203A3BA2136B21F00BFAF82 /* SummatorService.swift */,

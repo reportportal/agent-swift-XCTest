@@ -21,7 +21,12 @@ pod install
 
 ## Report Portal properties
 
-Use info.plist file of your test target to specify properties of Report Portal:
+The properties for Report Portal configuration should be set in the `Info.plist` file of your Test Target. If you Test Target does't have an `Info.plist`, follow these steps to add:
+
+1. In your Test Target Folder, create a Property List named `Info.plist`.
+2. In Test Target Settings, configure 'Info.plist File' with the path `TestTargetFolderName/Info.plist`.
+
+Now, you can specify the Report Portal properties:
 
 * ReportPortalURL - URL to API of report portal (exaple https://report-portal.company.com/api/v1).
 * ReportPortalToken - token for authentication which you can get from RP account settings.
@@ -33,7 +38,11 @@ Use info.plist file of your test target to specify properties of Report Portal:
 * IsFinalTestBundle - use to mark last test target as YES, and all others as NO to allow single launch for them
 
 Example:
-![Alt text](https://github.com/Windmill-Smart-Solutions/ReportPortalAgent/blob/master/Screen%20Shot.png)
+![Alt text](./Screen%20Shot.png)
+
+## Important Notes
+
+Please be aware that this Report Portal agent is designed to work correctly only when tests are run sequentially. Parallel execution of tests is currently not supported.
 
 ## Authors
 

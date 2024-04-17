@@ -8,6 +8,11 @@
 
 import Foundation
 
+struct FirstLaunch: Decodable  {
+    let id: String
+    let number: Int
+}
+
 struct Launch: Decodable  {
     let owner: String?
     let share: Bool?

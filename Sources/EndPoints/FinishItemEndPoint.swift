@@ -21,7 +21,7 @@ struct FinishItemEndPoint: EndPoint {
       "launchUuid": launchID,
       "issue": [
         "comment": "",
-        "issue_type": status == .failed ? "TO_INVESTIGATE" : "NOT_ISSUE"
+        "issue_type": status == .failed ? "ti001" : "NOT_ISSUE"
       ],
       "status": status.rawValue
     ]
