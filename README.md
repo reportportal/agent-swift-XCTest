@@ -1,9 +1,9 @@
 # XCTest Agent for ReportPortal
 
 
-[![Version](https://img.shields.io/cocoapods/v/ReportPortalAgent.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
-[![License](https://img.shields.io/cocoapods/l/ReportPortalAgent.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
-[![Platform](https://img.shields.io/cocoapods/p/ReportPortalAgent.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
+[![Version](https://img.shields.io/cocoapods/v/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
+[![License](https://img.shields.io/cocoapods/l/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
+[![Platform](https://img.shields.io/cocoapods/p/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
 
 ## Installation
 
