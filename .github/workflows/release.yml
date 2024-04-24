@@ -1,0 +1,101 @@
+# Copyright 2024 EPAM Systems
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/**'
+      - README.md
+      - CHANGELOG.md
+
+env:
+  PODSPEC_FILE: AYForkOfReportPortalAgent.podspec
+  CHANGE_LOG_FILE: CHANGELOG.md
+  RELEASE_BRANCH: main
+  DEVELOP_BRANCH: develop
+
+jobs:
+  publish-pod:
+    name: Publish pod
+    runs-on: macOS-latest
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+  
+      - name: Setup git credentials
+        uses: oleksiyrudenko/gha-git-credentials@v2.1.1
+        with:
+          name: 'reportportal.io'
+          email: 'support@reportportal.io'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate versions
+        id: getVersion
+        run: |
+          VERSION=$(grep 's.version' ${PODSPEC_FILE} | head -1 | sed "s/.*'\(.*\)'.*/\1/")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+  
+      - name: Update CHANGELOG.md
+        run: |
+          sed -i '' -e "s/## \[Unreleased\]/## [${{ steps.getVersion.outputs.version }}] - $(date +"%Y-%m-%d")/g" ${{ env.CHANGE_LOG_FILE }}
+          sed -i '' '1 a\
+          \
+          ## [Unreleased]
+          ' ${{ env.CHANGE_LOG_FILE }}
+          git add ${{ env.CHANGE_LOG_FILE }}
+          git commit -m "Changelog update"
+          git push
+          
+      - name: Read changelog Entry
+        id: readChangelogEntry
+        uses: mindsers/changelog-reader-action@v2
+        with:
+          version: ${{ steps.getVersion.outputs.version }}
+          path: ./${{ env.CHANGE_LOG_FILE }}
+
+      - name: Create Release
+        id: createRelease
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.getVersion.outputs.version }}
+          name: Release ${{ steps.getVersion.outputs.version }}
+          body: ${{ steps.readChangelogEntry.outputs.changes }}
+          
+      - name: Setup build enviroment
+        uses: ./.github/actions/setup-build-env
+  
+      - name: Publish to CocoaPod trunk
+        run: pod trunk push --allow-warnings ${{ env.PODSPEC_FILE }}
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+
+      - name: Checkout develop branch
+        if: ${{ github.ref == env.RELEASE_BRANCH }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEVELOP_BRANCH }}
+          fetch-depth: 0
+
+      - name: Merge release branch into develop
+        if: ${{ github.ref == env.RELEASE_BRANCH }}
+        run: |
+          git merge -m 'Merge release branch into develop after a release' origin/${{ env.RELEASE_BRANCH }}
+          git status | (! grep -Fq 'both modified:') || git status | grep -F 'both modified:' \
+          | { echo -e 'Unable to merge release into develop, merge conflicts:'; (! grep -Eo '[^ ]+$') }
+          git push origin ${{ env.DEVELOP_BRANCH }}
