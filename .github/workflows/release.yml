@@ -86,6 +86,21 @@ jobs:
           name: Release ${{ steps.getVersion.outputs.version }}
           body: ${{ steps.readChangelogEntry.outputs.changes }}
           
+      - name: Checkout develop branch
+        if: ${{ github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH) }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEVELOP_BRANCH }}
+          fetch-depth: 0
+
+      - name: Merge release branch into develop
+        if: ${{ github.ref == format('refs/heads/{0}', env.RELEASE_BRANCH) }}
+        run: |
+          git merge -m 'Merge release branch into develop after a release' origin/${{ env.RELEASE_BRANCH }}
+          git status | (! grep -Fq 'both modified:') || git status | grep -F 'both modified:' \
+          | { echo -e 'Unable to merge release into develop, merge conflicts:'; (! grep -Eo '[^ ]+$') }
+          git push origin ${{ env.DEVELOP_BRANCH }}
+
       - name: Setup build enviroment
         uses: ./.github/actions/setup-build-env
   
@@ -95,18 +110,3 @@ jobs:
           pod trunk push ${{ env.PODSPEC_FILE }} --allow-warnings
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
-
-      - name: Checkout develop branch
-        if: ${{ github.ref == env.RELEASE_BRANCH }}
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.DEVELOP_BRANCH }}
-          fetch-depth: 0
-
-      - name: Merge release branch into develop
-        if: ${{ github.ref == env.RELEASE_BRANCH }}
-        run: |
-          git merge -m 'Merge release branch into develop after a release' origin/${{ env.RELEASE_BRANCH }}
-          git status | (! grep -Fq 'both modified:') || git status | grep -F 'both modified:' \
-          | { echo -e 'Unable to merge release into develop, merge conflicts:'; (! grep -Eo '[^ ]+$') }
-          git push origin ${{ env.DEVELOP_BRANCH }}
