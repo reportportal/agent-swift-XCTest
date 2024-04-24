@@ -14,14 +14,10 @@
 name: Release
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - '.github/**'
-      - README.md
-      - CHANGELOG.md
+    tags:
+      - '*'
+  workflow_dispatch:
 
 env:
   PODSPEC_FILE: ReportPortal.podspec
@@ -73,15 +69,16 @@ jobs:
         id: createRelease
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.getVersion.outputs.version }}
           name: Release ${{ steps.getVersion.outputs.version }}
           body: ${{ steps.readChangelogEntry.outputs.changes }}
           
       - name: Setup build enviroment
         uses: ./.github/actions/setup-build-env
   
-      - name: Publish to CocoaPod trunk
-        run: pod trunk push --allow-warnings ${{ env.PODSPEC_FILE }}
+      - name: Publish to Cocoapods trunk
+        run: |
+          export POD_VERSION=$(git describe --tags `git rev-list --tags --max-count=1`)
+          pod trunk push ${{ env.PODSPEC_FILE }} --allow-warnings
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
 
