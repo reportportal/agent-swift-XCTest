@@ -24,7 +24,7 @@ on:
       - CHANGELOG.md
 
 env:
-  PODSPEC_FILE: AYForkOfReportPortalAgent.podspec
+  PODSPEC_FILE: ReportPortal.podspec
   CHANGE_LOG_FILE: CHANGELOG.md
   RELEASE_BRANCH: main
   DEVELOP_BRANCH: develop
