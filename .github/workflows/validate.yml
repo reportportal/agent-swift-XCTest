@@ -15,14 +15,6 @@ name: Validate
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - '*'
-      - '!main'
-    paths-ignore:
-      - '.github/**'
-      - README.md
-      - CHANGELOG.md
   pull_request:
     branches: [ "develop", "main" ]
 
