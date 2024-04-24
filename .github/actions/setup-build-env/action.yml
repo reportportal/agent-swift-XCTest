@@ -1,0 +1,13 @@
+name: Setup Build envirionment
+
+runs:
+  using: "composite"
+  steps:
+    # TODO: This and Ruby should be versioned
+    - name: Install Cocoapods
+      shell: bash
+      run: sudo gem install cocoapods -v '1.14.3'
+
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
