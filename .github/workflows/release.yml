@@ -15,8 +15,12 @@ name: Release
 
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - main
+    paths-ignore:
+      - '.github/**'
+      - README.md
+      - CHANGELOG.md
   workflow_dispatch:
 
 env:
@@ -33,6 +37,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          tags: true
   
       - name: Setup git credentials
         uses: oleksiyrudenko/gha-git-credentials@v2.1.1
@@ -41,12 +48,19 @@ jobs:
           email: 'support@reportportal.io'
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate versions
+      - name: Get versions
         id: getVersion
         run: |
           VERSION=$(grep 's.version' ${PODSPEC_FILE} | head -1 | sed "s/.*'\(.*\)'.*/\1/")
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
   
+      - name: Check if version already exists as a tag
+        run: |
+          if git tag --list | grep -qw "^${{ steps.getVersion.outputs.version }}$"; then
+            echo "This version tag already exists!"
+            exit 1
+          fi
+
       - name: Update CHANGELOG.md
         run: |
           sed -i '' -e "s/## \[Unreleased\]/## [${{ steps.getVersion.outputs.version }}] - $(date +"%Y-%m-%d")/g" ${{ env.CHANGE_LOG_FILE }}
