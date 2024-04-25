@@ -1,9 +1,9 @@
 # XCTest Agent for ReportPortal
 
 
-[![Version](https://img.shields.io/cocoapods/v/ReportPortalAgent.svg?style=flat)](http://cocoapods.org/pods/ReportPortalAgent)
-[![License](https://img.shields.io/cocoapods/l/ReportPortalAgent.svg?style=flat)](http://cocoapods.org/pods/ReportPortalAgent)
-[![Platform](https://img.shields.io/cocoapods/p/ReportPortalAgent.svg?style=flat)](http://cocoapods.org/pods/ReportPortalAgent)
+[![Version](https://img.shields.io/cocoapods/v/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
+[![License](https://img.shields.io/cocoapods/l/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
+[![Platform](https://img.shields.io/cocoapods/p/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
 
 ## Installation
 
@@ -11,7 +11,7 @@ ReportPortalAgent is available through [CocoaPods](http://cocoapods.org). To ins
 it, simply add the following line to your Podfile:
 
 ```ruby
-pod 'ReportPortalAgent'
+pod 'ReportPortal'
 ```
 and install it:
 ```bash
