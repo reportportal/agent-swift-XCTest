@@ -17,10 +17,12 @@ on:
   push:
     branches:
       - main
+
     paths-ignore:
       - '.github/**'
       - README.md
       - CHANGELOG.md
+
   workflow_dispatch:
 
 env:
