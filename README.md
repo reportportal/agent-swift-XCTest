@@ -49,10 +49,11 @@ Example:
 Please be aware that this Report Portal agent is designed to work correctly only when tests are run sequentially. Parallel execution of tests is currently not supported.
 
 ## Authors
+[ReportPortal Team](support@reportportal.io)
 
-DarthRumata, stas.kirichok@windmill.ch ([Windmill Smart Solutions](https://github.com/Windmill-Smart-Solutions))
+@DarthRumata, <stas.kirichok@windmill.ch> ([Windmill Smart Solutions](https://github.com/Windmill-Smart-Solutions))
 
-SergeVKom, sergvkom@gmail.com (original library)
+@SergeVKom, <sergvkom@gmail.com> (original library)
 
 ## License
 
