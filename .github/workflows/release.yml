@@ -32,8 +32,8 @@ env:
   RELEASE_BRANCH: main
   DEVELOP_BRANCH: develop
   VERSION_EXTRACT_PATTERN: >-
-    s.version\s*=.*'([^']+)'
-  PODSPEC_FILE_SEARCH_PATTERN: s.version(\s*)=([^']*)'[^']+
+    s.version\s*=\s*'([^']+)'
+  PODSPEC_FILE_SEARCH_PATTERN: s.version(\s*)=(\s*)'[^']+
   PODSPEC_FILE_REPLACE_PATTERN: s.version\1=\2'
   PLIST_FILE_SEARCH_PATTERN: <key>CFBundleShortVersionString<\/key>(\s*)<string>[^<]+
   PLIST_FILE_REPLACE_PATTERN: <key>CFBundleShortVersionString<\/key>\1<string>
