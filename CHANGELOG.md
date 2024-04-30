@@ -4,6 +4,8 @@
 
 ## [3.0.2] - 2024-04-30
 
+## [3.0.2] - 2024-04-30
+
 ### Added
 - Validation and Release flows
 
