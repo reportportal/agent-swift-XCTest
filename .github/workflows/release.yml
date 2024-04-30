@@ -131,8 +131,8 @@ jobs:
       - name: Update version file
         id: versionFileUpdate
         run: |
-          sed -i "s/${{ PODSPEC_FILE_SEARCH_PATTERN }}/${{ PODSPEC_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PODSPEC_FILE }}
-          sed -i "s/${{ PLIST_FILE_SEARCH_PATTERN }}/${{ PLIST_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PLIST_FILE }}
+          sed -i "s/${{ env.PODSPEC_FILE_SEARCH_PATTERN }}/${{ env.PODSPEC_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PODSPEC_FILE }}
+          sed -i "s/${{ env.PLIST_FILE_SEARCH_PATTERN }}/${{ env.PLIST_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PLIST_FILE }}
           git add ${{ env.PODSPEC_FILE }}
           git add ${{ env.PLIST_FILE }}
 
