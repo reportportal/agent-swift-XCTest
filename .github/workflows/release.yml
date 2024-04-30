@@ -27,9 +27,16 @@ on:
 
 env:
   PODSPEC_FILE: ReportPortal.podspec
+  PLIST_FILE: Sources/Info.plist
   CHANGE_LOG_FILE: CHANGELOG.md
   RELEASE_BRANCH: main
   DEVELOP_BRANCH: develop
+  VERSION_EXTRACT_PATTERN: >-
+    s.version\s*=.*'([^']+)'
+  PODSPEC_FILE_SEARCH_PATTERN: s.version(\s*)=([^']*)'[^']+
+  PODSPEC_FILE_REPLACE_PATTERN: s.version\1=\2'
+  PLIST_FILE_SEARCH_PATTERN: <key>CFBundleShortVersionString<\/key>(\s*)<string>[^<]+
+  PLIST_FILE_REPLACE_PATTERN: <key>CFBundleShortVersionString<\/key>\1<string>
 
 jobs:
   publish-pod:
@@ -44,28 +51,29 @@ jobs:
           tags: true
   
       - name: Setup git credentials
-        uses: oleksiyrudenko/gha-git-credentials@v2.1.1
+        uses: oleksiyrudenko/gha-git-credentials@v2-latest
         with:
           name: 'reportportal.io'
           email: 'support@reportportal.io'
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get versions
-        id: getVersion
-        run: |
-          VERSION=$(grep 's.version' ${PODSPEC_FILE} | head -1 | sed "s/.*'\(.*\)'.*/\1/")
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+      - name: Generate versions
+        uses: HardNorth/github-version-generate@v1
+        with:
+          version-source: file
+          version-file: ${{ env.PODSPEC_FILE }}
+          version-file-extraction-pattern: ${{ env.VERSION_EXTRACT_PATTERN }}
   
       - name: Check if version already exists as a tag
         run: |
-          if git tag --list | grep -qw "^${{ steps.getVersion.outputs.version }}$"; then
+          if git tag --list | grep -qw "^${{ env.CURRENT_VERSION }}$"; then
             echo "This version tag already exists!"
             exit 1
           fi
-
+      
       - name: Update CHANGELOG.md
         run: |
-          sed -i '' -e "s/## \[Unreleased\]/## [${{ steps.getVersion.outputs.version }}] - $(date +"%Y-%m-%d")/g" ${{ env.CHANGE_LOG_FILE }}
+          sed -i '' -e "s/## \[Unreleased\]/## [${{ env.CURRENT_VERSION }}] - $(date +"%Y-%m-%d")/g" ${{ env.CHANGE_LOG_FILE }}
           sed -i '' '1 a\
           \
           ## [Unreleased]
@@ -73,19 +81,26 @@ jobs:
           git add ${{ env.CHANGE_LOG_FILE }}
           git commit -m "Changelog update"
           git push
-          
+
+      - name: Tagging new version
+        id: newVersionTag
+        run: |
+          git tag -a ${{ env.CURRENT_VERSION }} -m "Release ${{ env.CURRENT_VERSION }}"
+          git push --tags
+
       - name: Read changelog Entry
         id: readChangelogEntry
         uses: mindsers/changelog-reader-action@v2
         with:
-          version: ${{ steps.getVersion.outputs.version }}
+          version: ${{ env.CURRENT_VERSION }}
           path: ./${{ env.CHANGE_LOG_FILE }}
 
       - name: Create Release
         id: createRelease
         uses: ncipollo/release-action@v1
         with:
-          name: Release ${{ steps.getVersion.outputs.version }}
+          tag: ${{ env.CURRENT_VERSION }}
+          name: Release ${{ env.CURRENT_VERSION }}
           body: ${{ steps.readChangelogEntry.outputs.changes }}
           
       - name: Checkout develop branch
@@ -108,7 +123,18 @@ jobs:
   
       - name: Publish to Cocoapods trunk
         run: |
-          export POD_VERSION=$(git describe --tags `git rev-list --tags --max-count=1`)
           pod trunk push ${{ env.PODSPEC_FILE }} --allow-warnings
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+          POD_VERSION: ${{ env.CURRENT_VERSION }}
+
+      - name: Update version file
+        id: versionFileUpdate
+        run: |
+          sed -i "s/${{ PODSPEC_FILE_SEARCH_PATTERN }}/${{ PODSPEC_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PODSPEC_FILE }}
+          sed -i "s/${{ PLIST_FILE_SEARCH_PATTERN }}/${{ PLIST_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PLIST_FILE }}
+          git add ${{ env.PODSPEC_FILE }}
+          git add ${{ env.PLIST_FILE }}
+
+          git commit -m 'Version update'
+          git push origin ${{ env.DEVELOP_BRANCH }}
