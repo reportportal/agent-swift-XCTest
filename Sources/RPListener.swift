@@ -17,7 +17,6 @@ public class RPListener: NSObject, XCTestObservation {
   public override init() {
     super.init()
     
-    
     XCTestObservationCenter.shared.addTestObserver(self)
   }
   
@@ -25,7 +24,6 @@ public class RPListener: NSObject, XCTestObservation {
     guard
       let bundlePath = testBundle.path(forResource: "Info", ofType: "plist"),
       let bundleProperties = NSDictionary(contentsOfFile: bundlePath) as? [String: Any],
-      let shouldReport = bundleProperties["PushTestDataToReportPortal"] as? Bool,
       let portalPath = bundleProperties["ReportPortalURL"] as? String,
       let portalURL = URL(string: portalPath),
       let projectName = bundleProperties["ReportPortalProjectName"] as? String,
@@ -35,6 +33,16 @@ public class RPListener: NSObject, XCTestObservation {
     {
       fatalError("Configure properties for report portal in the Info.plist")
     }
+    
+    let shouldReport: Bool
+    if let pushTestDataString = bundleProperties["PushTestDataToReportPortal"] as? String {
+        shouldReport = Bool(pushTestDataString.lowercased()) ?? false
+    } else if let pushTestDataBool = bundleProperties["PushTestDataToReportPortal"] as? Bool {
+        shouldReport = pushTestDataBool
+    } else {
+        fatalError("PushTestDataToReportPortal must be either a string or a boolean in the Info.plist")
+    }
+    
     var tags: [String] = []
     if let tagString = bundleProperties["ReportPortalTags"] as? String {
       tags = tagString.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).components(separatedBy: ",")
@@ -143,7 +151,6 @@ public class RPListener: NSObject, XCTestObservation {
   public func testCaseDidFinish(_ testCase: XCTestCase) {
     guard let reportingService = self.reportingService else { return }
 
-    
     queue.async {
       do {
         try reportingService.finishTest(testCase)
@@ -155,7 +162,6 @@ public class RPListener: NSObject, XCTestObservation {
   
   public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
     guard let reportingService = self.reportingService else { return }
-
     
     guard
       !testSuite.name.contains("All tests"),
