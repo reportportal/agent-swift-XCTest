@@ -9,9 +9,9 @@
 import Foundation
 import XCTest
 
-public class RPListener: NSObject, XCTestObservation {
+open class RPListener: NSObject, XCTestObservation {
   
-  private var reportingService: ReportingService?
+  public var reportingService: ReportingService?
   private let queue = DispatchQueue(label: "com.report_portal.reporting", qos: .utility)
   
   public override init() {
