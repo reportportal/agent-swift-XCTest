@@ -131,6 +131,7 @@ open class RPListener: NSObject, XCTestObservation {
     }
   }
 
+  @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
   public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
     guard let reportingService = self.reportingService else { return }
 
@@ -148,6 +149,20 @@ open class RPListener: NSObject, XCTestObservation {
     }
   }
 
+  // For iOs 17+
+  public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
+    guard let reportingService = self.reportingService else { return }
+
+    queue.async {
+      do {
+        let errorMessage = "Test failed on line \(lineNumber), \(description)"
+        try reportingService.reportError(message: errorMessage)
+      } catch let error {
+        print(error)
+      }
+    }
+  }
+  
   public func testCaseDidFinish(_ testCase: XCTestCase) {
     guard let reportingService = self.reportingService else { return }
 
