@@ -39,7 +39,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          gem install cocoapods -v '1.14.3'
+          gem install cocoapods -v '1.15.2'
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
