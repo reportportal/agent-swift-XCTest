@@ -13,7 +13,7 @@ enum ReportingServiceError: Error {
   case testSuiteIdNotFound
 }
 
-class ReportingService {
+public class ReportingService {
   
   private let httpClient: HTTPClient
   private let configuration: AgentConfiguration

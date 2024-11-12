@@ -1,9 +1,13 @@
 # XCTest Agent for ReportPortal
 
 
-[![Version](https://img.shields.io/cocoapods/v/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
-[![License](https://img.shields.io/cocoapods/l/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
+[![CocoaPods](https://img.shields.io/cocoapods/v/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
 [![Platform](https://img.shields.io/cocoapods/p/ReportPortal.svg?style=flat)](http://cocoapods.org/pods/ReportPortal)
+[![Validate](https://github.com/reportportal/agent-swift-XCTest/actions/workflows/validate.yml/badge.svg)](https://github.com/reportportal/agent-swift-XCTest/actions/workflows/validate.yml)
+[![Join Slack chat!](https://img.shields.io/badge/slack-join-brightgreen.svg)](https://slack.epmrpp.reportportal.io/)
+[![stackoverflow](https://img.shields.io/badge/reportportal-stackoverflow-orange.svg?style=flat)](http://stackoverflow.com/questions/tagged/reportportal)
+[![Build with Love](https://img.shields.io/badge/build%20with-❤%EF%B8%8F%E2%80%8D-lightgrey.svg)](http://reportportal.io?style=flat)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Installation
 
@@ -45,10 +49,11 @@ Example:
 Please be aware that this Report Portal agent is designed to work correctly only when tests are run sequentially. Parallel execution of tests is currently not supported.
 
 ## Authors
+ReportPortal Team, <support@reportportal.io>
 
-DarthRumata, stas.kirichok@windmill.ch ([Windmill Smart Solutions](https://github.com/Windmill-Smart-Solutions))
+@DarthRumata, <stas.kirichok@windmill.ch> ([Windmill Smart Solutions](https://github.com/Windmill-Smart-Solutions))
 
-SergeVKom, sergvkom@gmail.com (original library)
+@SergeVKom, <sergvkom@gmail.com> (original library)
 
 ## License
 
