@@ -9,22 +9,26 @@
 import Foundation
 
 struct FinishItemEndPoint: EndPoint {
-
-  let method: HTTPMethod = .put
-  let relativePath: String
-  let parameters: [String : Any]
-
-  init(itemID: String, status: TestStatus, launchID: String) {
-    relativePath = "item/\(itemID)"
-    parameters = [
-      "end_time": TimeHelper.currentTimeAsString(),
-      "launchUuid": launchID,
-      "issue": [
-        "comment": "",
-        "issue_type": status == .failed ? "ti001" : "NOT_ISSUE"
-      ],
-      "status": status.rawValue
-    ]
-  }
-
+    
+    let method: HTTPMethod = .put
+    let relativePath: String
+    let parameters: [String : Any]
+    
+    init(itemID: String, status: TestStatus, launchID: String) throws {
+        guard itemID.isEmpty == false else {
+            throw ReportingServiceError.launchIdNotFound
+        }
+        
+        relativePath = "item/\(itemID)"
+        parameters = [
+            "end_time": TimeHelper.currentTimeAsString(),
+            "launchUuid": launchID,
+            "issue": [
+                "comment": "",
+                "issue_type": status == .failed ? "ti001" : "NOT_ISSUE"
+            ],
+            "status": status.rawValue
+        ]
+    }
+    
 }

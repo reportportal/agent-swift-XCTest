@@ -140,7 +140,7 @@ public class ReportingService {
       launchStatus = .failed
     }
     
-      let endPoint = FinishItemEndPoint(itemID: testID, status: testStatus, launchID: self.launchID ?? "")
+      let endPoint = try FinishItemEndPoint(itemID: testID, status: testStatus, launchID: self.launchID ?? "")
     
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
       self.semaphore.signal()
@@ -152,7 +152,7 @@ public class ReportingService {
     guard let testSuiteID = testSuiteID else {
       throw ReportingServiceError.testSuiteIdNotFound
     }
-    let endPoint = FinishItemEndPoint(itemID: testSuiteID, status: testSuiteStatus, launchID: self.launchID ?? "")
+    let endPoint = try FinishItemEndPoint(itemID: testSuiteID, status: testSuiteStatus, launchID: self.launchID ?? "")
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
       self.semaphore.signal()
     }
@@ -163,7 +163,7 @@ public class ReportingService {
     guard let rootSuiteID = rootSuiteID else {
       throw ReportingServiceError.testSuiteIdNotFound
     }
-    let endPoint = FinishItemEndPoint(itemID: rootSuiteID, status: launchStatus, launchID: self.launchID ?? "")
+    let endPoint = try FinishItemEndPoint(itemID: rootSuiteID, status: launchStatus, launchID: self.launchID ?? "")
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
       self.semaphore.signal()
     }
