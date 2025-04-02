@@ -18,7 +18,8 @@ struct Launch: Decodable  {
     let share: Bool?
     let id: Int
     let uuid, name: String?
-    let number, startTime, endTime, lastModified: Int?
+    let number: Int?
+    let startTime, endTime, lastModified: String?
     let status: String?
     let statistics: Statistics?
     let attributes: [Attributes?]?
