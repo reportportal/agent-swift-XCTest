@@ -23,6 +23,8 @@ cd <project>
 pod install
 ```
 
+Also available through SPM by name "agent-swift-xctest" or URL of current repo
+
 ## Report Portal properties
 
 The properties for Report Portal configuration should be set in the `Info.plist` file of your Test Target. If you Test Target does't have an `Info.plist`, follow these steps to add:
@@ -35,7 +37,7 @@ Now, you can specify the Report Portal properties:
 * ReportPortalURL - URL to API of report portal (exaple https://report-portal.company.com/api/v1).
 * ReportPortalToken - token for authentication which you can get from RP account settings.
 * ReportPortalLaunchName - name of launch.
-* Principal class - use ReportPortalAgent.RPListener from ReportPortalAgent lib. Also you can specify your own Observer which should conform to [XCTestObservation](https://developer.apple.com/documentation/xctest/xctestobservation) protocol.
+* Principal class - use ReportPortalAgent.RPListener from ReportPortalAgent lib for SPM or ReportPortal.RPListener for Cocoapods. Also you can specify your own Observer which should conform to [XCTestObservation](https://developer.apple.com/documentation/xctest/xctestobservation) protocol.
 * PushTestDataToReportPortal - can be used to switch off/on reporting
 * ReportPortalProjectName - project name from Report Portal
 * ReportPortalTags(optional) - can be used to specify tags, separated by comma.
