@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+## [3.0.4] - 2024-04-10
+### Fixed
+- [Issue #8](https://github.com/reportportal/agent-swift-XCTest/issues/8): Failed tests don't show exception logs in ReportPortal, by @YauheniPo
 
 ## [3.0.3] - 2024-11-12
 ### Fixed
