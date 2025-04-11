@@ -1,11 +1,8 @@
 # Changelog
 
 ## [Unreleased]
-
-## [3.0.4] - 2025-04-10
-## [3.0.4] - 2024-04-10
 ### Fixed
-- [Issue #8](https://github.com/reportportal/agent-swift-XCTest/issues/8): Failed tests don't show exception logs in ReportPortal, by @YauheniPo
+- [Issue #13](https://github.com/reportportal/agent-swift-XCTest/issues/13): TypeMismatch for startTime endTime lastModified, by @rusel95
 
 ## [3.0.3] - 2024-11-12
 ### Fixed

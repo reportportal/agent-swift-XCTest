@@ -11,7 +11,7 @@ import UIKit
 
 public extension UIDevice {
   
-  public var modelName: String {
+  var modelName: String {
     var model = ""
     var postfix = ""
     var systemInfo = utsname()
