@@ -32,11 +32,9 @@ env:
   RELEASE_BRANCH: main
   DEVELOP_BRANCH: develop
   VERSION_EXTRACT_PATTERN: >-
-    s.version\s*=\s*'([^']+)'
-  PODSPEC_FILE_SEARCH_PATTERN: s.version(\s*)=(\s*)'[^']+
-  PODSPEC_FILE_REPLACE_PATTERN: s.version\1=\2'
-  PLIST_FILE_SEARCH_PATTERN: <key>CFBundleShortVersionString<\/key>(\s*)<string>[^<]+
-  PLIST_FILE_REPLACE_PATTERN: <key>CFBundleShortVersionString<\/key>\1<string>
+    s\.version\s*=\s*'([^']+)'
+  PODSPEC_FILE_SEARCH_PATTERN: s\.version([[:space:]]*)=([[:space:]]*)'[^']+
+  PODSPEC_FILE_REPLACE_PATTERN: s\.version\1=\2'
 
 jobs:
   publish-pod:
@@ -131,8 +129,8 @@ jobs:
       - name: Update version file
         id: versionFileUpdate
         run: |
-          sed -i '' "s/${{ env.PODSPEC_FILE_SEARCH_PATTERN }}/${{ env.PODSPEC_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PODSPEC_FILE }}
-          sed -i '' "s/${{ env.PLIST_FILE_SEARCH_PATTERN }}/${{ env.PLIST_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PLIST_FILE }}
+          sed -r -i '' "s/${{ env.PODSPEC_FILE_SEARCH_PATTERN }}/${{ env.PODSPEC_FILE_REPLACE_PATTERN }}${{ env.NEXT_VERSION }}/g" ${{ env.PODSPEC_FILE }}
+          sed -r -i '' "s/<string>${{ env.CURRENT_VERSION }}<\/string>/<string>${{ env.NEXT_VERSION }}<\/string>/g" ${{ env.PLIST_FILE }}
           git add ${{ env.PODSPEC_FILE }}
           git add ${{ env.PLIST_FILE }}
 
