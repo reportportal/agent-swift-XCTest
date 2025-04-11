@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [3.0.4] - 2025-04-11
 ### Fixed
 - [Issue #13](https://github.com/reportportal/agent-swift-XCTest/issues/13): TypeMismatch for startTime endTime lastModified, by @rusel95
 
