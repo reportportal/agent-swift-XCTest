@@ -17,7 +17,9 @@ open class RPListener: NSObject, XCTestObservation {
   public override init() {
     super.init()
     
+    print("🎯 RPListener: Initializing and adding test observer")
     XCTestObservationCenter.shared.addTestObserver(self)
+    print("🎯 RPListener: Test observer added")
   }
   
   private func readConfiguration(from testBundle: Bundle) -> AgentConfiguration {
@@ -79,63 +81,96 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testBundleWillStart(_ testBundle: Bundle) {
+    print("📦 RPListener: testBundleWillStart - Thread: \(Thread.current)")
     let configuration = readConfiguration(from: testBundle)
     
     guard configuration.shouldSendReport else {
-      print("Set 'YES' for 'PushTestDataToReportPortal' property in Info.plist if you want to put data to report portal")
+      print("📦 RPListener: Reporting disabled in configuration")
       return
     }
+    
+    print("📦 RPListener: Creating ReportingService")
     let reportingService = ReportingService(configuration: configuration)
     self.reportingService = reportingService
+    
+    print("📦 RPListener: Dispatching startLaunch to queue")
     queue.async {
+      print("📦 RPListener: In queue - starting launch - Thread: \(Thread.current)")
       do {
         try reportingService.startLaunch()
+        print("📦 RPListener: Launch started successfully")
       } catch let error {
-        print(error)
+        print("📦 RPListener: Error starting launch: \(error)")
       }
     }
+    print("📦 RPListener: testBundleWillStart completed")
   }
   
   public func testSuiteWillStart(_ testSuite: XCTestSuite) {
-    guard let reportingService = self.reportingService else { return }
+    print("📁 RPListener: testSuiteWillStart: '\(testSuite.name)' - Thread: \(Thread.current)")
+    guard let reportingService = self.reportingService else { 
+      print("📁 RPListener: No reportingService available")
+      return 
+    }
     
     guard
       !testSuite.name.contains("All tests"),
       !testSuite.name.contains("Selected tests") else
     {
+      print("📁 RPListener: Skipping suite: \(testSuite.name)")
       return
     }
     
+    print("📁 RPListener: Dispatching suite start to queue")
     queue.async {
+      print("📁 RPListener: In queue - starting suite: \(testSuite.name) - Thread: \(Thread.current)")
       do {
         if testSuite.name.contains(".xctest") {
+          print("📁 RPListener: Starting as root suite")
           try reportingService.startRootSuite(testSuite)
         } else {
+          print("📁 RPListener: Starting as test suite")
           try reportingService.startTestSuite(testSuite)
         }
+        print("📁 RPListener: Suite started successfully")
       } catch let error {
-        print(error)
+        print("📁 RPListener: Error starting suite: \(error)")
       }
     }
+    print("📁 RPListener: testSuiteWillStart completed")
   }
 
   public func testCaseWillStart(_ testCase: XCTestCase) {
-    guard let reportingService = self.reportingService else { return }
+    print("🧪 RPListener: testCaseWillStart: '\(testCase.name)' - Thread: \(Thread.current)")
+    guard let reportingService = self.reportingService else { 
+      print("🧪 RPListener: No reportingService available")
+      return 
+    }
 
+    print("🧪 RPListener: Dispatching test start to queue")
     queue.async {
+      print("🧪 RPListener: In queue - starting test: \(testCase.name) - Thread: \(Thread.current)")
       do {
         try reportingService.startTest(testCase)
+        print("🧪 RPListener: Test started successfully")
       } catch let error {
-        print(error)
+        print("🧪 RPListener: Error starting test: \(error)")
       }
     }
+    print("🧪 RPListener: testCaseWillStart completed")
   }
 
   @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
   public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-    guard let reportingService = self.reportingService else { return }
+    print("🚨 RPListener: testCase didRecord issue - Thread: \(Thread.current)")
+    guard let reportingService = self.reportingService else { 
+      print("🚨 RPListener: No reportingService available")
+      return 
+    }
 
+    print("🚨 RPListener: Dispatching error report to queue")
     queue.async {
+      print("🚨 RPListener: In queue - reporting error - Thread: \(Thread.current)")
       do {
         let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
           ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
@@ -143,70 +178,105 @@ open class RPListener: NSObject, XCTestObservation {
         let errorMessage = "Test '\(String(describing: issue.description))' failed\(lineNumberString), \(issue.description)"
 
         try reportingService.reportError(message: errorMessage)
+        print("🚨 RPListener: Error reported successfully")
       } catch let error {
-        print(error)
+        print("🚨 RPListener: Error reporting error: \(error)")
       }
     }
   }
 
   // For iOs 17+
   public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
-    guard let reportingService = self.reportingService else { return }
+    print("🚨 RPListener: testCase didFailWithDescription - Thread: \(Thread.current)")
+    guard let reportingService = self.reportingService else { 
+      print("🚨 RPListener: No reportingService available")
+      return 
+    }
 
+    print("🚨 RPListener: Dispatching error report to queue")
     queue.async {
+      print("🚨 RPListener: In queue - reporting error - Thread: \(Thread.current)")
       do {
         let errorMessage = "Test failed on line \(lineNumber), \(description)"
         try reportingService.reportError(message: errorMessage)
+        print("🚨 RPListener: Error reported successfully")
       } catch let error {
-        print(error)
+        print("🚨 RPListener: Error reporting error: \(error)")
       }
     }
   }
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
-    guard let reportingService = self.reportingService else { return }
+    print("✅ RPListener: testCaseDidFinish: '\(testCase.name)' - Thread: \(Thread.current)")
+    guard let reportingService = self.reportingService else { 
+      print("✅ RPListener: No reportingService available")
+      return 
+    }
 
+    print("✅ RPListener: Dispatching test finish to queue")
     queue.async {
+      print("✅ RPListener: In queue - finishing test: \(testCase.name) - Thread: \(Thread.current)")
       do {
         try reportingService.finishTest(testCase)
+        print("✅ RPListener: Test finished successfully")
       } catch let error {
-        print(error)
+        print("✅ RPListener: Error finishing test: \(error)")
       }
     }
+    print("✅ RPListener: testCaseDidFinish completed")
   }
   
   public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
-    guard let reportingService = self.reportingService else { return }
+    print("📁✅ RPListener: testSuiteDidFinish: '\(testSuite.name)' - Thread: \(Thread.current)")
+    guard let reportingService = self.reportingService else { 
+      print("📁✅ RPListener: No reportingService available")
+      return 
+    }
     
     guard
       !testSuite.name.contains("All tests"),
       !testSuite.name.contains("Selected tests") else
     {
+      print("📁✅ RPListener: Skipping suite finish: \(testSuite.name)")
       return
     }
     
+    print("📁✅ RPListener: Dispatching suite finish to queue")
     queue.async {
+      print("📁✅ RPListener: In queue - finishing suite: \(testSuite.name) - Thread: \(Thread.current)")
       do {
         if testSuite.name.contains(".xctest") {
+          print("📁✅ RPListener: Finishing as root suite")
           try reportingService.finishRootSuite()
         } else {
+          print("📁✅ RPListener: Finishing as test suite")
           try reportingService.finishTestSuite()
         }
+        print("📁✅ RPListener: Suite finished successfully")
       } catch let error {
-        print(error)
+        print("📁✅ RPListener: Error finishing suite: \(error)")
       }
     }
+    print("📁✅ RPListener: testSuiteDidFinish completed")
   }
   
   public func testBundleDidFinish(_ testBundle: Bundle) {
-    guard let reportingService = self.reportingService else { return }
+    print("📦✅ RPListener: testBundleDidFinish - Thread: \(Thread.current)")
+    guard let reportingService = self.reportingService else { 
+      print("📦✅ RPListener: No reportingService available")
+      return 
+    }
 
+    print("📦✅ RPListener: Using queue.sync for launch finish")
     queue.sync() {
+      print("📦✅ RPListener: In queue - finishing launch - Thread: \(Thread.current)")
       do {
         try reportingService.finishLaunch()
+        print("📦✅ RPListener: Launch finished successfully")
       } catch let error {
-        print(error)
+        print("📦✅ RPListener: Error finishing launch: \(error)")
       }
     }
+    print("📦✅ RPListener: testBundleDidFinish completed")
   }
 }
