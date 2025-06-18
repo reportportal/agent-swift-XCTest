@@ -32,7 +32,6 @@ extension EndPoint {
 
   var headers: [String: String] { return [:] }
   var encoding: ParameterEncoding { return .json }
-  var method: HTTPMethod { return .get }
   var parameters: [String: Any] { return [:] }
 
 }
