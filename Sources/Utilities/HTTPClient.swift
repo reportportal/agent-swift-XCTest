@@ -29,11 +29,6 @@ class HTTPClient: NSObject, URLSessionDelegate {
     return URLSession(configuration: configuration)
     #endif
   }()
-
-  override init() {
-    self.baseURL = URL(string: "https://example.com")! // Will be overridden
-    super.init()
-  }
   
   init(baseURL: URL) {
     self.baseURL = baseURL
@@ -106,7 +101,7 @@ class HTTPClient: NSObject, URLSessionDelegate {
     var mutableRequest = request
 
     // Generate a unique boundary
-    let boundary = generateBoundary()
+    let boundary = "Boundary-\(UUID().uuidString)"
 
     // Build the multipart body with ALL parameters & attachments (can handle any number of files)
     let bodyData = createMultipartBody(
@@ -133,11 +128,6 @@ class HTTPClient: NSObject, URLSessionDelegate {
       }
       task.resume()
     }
-  }
-  
-  // Generate boundary following Stack Overflow pattern
-  private func generateBoundary() -> String {
-    return "Boundary-\(UUID().uuidString)"
   }
   
   /// and every attachment gets its own part separated by the same boundary.
@@ -238,15 +228,6 @@ class HTTPClient: NSObject, URLSessionDelegate {
       print("   🔍 Decode error: \(error.localizedDescription)")
       print("   📄 Raw response: \(responseBody)")
       print("   💡 This usually means the server returned a different JSON structure than expected.")
-    }
-  }
-}
-
-// MARK: - NSMutableData Extension
-extension NSMutableData {
-  func appendString(_ string: String) {
-    if let data = string.data(using: .utf8) {
-      self.append(data)
     }
   }
 }
