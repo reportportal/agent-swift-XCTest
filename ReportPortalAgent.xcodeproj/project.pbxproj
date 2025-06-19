@@ -79,7 +79,7 @@
 		368751B61F5867200021B74D /* RPListener.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RPListener.swift; sourceTree = "<group>"; };
 		368751B81F5867200021B74D /* ReportingService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReportingService.swift; sourceTree = "<group>"; };
 		368751E01F5964AA0021B74D /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		368751E21F596BC70021B74D /* ReportPortal.podspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ReportPortal.podspec; sourceTree = "<group>"; };
+		368751E21F596BC70021B74D /* ReportPortalAgent.podspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ReportPortalAgent.podspec; sourceTree = "<group>"; };
 		368751E41F596E990021B74D /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		9203A3862135882F00BFAF82 /* GetCurrentLaunchEndPoint.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GetCurrentLaunchEndPoint.swift; sourceTree = "<group>"; };
 		9203A38C2135C20C00BFAF82 /* Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -158,7 +158,7 @@
 			isa = PBXGroup;
 			children = (
 				368751E41F596E990021B74D /* LICENSE */,
-				368751E21F596BC70021B74D /* ReportPortal.podspec */,
+				368751E21F596BC70021B74D /* ReportPortalAgent.podspec */,
 				368751E01F5964AA0021B74D /* README.md */,
 				368751A71F5866CA0021B74D /* Sources */,
 				9203A38D2135C20C00BFAF82 /* Example */,
