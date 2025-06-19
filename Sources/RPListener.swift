@@ -17,9 +17,7 @@ open class RPListener: NSObject, XCTestObservation {
   public override init() {
     super.init()
     
-    print("🎯 RPListener: Initializing and adding test observer")
     XCTestObservationCenter.shared.addTestObserver(self)
-    print("🎯 RPListener: Test observer added")
   }
   
   private func readConfiguration(from testBundle: Bundle) -> AgentConfiguration {
@@ -81,29 +79,22 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testBundleWillStart(_ testBundle: Bundle) {
-    print("📦 RPListener: testBundleWillStart - Thread: \(Thread.current)")
     let configuration = readConfiguration(from: testBundle)
     
     guard configuration.shouldSendReport else {
-      print("📦 RPListener: Reporting disabled in configuration")
       return
     }
     
-    print("📦 RPListener: Creating ReportingService")
     let reportingService = ReportingService(configuration: configuration)
     self.reportingService = reportingService
     
-    print("📦 RPListener: Dispatching startLaunch to queue")
     queue.async {
-      print("📦 RPListener: In queue - starting launch - Thread: \(Thread.current)")
       do {
         try reportingService.startLaunch()
-        print("📦 RPListener: Launch started successfully")
       } catch let error {
         print("📦 RPListener: Error starting launch: \(error)")
       }
     }
-    print("📦 RPListener: testBundleWillStart completed")
   }
   
   public func testSuiteWillStart(_ testSuite: XCTestSuite) {
