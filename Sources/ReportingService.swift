@@ -50,7 +50,6 @@ public class ReportingService {
   }
 
   func startLaunch() throws {
-    // Create INDIVIDUAL semaphore for this operation only
     let launchSemaphore = DispatchSemaphore(value: 0)
     
     try getStoredLaunchID { (savedLaunchID: String?) in
@@ -64,7 +63,7 @@ public class ReportingService {
         do {
           try self.httpClient.callEndPoint(endPoint) { (result: FirstLaunch) in
             self.launchID = result.id
-            launchSemaphore.signal()  // Signal THIS operation's semaphore
+            launchSemaphore.signal()
           }
         } catch let error {
           print("🚨 ReportingService Launch Creation Error: Failed to create new launch on ReportPortal server. Details: \(error.localizedDescription). Check your server configuration and network connectivity.")
@@ -74,13 +73,10 @@ public class ReportingService {
       }
       
       self.launchID = savedLaunchID
-      launchSemaphore.signal()  // Signal THIS operation's semaphore
+      launchSemaphore.signal()
     }
     
-    let result = launchSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
-    if result != .success || launchID == nil {
-      print("🚨 ReportingService Launch Timeout Error: Failed to start or retrieve launch within \(timeOutForRequestExpectation) seconds. This will prevent all test results from being reported to ReportPortal. Verify server availability and increase timeout if needed.")
-    }
+    _ = launchSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
   func startRootSuite(_ suite: XCTestSuite) throws {
@@ -89,19 +85,15 @@ public class ReportingService {
       throw ReportingServiceError.launchIdNotFound
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let rootSuiteSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = StartItemEndPoint(itemName: suite.name, launchID: launchID, type: .suite)
     try httpClient.callEndPoint(endPoint) { (result: Item) in
       self.rootSuiteID = result.id
-      rootSuiteSemaphore.signal()  // Signal THIS operation's semaphore
+      rootSuiteSemaphore.signal()
     }
     
-    let result = rootSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
-    if result != .success || rootSuiteID == nil {
-      print("🚨 ReportingService Root Suite Error: Failed to start root suite '\(suite.name)' within \(timeOutForRequestExpectation) seconds. Test organization in ReportPortal may be affected.")
-    }
+    _ = rootSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
   func startTestSuite(_ suite: XCTestSuite) throws {
@@ -114,19 +106,15 @@ public class ReportingService {
       throw ReportingServiceError.launchIdNotFound
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let testSuiteSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = StartItemEndPoint(itemName: suite.name, parentID: rootSuiteID, launchID: launchID, type: .test)
     try httpClient.callEndPoint(endPoint) { (result: Item) in
       self.testSuiteID = result.id
-      testSuiteSemaphore.signal()  // Signal THIS operation's semaphore
+      testSuiteSemaphore.signal()
     }
     
-    let result = testSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
-    if result != .success || testSuiteID == nil {
-      print("🚨 ReportingService Test Suite Error: Failed to start test suite '\(suite.name)' within \(timeOutForRequestExpectation) seconds.")
-    }
+    _ = testSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
   func startTest(_ test: XCTestCase) throws {
@@ -139,7 +127,6 @@ public class ReportingService {
       throw ReportingServiceError.testSuiteIdNotFound
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let testSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = StartItemEndPoint(
@@ -151,13 +138,10 @@ public class ReportingService {
     
     try httpClient.callEndPoint(endPoint) { (result: Item) in
       self.testID = result.id
-      testSemaphore.signal()  // Signal THIS operation's semaphore
+      testSemaphore.signal()
     }
     
-    let result = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
-    if result != .success || testID.isEmpty {
-      print("🚨 ReportingService Test Error: Failed to start test '\(test.name)' within \(timeOutForRequestExpectation) seconds. Test results may not be properly recorded in ReportPortal.")
-    }
+    _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
   func reportError(message: String) throws {
@@ -166,16 +150,14 @@ public class ReportingService {
       return
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let errorSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = PostLogEndPoint(itemID: testID, level: "error", message: message)
     try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
-      errorSemaphore.signal()  // Signal THIS operation's semaphore
+      errorSemaphore.signal()
     }
     
-    let result = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)  // Wait on THIS operation's semaphore
-    print("🚨 ReportingService: Error report semaphore wait result: \(result)")
+    _ = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
   // Enhanced error reporting with screenshot support
@@ -190,7 +172,6 @@ public class ReportingService {
       return
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let errorSemaphore = DispatchSemaphore(value: 0)
     
     var attachments: [FileAttachment] = []
@@ -218,7 +199,7 @@ public class ReportingService {
     )
     
     try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
-      errorSemaphore.signal()  // Signal THIS operation's semaphore
+      errorSemaphore.signal()
     }
     
     _ = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -232,13 +213,12 @@ public class ReportingService {
       launchStatus = .failed
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let finishTestSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = try FinishItemEndPoint(itemID: testID, status: testStatus, launchID: self.launchID ?? "")
     
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
-      finishTestSemaphore.signal()  // Signal THIS operation's semaphore
+      finishTestSemaphore.signal()
     }
     
       _ = finishTestSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -250,12 +230,11 @@ public class ReportingService {
       throw ReportingServiceError.testSuiteIdNotFound
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let finishTestSuiteSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = try FinishItemEndPoint(itemID: testSuiteID, status: testSuiteStatus, launchID: self.launchID ?? "")
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
-      finishTestSuiteSemaphore.signal()  // Signal THIS operation's semaphore
+      finishTestSuiteSemaphore.signal()
     }
     
       _ = finishTestSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -267,12 +246,11 @@ public class ReportingService {
       throw ReportingServiceError.testSuiteIdNotFound
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let finishRootSuiteSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = try FinishItemEndPoint(itemID: rootSuiteID, status: launchStatus, launchID: self.launchID ?? "")
     try httpClient.callEndPoint(endPoint) { (result: Finish) in
-      finishRootSuiteSemaphore.signal()  // Signal THIS operation's semaphore
+      finishRootSuiteSemaphore.signal()
     }
     
       _ = finishRootSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -288,12 +266,11 @@ public class ReportingService {
       throw ReportingServiceError.launchIdNotFound
     }
     
-    // Create INDIVIDUAL semaphore for this operation only
     let finishLaunchSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = FinishLaunchEndPoint(launchID: launchID, status: launchStatus)
     try httpClient.callEndPoint(endPoint) { (result: LaunchFinish) in
-      finishLaunchSemaphore.signal()  // Signal THIS operation's semaphore
+      finishLaunchSemaphore.signal()
     }
     
       _ = finishLaunchSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
