@@ -190,8 +190,8 @@ public class ReportingService {
     let errorSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = PostLogEndPoint(itemID: testID, level: "error", message: message)
-    try httpClient.callEndPoint(endPoint) { (result: Item) in
-      print("🚨 ReportingService: Error reported, signaling semaphore")
+    try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
+      print("🚨 ReportingService: Error reported successfully, log ID: \(result.logId ?? "unknown"), signaling semaphore")
       errorSemaphore.signal()  // Signal THIS operation's semaphore
     }
     
@@ -235,8 +235,8 @@ public class ReportingService {
       attachments: attachments
     )
     
-    try httpClient.callEndPoint(endPoint) { (result: Item) in
-      print("🚨📸 ReportingService: Error with screenshot reported, signaling semaphore")
+    try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
+      print("🚨📸 ReportingService: Error with screenshot reported successfully, log ID: \(result.logId ?? "unknown"), signaling semaphore")
       errorSemaphore.signal()  // Signal THIS operation's semaphore
     }
     
