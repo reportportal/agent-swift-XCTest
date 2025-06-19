@@ -82,6 +82,7 @@ open class RPListener: NSObject, XCTestObservation {
     let configuration = readConfiguration(from: testBundle)
     
     guard configuration.shouldSendReport else {
+      print("Set 'YES' for 'PushTestDataToReportPortal' property in Info.plist if you want to put data to report portal")
       return
     }
     
@@ -152,7 +153,6 @@ open class RPListener: NSObject, XCTestObservation {
           : ""
         let errorMessage = "Test '\(String(describing: issue.description))' failed\(lineNumberString), \(issue.description)"
 
-        // Use enhanced error reporting with screenshot
         try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
       } catch let error {
         print("🚨 RPListener Issue Reporting Error: Failed to report test issue for '\(testCase.name)' to ReportPortal. Error details: \(error.localizedDescription)")
@@ -172,8 +172,7 @@ open class RPListener: NSObject, XCTestObservation {
         let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
         let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
         
-        // Use enhanced error reporting with screenshot  
-        try reportingService.reportError(message: description)
+        try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
       } catch let error {
         print("🚨 RPListener Failure Reporting Error: Failed to report test failure for '\(testCase.name)' to ReportPortal. Error details: \(error.localizedDescription)")
       }

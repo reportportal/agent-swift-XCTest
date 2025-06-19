@@ -9,14 +9,6 @@
 import XCTest
 @testable import Example
 
-extension NSMutableData {
-  func appendString(_ string: String) {
-    if let data = string.data(using: .utf8) {
-      append(data)
-    }
-  }
-}
-
 class SummatorTests: XCTestCase {
   
   private let summator = SummatorService()
@@ -90,4 +82,12 @@ class SummatorTests: XCTestCase {
     print("✅ Multipart format test completed successfully")
   }
   
+}
+
+private extension NSMutableData {
+  func appendString(_ string: String) {
+    if let data = string.data(using: .utf8) {
+      append(data)
+    }
+  }
 }
