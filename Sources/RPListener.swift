@@ -92,15 +92,14 @@ open class RPListener: NSObject, XCTestObservation {
       do {
         try reportingService.startLaunch()
       } catch let error {
-        print("📦 RPListener: Error starting launch: \(error)")
+        print("🚨 RPListener Launch Start Error: Failed to start ReportPortal launch for test bundle. This will prevent all test results from being reported. Error details: \(error.localizedDescription)")
       }
     }
   }
   
   public func testSuiteWillStart(_ testSuite: XCTestSuite) {
-    print("📁 RPListener: testSuiteWillStart: '\(testSuite.name)' - Thread: \(Thread.current)")
     guard let reportingService = self.reportingService else { 
-      print("📁 RPListener: No reportingService available")
+      print("🚨 RPListener Configuration Error: ReportingService is not available. Test suite '\(testSuite.name)' will not be reported to ReportPortal.")
       return 
     }
     
@@ -108,60 +107,45 @@ open class RPListener: NSObject, XCTestObservation {
       !testSuite.name.contains("All tests"),
       !testSuite.name.contains("Selected tests") else
     {
-      print("📁 RPListener: Skipping suite: \(testSuite.name)")
       return
     }
     
-    print("📁 RPListener: Dispatching suite start to queue")
     queue.async {
-      print("📁 RPListener: In queue - starting suite: \(testSuite.name) - Thread: \(Thread.current)")
       do {
         if testSuite.name.contains(".xctest") {
-          print("📁 RPListener: Starting as root suite")
           try reportingService.startRootSuite(testSuite)
         } else {
-          print("📁 RPListener: Starting as test suite")
           try reportingService.startTestSuite(testSuite)
         }
-        print("📁 RPListener: Suite started successfully")
       } catch let error {
-        print("📁 RPListener: Error starting suite: \(error)")
+        print("🚨 RPListener Suite Start Error: Failed to start test suite '\(testSuite.name)' in ReportPortal. Error details: \(error.localizedDescription)")
       }
     }
-    print("📁 RPListener: testSuiteWillStart completed")
   }
 
   public func testCaseWillStart(_ testCase: XCTestCase) {
-    print("🧪 RPListener: testCaseWillStart: '\(testCase.name)' - Thread: \(Thread.current)")
     guard let reportingService = self.reportingService else { 
-      print("🧪 RPListener: No reportingService available")
+      print("🚨 RPListener Configuration Error: ReportingService is not available. Test case '\(testCase.name)' will not be reported to ReportPortal.")
       return 
     }
 
-    print("🧪 RPListener: Dispatching test start to queue")
     queue.async {
-      print("🧪 RPListener: In queue - starting test: \(testCase.name) - Thread: \(Thread.current)")
       do {
         try reportingService.startTest(testCase)
-        print("🧪 RPListener: Test started successfully")
       } catch let error {
-        print("🧪 RPListener: Error starting test: \(error)")
+        print("🚨 RPListener Test Start Error: Failed to start test case '\(testCase.name)' in ReportPortal. Error details: \(error.localizedDescription)")
       }
     }
-    print("🧪 RPListener: testCaseWillStart completed")
   }
 
   @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
   public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-    print("🚨 RPListener: testCase didRecord issue - Thread: \(Thread.current)")
     guard let reportingService = self.reportingService else { 
-      print("🚨 RPListener: No reportingService available")
+      print("🚨 RPListener Configuration Error: ReportingService is not available. Test issue for '\(testCase.name)' will not be reported to ReportPortal.")
       return 
     }
 
-    print("🚨 RPListener: Dispatching error report to queue")
     queue.async {
-      print("🚨 RPListener: In queue - reporting error - Thread: \(Thread.current)")
       do {
         let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
           ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
@@ -170,61 +154,50 @@ open class RPListener: NSObject, XCTestObservation {
 
         // Use enhanced error reporting with screenshot
         try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
-        print("🚨 RPListener: Error reported successfully")
       } catch let error {
-        print("🚨 RPListener: Error reporting error: \(error)")
+        print("🚨 RPListener Issue Reporting Error: Failed to report test issue for '\(testCase.name)' to ReportPortal. Error details: \(error.localizedDescription)")
       }
     }
   }
 
   // For iOs 17+
   public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
-    print("🚨 RPListener: testCase didFailWithDescription - Thread: \(Thread.current)")
     guard let reportingService = self.reportingService else { 
-      print("🚨 RPListener: No reportingService available")
+      print("🚨 RPListener Configuration Error: ReportingService is not available. Test failure for '\(testCase.name)' will not be reported to ReportPortal.")
       return 
     }
 
-    print("🚨 RPListener: Dispatching error report to queue")
     queue.async {
-      print("🚨 RPListener: In queue - reporting error - Thread: \(Thread.current)")
       do {
         let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
         let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
         
         // Use enhanced error reporting with screenshot  
-        try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
-        print("🚨 RPListener: Error reported successfully")
+        try reportingService.reportError(message: description)
       } catch let error {
-        print("🚨 RPListener: Error reporting error: \(error)")
+        print("🚨 RPListener Failure Reporting Error: Failed to report test failure for '\(testCase.name)' to ReportPortal. Error details: \(error.localizedDescription)")
       }
     }
   }
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
-    print("✅ RPListener: testCaseDidFinish: '\(testCase.name)' - Thread: \(Thread.current)")
     guard let reportingService = self.reportingService else { 
-      print("✅ RPListener: No reportingService available")
+      print("🚨 RPListener Configuration Error: ReportingService is not available. Test completion for '\(testCase.name)' will not be reported to ReportPortal.")
       return 
     }
 
-    print("✅ RPListener: Dispatching test finish to queue")
     queue.async {
-      print("✅ RPListener: In queue - finishing test: \(testCase.name) - Thread: \(Thread.current)")
       do {
         try reportingService.finishTest(testCase)
-        print("✅ RPListener: Test finished successfully")
       } catch let error {
-        print("✅ RPListener: Error finishing test: \(error)")
+        print("🚨 RPListener Test Finish Error: Failed to finish test case '\(testCase.name)' in ReportPortal. Error details: \(error.localizedDescription)")
       }
     }
-    print("✅ RPListener: testCaseDidFinish completed")
   }
   
   public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
-    print("📁✅ RPListener: testSuiteDidFinish: '\(testSuite.name)' - Thread: \(Thread.current)")
     guard let reportingService = self.reportingService else { 
-      print("📁✅ RPListener: No reportingService available")
+      print("🚨 RPListener Configuration Error: ReportingService is not available. Test suite completion for '\(testSuite.name)' will not be reported to ReportPortal.")
       return 
     }
     
@@ -232,46 +205,34 @@ open class RPListener: NSObject, XCTestObservation {
       !testSuite.name.contains("All tests"),
       !testSuite.name.contains("Selected tests") else
     {
-      print("📁✅ RPListener: Skipping suite finish: \(testSuite.name)")
       return
     }
     
-    print("📁✅ RPListener: Dispatching suite finish to queue")
     queue.async {
-      print("📁✅ RPListener: In queue - finishing suite: \(testSuite.name) - Thread: \(Thread.current)")
       do {
         if testSuite.name.contains(".xctest") {
-          print("📁✅ RPListener: Finishing as root suite")
           try reportingService.finishRootSuite()
         } else {
-          print("📁✅ RPListener: Finishing as test suite")
           try reportingService.finishTestSuite()
         }
-        print("📁✅ RPListener: Suite finished successfully")
       } catch let error {
-        print("📁✅ RPListener: Error finishing suite: \(error)")
+        print("🚨 RPListener Suite Finish Error: Failed to finish test suite '\(testSuite.name)' in ReportPortal. Error details: \(error.localizedDescription)")
       }
     }
-    print("📁✅ RPListener: testSuiteDidFinish completed")
   }
   
   public func testBundleDidFinish(_ testBundle: Bundle) {
-    print("📦✅ RPListener: testBundleDidFinish - Thread: \(Thread.current)")
     guard let reportingService = self.reportingService else { 
-      print("📦✅ RPListener: No reportingService available")
+      print("🚨 RPListener Configuration Error: ReportingService is not available. Test bundle completion will not be reported to ReportPortal.")
       return 
     }
 
-    print("📦✅ RPListener: Using queue.sync for launch finish")
     queue.sync() {
-      print("📦✅ RPListener: In queue - finishing launch - Thread: \(Thread.current)")
       do {
         try reportingService.finishLaunch()
-        print("📦✅ RPListener: Launch finished successfully")
       } catch let error {
-        print("📦✅ RPListener: Error finishing launch: \(error)")
+        print("🚨 RPListener Launch Finish Error: Failed to finish ReportPortal launch for test bundle. Error details: \(error.localizedDescription)")
       }
     }
-    print("📦✅ RPListener: testBundleDidFinish completed")
   }
 }

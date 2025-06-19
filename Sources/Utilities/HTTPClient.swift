@@ -91,17 +91,6 @@ class HTTPClient: NSObject, URLSessionDelegate {
       plugin.processRequest(&request)
     }
     
-    // Enhanced debugging for Proxyman
-    print("🌐 HTTPClient: Making request to: \(request.url?.absoluteString ?? "unknown")")
-    print("🌐 HTTPClient: Method: \(request.httpMethod ?? "unknown")")
-    print("🌐 HTTPClient: Headers: \(request.allHTTPHeaderFields ?? [:])")
-    if let contentType = request.value(forHTTPHeaderField: "Content-Type") {
-      print("🌐 HTTPClient: Content-Type: \(contentType)")
-    }
-    if let bodySize = request.httpBody?.count {
-      print("🌐 HTTPClient: Body size: \(bodySize) bytes")
-    }
-    
     utilityQueue.async {
       let task = self.urlSession.dataTask(with: request as URLRequest) { (data: Data?, response: URLResponse?, error: Error?) in
         self.handleResponse(data: data, response: response, error: error, completion: completion)
@@ -113,8 +102,6 @@ class HTTPClient: NSObject, URLSessionDelegate {
   // MARK: - Proper Multipart Construction (Stack Overflow Pattern)
   private func handleProperMultipart<T: Decodable>(request: URLRequest, endPoint: EndPoint, completion: @escaping (_ result: T) -> Void) throws {
     // Build multipart body following the style described at https://fluffy.es/upload-image-to-server/
-
-    print("🔍 HTTPClient: Using Fluffy multipart pattern")
 
     var mutableRequest = request
 
@@ -136,22 +123,8 @@ class HTTPClient: NSObject, URLSessionDelegate {
     mutableRequest.httpShouldHandleCookies = false
 
     // Allow plugins to mutate the request
-    plugins.forEach { (plugin) in
+    for plugin in plugins {
       plugin.processRequest(&mutableRequest)
-    }
-
-    // Debug information
-    print("🔍 HTTPClient: Multipart body size: \(bodyData.count) bytes")
-    print("🔍 HTTPClient: Boundary: \(boundary)")
-    print("✅✅✅ FINAL MULTIPART HEADERS: \(mutableRequest.allHTTPHeaderFields ?? [:])")
-
-    if let bodyString = String(data: bodyData, encoding: .utf8) {
-      let maxLogLength = 2000 // Limit to avoid huge logs
-      let logString = bodyString.count > maxLogLength ? String(bodyString.prefix(maxLogLength)) + "\n... [TRUNCATED - too long for log]" : bodyString
-      print("🔍 HTTPClient: Complete multipart body:")
-      print(String(repeating: "=", count: 50))
-      print(logString)
-      print(String(repeating: "=", count: 50))
     }
 
     utilityQueue.async {
@@ -233,41 +206,38 @@ class HTTPClient: NSObject, URLSessionDelegate {
   
   // MARK: - Shared Response Handling
   private func handleResponse<T: Decodable>(data: Data?, response: URLResponse?, error: Error?, completion: @escaping (_ result: T) -> Void) {
+    
     if let error = error {
-      print("🚨 HTTPClient: Request error: \(error)")
+      print("🚨 HTTPClient Network Error: Request failed due to network connectivity or timeout issues. Details: \(error.localizedDescription). Check your internet connection and server availability.")
       return
     }
-
+    
     guard let data = data else {
-      print("🚨 HTTPClient: No data received")
+      print("🚨 HTTPClient Data Error: Server responded but no data was received. This could indicate a server-side issue or incomplete response.")
       return
     }
     
     guard let httpResponse = response as? HTTPURLResponse else {
-      print("🚨 HTTPClient: Response not found")
+      print("🚨 HTTPClient Response Error: Invalid response format received from server. Expected HTTP response but got: \(String(describing: response))")
       return
     }
 
-    // Enhanced response debugging for Proxyman
-    print("📥 HTTPClient: Response status: \(httpResponse.statusCode)")
-    print("📥 HTTPClient: Response headers: \(httpResponse.allHeaderFields)")
-    
-    if let responseString = String(data: data, encoding: .utf8) {
-      print("📥 HTTPClient: Response body:")
-      print(responseString)
-    }
-
     do {
-      let result = try JSONDecoder().decode(T.self, from: data)
-
-      if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+      if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
+        let result = try JSONDecoder().decode(T.self, from: data)
         completion(result)
       } else {
-        print("🚨 HTTPClient: Request failed with code: \(httpResponse.statusCode)")
+        let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
+        print("🚨 HTTPClient HTTP Error: Server returned status code \(httpResponse.statusCode). This indicates a server-side error or invalid request.")
+        print("   📄 Response details: \(responseBody)")
+        print("   🔗 Request URL: \(httpResponse.url?.absoluteString ?? "Unknown")")
       }
     } catch let error {
-      print("🚨 HTTPClient: Cannot deserialize data: \(String(describing: try? JSONSerialization.jsonObject(with: data, options: []) ))")
-      print("🚨 HTTPClient: Decode error: \(error)")
+      let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
+      print("🚨 HTTPClient JSON Decode Error: Failed to parse server response as expected format.")
+      print("   🔍 Decode error: \(error.localizedDescription)")
+      print("   📄 Raw response: \(responseBody)")
+      print("   💡 This usually means the server returned a different JSON structure than expected.")
     }
   }
 }
