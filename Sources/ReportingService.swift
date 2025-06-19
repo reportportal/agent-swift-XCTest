@@ -338,11 +338,6 @@ public class ReportingService {
     }
   
   private func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
-    // TEMPORARY: Use simple static message to test if complex messages are the issue
-    return "Test error"
-    
-    // TODO: Restore full enhanced message once we confirm this fixes the issue
-    /*
     // Sanitize the original message to ensure JSON compatibility
     var enhancedMessage = sanitizeForJSON(originalMessage)
     
@@ -375,7 +370,6 @@ public class ReportingService {
     enhancedMessage += "\n\(sanitizeForJSON(TimeHelper.currentTimeAsString()))"
     
     return enhancedMessage
-    */
   }
   
   // MARK: - JSON Safety Helper
