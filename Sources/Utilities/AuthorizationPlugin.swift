@@ -23,10 +23,20 @@ class AuthorizationPlugin: HTTPClientPlugin {
   }
   
   func processRequest(_ originRequest: inout URLRequest) {
+    print("🔒 AuthPlugin: Headers BEFORE processing: \(originRequest.allHTTPHeaderFields ?? [:])")
     if originRequest.allHTTPHeaderFields == nil {
       originRequest.allHTTPHeaderFields = [:]
     }
-    originRequest.allHTTPHeaderFields! += defaultHeader
+    // Preserve existing "Content-Type" set by the request builder (e.g. multipart)
+    if originRequest.value(forHTTPHeaderField: "Content-Type") == nil {
+      print("🔒 AuthPlugin: Content-Type is missing, setting to 'application/json'.")
+      originRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    } else {
+        print("🔒 AuthPlugin: Content-Type already present ('\(originRequest.value(forHTTPHeaderField: "Content-Type") ?? "N/A")'), not overriding.")
+    }
+    // Always set / override the Authorization header
+    originRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    print("🔒 AuthPlugin: Headers AFTER processing: \(originRequest.allHTTPHeaderFields ?? [:])")
   }
   
 }

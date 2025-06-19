@@ -34,32 +34,31 @@ struct PostLogEndPoint: EndPoint {
   init(itemUuid: String, launchUuid: String, level: String, message: String, attachments: [FileAttachment] = []) {
     print("🔍 PostLogEndPoint: Initializing with attachments count: \(attachments.count)")
     
-    // Create the JSON request part according to OFFICIAL ReportPortal API spec from GitHub issues
-    // Based on issue #866: https://github.com/reportportal/reportportal/issues/866
-    var logEntry = [
-      "itemUuid": itemUuid,      // Official ReportPortal uses itemUuid (not item_id)
-      "launchUuid": launchUuid,  // Official ReportPortal uses launchUuid (not launch_id) 
-      "time": TimeHelper.currentTimeAsMilliseconds(),  // Official uses numeric milliseconds (not ISO string)
-      "message": message,
-      "level": level  // Keep original case
-    ] as [String : Any]
-    
     if !attachments.isEmpty {
-      print("🔍 PostLogEndPoint: Taking multipart branch - wrapping in json_request_part")
+      print("🔍 PostLogEndPoint: Taking multipart branch - trying compatible field names")
       
-      // Add file reference to JSON as per official spec
-      if let firstAttachment = attachments.first {
-        logEntry["file"] = ["name": firstAttachment.filename]
-      }
+      // The server explicitly requires a part named 'json_request_part' containing the log metadata.
+      let logEntry: [String: Any] = [
+        "item_id": itemUuid,
+        "launch_id": launchUuid,
+        "time": TimeHelper.currentTimeAsString(),
+        "message": message,
+        "level": level
+      ]
       
-      // For multipart requests, JSON goes in json_request_part field as ARRAY (not single object)
+      // The server expects an ARRAY of log entries for the 'json_request_part'
       parameters = [
-        "json_request_part": [logEntry]  // Official ReportPortal expects array format!
+        "json_request_part": [logEntry]
       ]
     } else {
       print("🔍 PostLogEndPoint: Taking simple JSON branch - flat structure")
-      // For simple JSON requests, use flat structure
-      parameters = logEntry
+      // For simple JSON requests, use flat structure with original field names
+      parameters = [
+        "item_id": itemUuid,
+        "level": level,
+        "message": message,
+        "time": TimeHelper.currentTimeAsString()  // Use string format for simple requests
+      ]
     }
     
     self.attachments = attachments

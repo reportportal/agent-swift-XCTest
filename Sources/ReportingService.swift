@@ -50,7 +50,6 @@ public class ReportingService {
         return
       }
       
-      print("🔍 ReportingService: Found existing launch with ID: \(launch.uuid)")
       completion(launch.uuid)
     }
   }
@@ -215,11 +214,12 @@ public class ReportingService {
     
     var attachments: [FileAttachment] = []
     
-    // Capture screenshot if possible
+    // Capture screenshot if possible (enabled for Proxyman debugging)
     if let screenshotData = captureScreenshot(testCase: testCase) {
-      let timestamp = TimeHelper.currentTimeAsString().replacingOccurrences(of: ":", with: "-")
-      let filename = "error_screenshot_\(timestamp).png"
-      let attachment = FileAttachment(data: screenshotData, filename: filename)
+      // Use safe filename with only digits and underscores to avoid JSON parsing issues
+      let timestamp = String(Int64(Date().timeIntervalSince1970 * 1000))
+      let filename = "error_screenshot_\(timestamp).jpg"
+      let attachment = FileAttachment(data: screenshotData, filename: filename, mimeType: "image/jpeg")
       attachments.append(attachment)
       print("🚨📸 ReportingService: Screenshot captured, size: \(screenshotData.count) bytes")
     }
@@ -234,15 +234,15 @@ public class ReportingService {
       message: enhancedMessage,
       attachments: attachments
     )
-      
-      try httpClient.callEndPoint(endPoint) { (result: Item) in
-          print("🚨📸 ReportingService: Error with screenshot reported, signaling semaphore")
-          errorSemaphore.signal()  // Signal THIS operation's semaphore
-      }
-      
-      print("🚨📸 ReportingService: Waiting for error report semaphore...")
-      let result = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)  // Wait on THIS operation's semaphore
-      print("🚨📸 ReportingService: Error report semaphore wait result: \(result)")
+    
+    try httpClient.callEndPoint(endPoint) { (result: Item) in
+      print("🚨📸 ReportingService: Error with screenshot reported, signaling semaphore")
+      errorSemaphore.signal()  // Signal THIS operation's semaphore
+    }
+    
+    print("🚨📸 ReportingService: Waiting for error report semaphore...")
+    let result = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)  // Wait on THIS operation's semaphore
+    print("🚨📸 ReportingService: Error report semaphore wait result: \(result)")
   }
     
     // MARK: - Screenshot Capture
@@ -338,13 +338,19 @@ public class ReportingService {
     }
   
   private func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
-    var enhancedMessage = originalMessage
+    // TEMPORARY: Use simple static message to test if complex messages are the issue
+    return "Test error"
+    
+    // TODO: Restore full enhanced message once we confirm this fixes the issue
+    /*
+    // Sanitize the original message to ensure JSON compatibility
+    var enhancedMessage = sanitizeForJSON(originalMessage)
     
     // Add test case information
     if let testCase = testCase {
       enhancedMessage += "\n\n--- Test Case Information ---"
-      enhancedMessage += "\nTest: \(testCase.name)"
-      enhancedMessage += "\nClass: \(String(describing: type(of: testCase)))"
+      enhancedMessage += "\nTest: \(sanitizeForJSON(testCase.name))"
+      enhancedMessage += "\nClass: \(sanitizeForJSON(String(describing: type(of: testCase))))"
     }
     
     // Add stack trace
@@ -354,21 +360,62 @@ public class ReportingService {
       // Skip the first few frames (this method, reportError, etc.)
       let relevantFrames = stackTrace.dropFirst(3).prefix(10)
       for (index, frame) in relevantFrames.enumerated() {
-        enhancedMessage += "\n\(index): \(frame)"
+        enhancedMessage += "\n\(index): \(sanitizeForJSON(frame))"
       }
     }
     
     // Add device information
     #if canImport(UIKit)
     enhancedMessage += "\n\n--- Device Information ---"
-    enhancedMessage += "\nDevice: \(UIDevice.current.modelName)"
-    enhancedMessage += "\nOS: \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
+    enhancedMessage += "\nDevice: \(sanitizeForJSON(UIDevice.current.modelName))"
+    enhancedMessage += "\nOS: \(sanitizeForJSON(UIDevice.current.systemName)) \(sanitizeForJSON(UIDevice.current.systemVersion))"
     #endif
     
     enhancedMessage += "\n\n--- Timestamp ---"
-    enhancedMessage += "\n\(TimeHelper.currentTimeAsString())"
+    enhancedMessage += "\n\(sanitizeForJSON(TimeHelper.currentTimeAsString()))"
     
     return enhancedMessage
+    */
+  }
+  
+  // MARK: - JSON Safety Helper
+  private func sanitizeForJSON(_ input: String) -> String {
+    // Handle the most common problematic characters that can break JSON
+    var sanitized = input
+    
+    // Replace control characters (except \t, \n, \r) with spaces
+    sanitized = sanitized.replacingOccurrences(of: "\u{0000}", with: "") // NULL
+    sanitized = sanitized.replacingOccurrences(of: "\u{0001}", with: " ") // SOH
+    sanitized = sanitized.replacingOccurrences(of: "\u{0002}", with: " ") // STX
+    sanitized = sanitized.replacingOccurrences(of: "\u{0003}", with: " ") // ETX
+    sanitized = sanitized.replacingOccurrences(of: "\u{0004}", with: " ") // EOT
+    sanitized = sanitized.replacingOccurrences(of: "\u{0005}", with: " ") // ENQ
+    sanitized = sanitized.replacingOccurrences(of: "\u{0006}", with: " ") // ACK
+    sanitized = sanitized.replacingOccurrences(of: "\u{0007}", with: " ") // BEL
+    sanitized = sanitized.replacingOccurrences(of: "\u{0008}", with: " ") // BS
+    // Keep \t (0009)
+    // Keep \n (000A)
+    sanitized = sanitized.replacingOccurrences(of: "\u{000B}", with: " ") // VT
+    sanitized = sanitized.replacingOccurrences(of: "\u{000C}", with: " ") // FF
+    // Keep \r (000D)
+    sanitized = sanitized.replacingOccurrences(of: "\u{000E}", with: " ") // SO
+    sanitized = sanitized.replacingOccurrences(of: "\u{000F}", with: " ") // SI
+    
+    // Continue for other control characters 0010-001F
+    for unicode in 0x10...0x1F {
+      let char = Character(UnicodeScalar(unicode)!)
+      sanitized = sanitized.replacingOccurrences(of: String(char), with: " ")
+    }
+    
+    // Handle DEL character
+    sanitized = sanitized.replacingOccurrences(of: "\u{007F}", with: " ")
+    
+    // Note: We don't escape quotes or backslashes here because JSONSerialization.data should handle that
+    // But we could add additional checks if needed
+    
+    print("🔍 ReportingService: Message sanitization - original length: \(input.count), sanitized length: \(sanitized.count)")
+    
+    return sanitized
   }
   
   func finishTest(_ test: XCTestCase) throws {
