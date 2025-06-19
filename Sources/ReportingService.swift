@@ -7,6 +7,9 @@
 
 import Foundation
 import XCTest
+#if canImport(UIKit)
+import UIKit
+#endif
 
 enum ReportingServiceError: Error {
   case launchIdNotFound
@@ -196,6 +199,176 @@ public class ReportingService {
     print("🚨 ReportingService: Waiting for error report semaphore...")
     let result = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)  // Wait on THIS operation's semaphore
     print("🚨 ReportingService: Error report semaphore wait result: \(result)")
+  }
+  
+  // Enhanced error reporting with screenshot support
+  func reportErrorWithScreenshot(message: String, testCase: XCTestCase? = nil) throws {
+    print("🚨📸 ReportingService: Reporting error with screenshot: \(message)")
+    
+    guard let launchID = launchID else {
+      print("❌ ReportingService: LaunchID not found when reporting error")
+      throw ReportingServiceError.launchIdNotFound
+    }
+    
+    // Create INDIVIDUAL semaphore for this operation only
+    let errorSemaphore = DispatchSemaphore(value: 0)
+    
+    var attachments: [FileAttachment] = []
+    
+    // Capture screenshot if possible
+    if let screenshotData = captureScreenshot(testCase: testCase) {
+      let timestamp = TimeHelper.currentTimeAsString().replacingOccurrences(of: ":", with: "-")
+      let filename = "error_screenshot_\(timestamp).png"
+      let attachment = FileAttachment(data: screenshotData, filename: filename)
+      attachments.append(attachment)
+      print("🚨📸 ReportingService: Screenshot captured, size: \(screenshotData.count) bytes")
+    }
+    
+    // Enhanced error message with stack trace
+    let enhancedMessage = createEnhancedErrorMessage(originalMessage: message, testCase: testCase)
+    
+    let endPoint = PostLogEndPoint(
+      itemUuid: testID,
+      launchUuid: launchID,
+      level: "error",
+      message: enhancedMessage,
+      attachments: attachments
+    )
+      
+      try httpClient.callEndPoint(endPoint) { (result: Item) in
+          print("🚨📸 ReportingService: Error with screenshot reported, signaling semaphore")
+          errorSemaphore.signal()  // Signal THIS operation's semaphore
+      }
+      
+      print("🚨📸 ReportingService: Waiting for error report semaphore...")
+      let result = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)  // Wait on THIS operation's semaphore
+      print("🚨📸 ReportingService: Error report semaphore wait result: \(result)")
+  }
+    
+    // MARK: - Screenshot Capture
+    private func captureScreenshot(testCase: XCTestCase?) -> Data? {
+#if canImport(XCTest) && canImport(UIKit)
+        // Direct screenshot capture using XCUIScreen
+        let screenshot = XCUIScreen.main.screenshot()
+        let originalData = screenshot.pngRepresentation
+        
+        // Convert to UIImage for PNG compression via resizing
+        guard let uiImage = UIImage(data: originalData) else {
+            print("🚨📸 ReportingService: Failed to convert screenshot to UIImage, using original PNG")
+            return originalData
+        }
+        
+        // Smart compression strategy: JPEG works better than PNG for screenshots
+        var bestData = originalData
+        var bestFormat = "PNG (original)"
+        
+        // Try JPEG compression first (much more effective for screenshots)
+        if let jpegData = uiImage.jpegData(compressionQuality: 0.7) {
+            if jpegData.count < originalData.count {
+                bestData = jpegData
+                bestFormat = "JPEG (70%)"
+                print("🚨📸 ReportingService: JPEG compression successful")
+            }
+        }
+        
+        // If still too large, try lower quality
+        if bestData.count > 100 * 1024 { // Still over 100KB
+            if let jpegData = uiImage.jpegData(compressionQuality: 0.5) {
+                if jpegData.count < bestData.count {
+                    bestData = jpegData
+                    bestFormat = "JPEG (50%)"
+                    print("🚨📸 ReportingService: Higher JPEG compression applied")
+                }
+            }
+        }
+        
+        // Detailed PNG compression analysis
+        let originalSizeFormatted = formatBytes(originalData.count)
+        let finalSizeFormatted = formatBytes(bestData.count)
+        let compressionRatio = Double(bestData.count) / Double(originalData.count)
+        let sizeSavings = originalData.count - bestData.count
+        let sizeSavingsFormatted = formatBytes(abs(sizeSavings))
+        
+        print("🚨📸 ReportingService: PNG compression analysis:")
+        print("  📏 Original PNG: \(originalData.count) bytes (\(originalSizeFormatted))")
+        print("  📏 Compressed \(bestFormat): \(bestData.count) bytes (\(finalSizeFormatted))")
+        print("  📊 Final size ratio: \(String(format: "%.1f", compressionRatio * 100))% of original")
+        
+        if sizeSavings > 0 {
+            print("  💾 Size reduction: \(sizeSavings) bytes (\(sizeSavingsFormatted))")
+            print("  🎯 Compression efficiency: \(String(format: "%.1f", (1 - compressionRatio) * 100))% smaller")
+        } else {
+            print("  📈 No size reduction achieved, using original PNG")
+        }
+        
+        print("  ✅ Final format: \(bestFormat), size: \(formatBytes(bestData.count))")
+        
+        // Check against your preferred 100KB threshold
+        let preferredMaxSize = 100 * 1024 // 100KB
+        if bestData.count > preferredMaxSize {
+            let overageFormatted = formatBytes(bestData.count - preferredMaxSize)
+            print("  ⚠️  Warning: Screenshot exceeds 100KB by \(overageFormatted)")
+        } else {
+            print("  ✅ Screenshot is within 100KB limit")
+        }
+        
+        return bestData
+#else
+        print("🚨📸 ReportingService: Screenshot capture not available on this platform")
+        return nil
+#endif
+    }
+    
+    // MARK: - Image Utilities
+    #if canImport(UIKit)
+    private func resizeImage(_ image: UIImage, to newSize: CGSize) -> UIImage? {
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return resizedImage
+    }
+    #endif
+    
+    // MARK: - Size Utilities
+    private func formatBytes(_ bytes: Int) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(bytes))
+    }
+  
+  private func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
+    var enhancedMessage = originalMessage
+    
+    // Add test case information
+    if let testCase = testCase {
+      enhancedMessage += "\n\n--- Test Case Information ---"
+      enhancedMessage += "\nTest: \(testCase.name)"
+      enhancedMessage += "\nClass: \(String(describing: type(of: testCase)))"
+    }
+    
+    // Add stack trace
+    let stackTrace = Thread.callStackSymbols
+    if stackTrace.count > 1 {
+      enhancedMessage += "\n\n--- Stack Trace ---"
+      // Skip the first few frames (this method, reportError, etc.)
+      let relevantFrames = stackTrace.dropFirst(3).prefix(10)
+      for (index, frame) in relevantFrames.enumerated() {
+        enhancedMessage += "\n\(index): \(frame)"
+      }
+    }
+    
+    // Add device information
+    #if canImport(UIKit)
+    enhancedMessage += "\n\n--- Device Information ---"
+    enhancedMessage += "\nDevice: \(UIDevice.current.modelName)"
+    enhancedMessage += "\nOS: \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
+    #endif
+    
+    enhancedMessage += "\n\n--- Timestamp ---"
+    enhancedMessage += "\n\(TimeHelper.currentTimeAsString())"
+    
+    return enhancedMessage
   }
   
   func finishTest(_ test: XCTestCase) throws {

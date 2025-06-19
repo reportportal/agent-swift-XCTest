@@ -177,7 +177,8 @@ open class RPListener: NSObject, XCTestObservation {
           : ""
         let errorMessage = "Test '\(String(describing: issue.description))' failed\(lineNumberString), \(issue.description)"
 
-        try reportingService.reportError(message: errorMessage)
+        // Use enhanced error reporting with screenshot
+        try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
         print("🚨 RPListener: Error reported successfully")
       } catch let error {
         print("🚨 RPListener: Error reporting error: \(error)")
@@ -197,8 +198,11 @@ open class RPListener: NSObject, XCTestObservation {
     queue.async {
       print("🚨 RPListener: In queue - reporting error - Thread: \(Thread.current)")
       do {
-        let errorMessage = "Test failed on line \(lineNumber), \(description)"
-        try reportingService.reportError(message: errorMessage)
+        let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
+        let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
+        
+        // Use enhanced error reporting with screenshot  
+        try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
         print("🚨 RPListener: Error reported successfully")
       } catch let error {
         print("🚨 RPListener: Error reporting error: \(error)")
