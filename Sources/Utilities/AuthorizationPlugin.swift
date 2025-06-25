@@ -23,10 +23,13 @@ class AuthorizationPlugin: HTTPClientPlugin {
   }
   
   func processRequest(_ originRequest: inout URLRequest) {
-    if originRequest.allHTTPHeaderFields == nil {
-      originRequest.allHTTPHeaderFields = [:]
+    // Set Authorization header
+    originRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    
+    // Only set Content-Type if it's not already present (to preserve multipart headers)
+    if originRequest.value(forHTTPHeaderField: "Content-Type") == nil {
+      originRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
     }
-    originRequest.allHTTPHeaderFields! += defaultHeader
   }
   
 }

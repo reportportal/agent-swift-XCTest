@@ -7,15 +7,30 @@
 //
 
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 
 enum TagHelper {
   
-  static let defaultTags = [
-    UIDevice.current.systemName,
-    UIDevice.current.systemVersion,
-    UIDevice.current.modelName,
-    UIDevice.current.model
-  ]
+  static let defaultTags: [String] = {
+    #if canImport(UIKit)
+    return [
+      UIDevice.current.systemName,
+      UIDevice.current.systemVersion,
+      UIDevice.current.modelName,
+      UIDevice.current.model
+    ]
+    #else
+    // Fallback for platforms without UIKit (defensive programming)
+    let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+    return [
+      "macOS",
+      osVersion,
+      "Mac",
+      "Desktop"
+    ]
+    #endif
+  }()
   
 }
