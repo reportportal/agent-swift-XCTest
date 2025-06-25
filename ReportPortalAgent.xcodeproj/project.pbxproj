@@ -23,6 +23,7 @@
 		9203A3C32137264000BFAF82 /* LaunchMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9203A3C22137264000BFAF82 /* LaunchMode.swift */; };
 		9203A3C5213730D400BFAF82 /* NameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9203A3C4213730D400BFAF82 /* NameRules.swift */; };
 		92FEE06C212E925D00ADB1ED /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FEE06B212E925D00ADB1ED /* Item.swift */; };
+		92FEE06D1000000000000000 /* LogResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FEE06C1000000000000000 /* LogResponse.swift */; };
 		92FEE06E212E926400ADB1ED /* Launch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FEE06D212E926400ADB1ED /* Launch.swift */; };
 		92FEE070212E943400ADB1ED /* Finish.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FEE06F212E943400ADB1ED /* Finish.swift */; };
 		92FEE074212EA37200ADB1ED /* TestStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FEE073212EA37200ADB1ED /* TestStatus.swift */; };
@@ -98,6 +99,7 @@
 		9203A3C22137264000BFAF82 /* LaunchMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchMode.swift; sourceTree = "<group>"; };
 		9203A3C4213730D400BFAF82 /* NameRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameRules.swift; sourceTree = "<group>"; };
 		92FEE06B212E925D00ADB1ED /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
+		92FEE06C1000000000000000 /* LogResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogResponse.swift; sourceTree = "<group>"; };
 		92FEE06D212E926400ADB1ED /* Launch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Launch.swift; sourceTree = "<group>"; };
 		92FEE06F212E943400ADB1ED /* Finish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Finish.swift; sourceTree = "<group>"; };
 		92FEE073212EA37200ADB1ED /* TestStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestStatus.swift; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 			isa = PBXGroup;
 			children = (
 				92FEE06B212E925D00ADB1ED /* Item.swift */,
+				92FEE06C1000000000000000 /* LogResponse.swift */,
 				92FEE06D212E926400ADB1ED /* Launch.swift */,
 				92FEE07B212ECB0800ADB1ED /* AgentConfiguration.swift */,
 				9203A3C4213730D400BFAF82 /* NameRules.swift */,
@@ -472,6 +475,7 @@
 				92FEE08A212ECB7900ADB1ED /* AuthorizationPlugin.swift in Sources */,
 				92FEE086212ECB7900ADB1ED /* HTTPClient.swift in Sources */,
 				92FEE06C212E925D00ADB1ED /* Item.swift in Sources */,
+				92FEE06D1000000000000000 /* LogResponse.swift in Sources */,
 				9203A3872135882F00BFAF82 /* GetCurrentLaunchEndPoint.swift in Sources */,
 				92FEE07C212ECB0800ADB1ED /* AgentConfiguration.swift in Sources */,
 				92FEE092212EED3D00ADB1ED /* FinishLaunchEndPoint.swift in Sources */,

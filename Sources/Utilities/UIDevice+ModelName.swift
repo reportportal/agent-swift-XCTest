@@ -7,6 +7,7 @@
 //
 
 import Foundation
+#if os(iOS) || os(tvOS) || os(watchOS)
 import UIKit
 
 public extension UIDevice {
@@ -67,3 +68,4 @@ public extension UIDevice {
   }
   
 }
+#endif
