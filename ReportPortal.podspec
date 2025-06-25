@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name             = 'ReportPortal'
-    s.version          = '3.1.0'
+    s.version          = '3.1.1'
     s.summary          = 'Agent to push test results on Report Portal'
 
     s.description      = <<-DESC
