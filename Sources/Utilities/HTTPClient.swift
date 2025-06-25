@@ -39,7 +39,11 @@ class HTTPClient: NSObject, URLSessionDelegate {
   #if DEBUG
   func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
     // Accept any certificate in DEBUG builds for proxy testing
-    completionHandler(.useCredential, URLCredential(trust: challenge.protectionSpace.serverTrust!))
+    if let serverTrust = challenge.protectionSpace.serverTrust {
+      completionHandler(.useCredential, URLCredential(trust: serverTrust))
+    } else {
+      completionHandler(.cancelAuthenticationChallenge, nil)
+    }
   }
   #endif
 
