@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ## [3.1.0] - 2025-06-25
+### Fixed
+- [Issue #10](https://github.com/reportportal/agent-swift-XCTest/issues/10): Integrate reportportal with XCUItests, by @rusel95
+- [Issue #11](https://github.com/reportportal/agent-swift-XCTest/issues/11): testSuiteIdNotFound Issue, by @rusel95
 
 ## [3.0.4] - 2025-04-11
 ### Fixed
