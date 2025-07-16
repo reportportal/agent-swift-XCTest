@@ -35,8 +35,8 @@ struct PostLogEndPoint: EndPoint {
     if !attachments.isEmpty {
       // Create the log entry structure exactly as Java client does
       var logEntry: [String: Any] = [
-        "itemUuid": itemUuid,      // EXACT field name from working Java example
-        "launchUuid": launchUuid,  // EXACT field name from working Java example
+        "item_id": itemUuid,
+        "launch_id": launchUuid,
         "time": TimeHelper.currentTimeAsString(),
         "message": message,
         "level": level
@@ -45,7 +45,7 @@ struct PostLogEndPoint: EndPoint {
       // Add file reference if attachment exists (matches working example)
       if let firstAttachment = attachments.first {
         logEntry["file"] = [
-          "name": firstAttachment.filename  // matches: "file":{"name":"ee390d92-9794-4a7f-b288-66cb5c7d3269"}
+          "name": firstAttachment.filename
         ]
       }
       
@@ -55,23 +55,20 @@ struct PostLogEndPoint: EndPoint {
         "json_request_part": [logEntry]  // Array containing single log entry
       ]
     } else {
-      // For simple JSON requests, use flat structure
       parameters = [
-        "itemUuid": itemUuid,      // Use consistent field names
-        "launchUuid": launchUuid,  // Use consistent field names
+        "item_id": itemUuid,
         "level": level,
         "message": message,
         "time": TimeHelper.currentTimeAsString()
       ]
     }
     
-    // Map attachments to use binary_part field name (matches working Java example)
     self.attachments = attachments.map { attachment in
       FileAttachment(
         data: attachment.data,
         filename: attachment.filename,
         mimeType: attachment.mimeType,
-        fieldName: "binary_part"  // EXACT field name from working example
+        fieldName: "binary_part"
       )
     }
   }
