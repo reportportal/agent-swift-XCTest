@@ -33,8 +33,7 @@ struct PostLogEndPoint: EndPoint {
   // Enhanced initializer for logs with attachments (follows ReportPortal multipart spec)
   init(itemUuid: String, launchUuid: String, level: String, message: String, attachments: [FileAttachment] = []) {
     if !attachments.isEmpty {
-      
-      // The server explicitly requires a part named 'json_request_part' containing the log metadata.
+      // Create the log entry structure exactly as Java client does
       let logEntry: [String: Any] = [
         "item_id": itemUuid,
         "launch_id": launchUuid,
@@ -43,17 +42,18 @@ struct PostLogEndPoint: EndPoint {
         "level": level
       ]
       
-      // The server expects an ARRAY of log entries for the 'json_request_part'
+      // CRITICAL: Java client sends json_request_part as an ARRAY of log entries
+      // This matches the server's expectation for multipart log requests
       parameters = [
-        "json_request_part": [logEntry]
+        "json_request_part": [logEntry]  // Array containing single log entry
       ]
     } else {
-      // For simple JSON requests, use flat structure with original field names
+      // For simple JSON requests, use flat structure
       parameters = [
         "item_id": itemUuid,
         "level": level,
         "message": message,
-        "time": TimeHelper.currentTimeAsString()  // Use string format for simple requests
+        "time": TimeHelper.currentTimeAsString()
       ]
     }
     
