@@ -49,10 +49,8 @@ struct PostLogEndPoint: EndPoint {
         ]
       }
       
-      // CRITICAL: Java client sends json_request_part as an ARRAY of log entries
-      // This matches the server's expectation for multipart log requests
       parameters = [
-        "json_request_part": [logEntry]  // Array containing single log entry
+        "json_request_part": [logEntry]
       ]
     } else {
       parameters = [
