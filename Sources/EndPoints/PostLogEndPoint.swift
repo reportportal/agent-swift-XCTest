@@ -33,9 +33,7 @@ struct PostLogEndPoint: EndPoint {
   // Enhanced initializer for logs with attachments (follows ReportPortal multipart spec)
   init(itemUuid: String, launchUuid: String, level: String, message: String, attachments: [FileAttachment] = []) {
     if !attachments.isEmpty {
-      
-      // The server explicitly requires a part named 'json_request_part' containing the log metadata.
-      let logEntry: [String: Any] = [
+      var logEntry: [String: Any] = [
         "item_id": itemUuid,
         "launch_id": launchUuid,
         "time": TimeHelper.currentTimeAsString(),
@@ -43,21 +41,32 @@ struct PostLogEndPoint: EndPoint {
         "level": level
       ]
       
-      // The server expects an ARRAY of log entries for the 'json_request_part'
+      if let firstAttachment = attachments.first {
+        logEntry["file"] = [
+          "name": firstAttachment.filename
+        ]
+      }
+      
       parameters = [
         "json_request_part": [logEntry]
       ]
     } else {
-      // For simple JSON requests, use flat structure with original field names
       parameters = [
         "item_id": itemUuid,
         "level": level,
         "message": message,
-        "time": TimeHelper.currentTimeAsString()  // Use string format for simple requests
+        "time": TimeHelper.currentTimeAsString()
       ]
     }
     
-    self.attachments = attachments
+    self.attachments = attachments.map { attachment in
+      FileAttachment(
+        data: attachment.data,
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        fieldName: "binary_part"
+      )
+    }
   }
 
 }

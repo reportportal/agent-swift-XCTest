@@ -146,8 +146,6 @@ class HTTPClient: NSObject, URLSessionDelegate {
 
     let lineBreak = "\r\n"
 
-    body.append("\r\n".data(using: .utf8)!)
-
     // Helper to append string
     func append(_ string: String) {
       if let data = string.data(using: .utf8) {
@@ -155,7 +153,7 @@ class HTTPClient: NSObject, URLSessionDelegate {
       }
     }
 
-    // 1. Append parameters
+    // 1. Append parameters (each parameter as separate multipart section)
     for (key, value) in parameters {
       append("--\(boundary)\r\n")
 
@@ -164,7 +162,7 @@ class HTTPClient: NSObject, URLSessionDelegate {
         append(stringValue)
         append(lineBreak)
       } else if JSONSerialization.isValidJSONObject(value) {
-        // Treat any collection value as JSON
+        // Handle JSON objects/arrays - critical for json_request_part
         append("Content-Disposition: form-data; name=\"\(key)\"\r\n")
         append("Content-Type: application/json\r\n\r\n")
         if let jsonData = try? JSONSerialization.data(withJSONObject: value, options: []) {
@@ -192,7 +190,7 @@ class HTTPClient: NSObject, URLSessionDelegate {
       append(lineBreak)
     }
 
-    // 3. Close the body
+    // 3. Close the body with final boundary
     append("--\(boundary)--\r\n")
 
     return body
