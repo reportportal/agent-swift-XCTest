@@ -33,7 +33,6 @@ struct PostLogEndPoint: EndPoint {
   // Enhanced initializer for logs with attachments (follows ReportPortal multipart spec)
   init(itemUuid: String, launchUuid: String, level: String, message: String, attachments: [FileAttachment] = []) {
     if !attachments.isEmpty {
-      // Create the log entry structure exactly as Java client does
       var logEntry: [String: Any] = [
         "item_id": itemUuid,
         "launch_id": launchUuid,
@@ -42,7 +41,6 @@ struct PostLogEndPoint: EndPoint {
         "level": level
       ]
       
-      // Add file reference if attachment exists (matches working example)
       if let firstAttachment = attachments.first {
         logEntry["file"] = [
           "name": firstAttachment.filename

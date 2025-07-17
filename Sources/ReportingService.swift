@@ -185,11 +185,6 @@ public class ReportingService {
       let filename = "error_screenshot_\(timestamp).\(screenshotResult.fileExtension)"
       let attachment = FileAttachment(data: screenshotResult.data, filename: filename, mimeType: screenshotResult.mimeType)
       attachments.append(attachment)
-      
-      print("📸 ReportingService Debug: Screenshot captured successfully!")
-      print("   • Format: \(screenshotResult.mimeType)")
-      print("   • Size: \(formatBytes(screenshotResult.data.count))")
-      print("   • Filename: \(filename)")
     } else {
       print("⚠️ ReportingService Screenshot Warning: Failed to capture screenshot for error: '\(message)'")
     }
