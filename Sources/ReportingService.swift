@@ -172,16 +172,18 @@ public class ReportingService {
       return
     }
     
+    print("📸 ReportingService Debug: Attempting to capture screenshot for test ID: \(testID)")
+    
     let errorSemaphore = DispatchSemaphore(value: 0)
     
     var attachments: [FileAttachment] = []
     
-    // Capture screenshot if possible
-    if let screenshotData = captureScreenshot(testCase: testCase) {
+    // Capture screenshot with proper format handling
+    if let screenshotResult = captureScreenshot(testCase: testCase) {
       // Use safe filename with only digits and underscores to avoid JSON parsing issues
       let timestamp = String(Int64(Date().timeIntervalSince1970 * 1000))
-      let filename = "error_screenshot_\(timestamp).jpg"
-      let attachment = FileAttachment(data: screenshotData, filename: filename, mimeType: "image/jpeg")
+      let filename = "error_screenshot_\(timestamp).\(screenshotResult.fileExtension)"
+      let attachment = FileAttachment(data: screenshotResult.data, filename: filename, mimeType: screenshotResult.mimeType)
       attachments.append(attachment)
     } else {
       print("⚠️ ReportingService Screenshot Warning: Failed to capture screenshot for error: '\(message)'")
@@ -198,7 +200,11 @@ public class ReportingService {
       attachments: attachments
     )
     
+    print("📤 ReportingService Debug: Sending log with \(attachments.count) attachment(s)")
+    
     try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
+      print("✅ ReportingService Debug: Log API responded with success")
+      print("   • Response: \(result)")
       errorSemaphore.signal()
     }
     
@@ -307,37 +313,45 @@ private extension ReportingService {
   }
     
     // MARK: - Screenshot Capture
-    func captureScreenshot(testCase: XCTestCase?) -> Data? {
+    func captureScreenshot(testCase: XCTestCase?) -> (data: Data, fileExtension: String, mimeType: String)? {
 #if canImport(XCTest) && canImport(UIKit)
         // Direct screenshot capture using XCUIScreen
         let screenshot = XCUIScreen.main.screenshot()
         let originalData = screenshot.pngRepresentation
         
-        // Convert to UIImage for PNG compression via resizing
+        // Convert to UIImage for format processing
         guard let uiImage = UIImage(data: originalData) else {
-            return originalData
+            return nil
         }
         
         // Smart compression strategy: JPEG works better than PNG for screenshots
         var bestData = originalData
+        var isJpeg = false
         
         // Try JPEG compression first (much more effective for screenshots)
         if let jpegData = uiImage.jpegData(compressionQuality: 0.7) {
             if jpegData.count < originalData.count {
                 bestData = jpegData
+                isJpeg = true
             }
         }
         
-        // If still too large, try lower quality
-        if bestData.count > 100 * 1024 { // Still over 100KB
+        // If still too large, try lower quality JPEG
+        if bestData.count > 100 * 1024 && !isJpeg { // Still over 100KB and not using JPEG yet
             if let jpegData = uiImage.jpegData(compressionQuality: 0.5) {
                 if jpegData.count < bestData.count {
                     bestData = jpegData
+                    isJpeg = true
                 }
             }
         }
         
-        return bestData
+        // Return appropriate format information based on what we're actually sending
+        if isJpeg {
+            return (bestData, "jpg", "image/jpeg")
+        } else {
+            return (bestData, "png", "image/png")
+        }
 #else
         print("🚨 ReportingService Platform Error: Screenshot capture not available on this platform. Only iOS supports screenshot capture.")
         return nil
