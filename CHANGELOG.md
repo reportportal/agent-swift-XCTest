@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [3.1.1] - 2025-07-18
 ### Fixed
 - Attachments to log entries, by @rusel95
 
