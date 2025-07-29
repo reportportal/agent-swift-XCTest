@@ -86,7 +86,7 @@ open class RPListener: NSObject, XCTestObservation {
       return
     }
     
-    let reportingService = ReportingService(configuration: configuration)
+    let reportingService = ReportingService(configuration: configuration, testBundle: testBundle)
     self.reportingService = reportingService
     
     queue.async {

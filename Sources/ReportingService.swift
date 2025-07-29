@@ -20,6 +20,7 @@ public class ReportingService {
   
   private let httpClient: HTTPClient
   private let configuration: AgentConfiguration
+  private var testBundle: Bundle?
   
   private var launchID: String?
   private var testSuiteStatus = TestStatus.passed
@@ -30,8 +31,9 @@ public class ReportingService {
   
   private let timeOutForRequestExpectation = 10.0
   
-  init(configuration: AgentConfiguration) {
+  init(configuration: AgentConfiguration, testBundle: Bundle? = nil) {
     self.configuration = configuration
+    self.testBundle = testBundle
     let baseURL = configuration.reportPortalURL.appendingPathComponent(configuration.projectName)
     httpClient = HTTPClient(baseURL: baseURL)
     httpClient.setPlugins([AuthorizationPlugin(token: configuration.portalToken)])
@@ -54,10 +56,16 @@ public class ReportingService {
     
     try getStoredLaunchID { (savedLaunchID: String?) in
       guard let savedLaunchID = savedLaunchID else {
+        // Collect metadata attributes
+        let attributes = self.testBundle != nil 
+          ? MetadataCollector.collectAllAttributes(from: self.testBundle!)
+          : MetadataCollector.collectDeviceAttributes()
+        
         let endPoint = StartLaunchEndPoint(
           launchName: self.configuration.launchName,
           tags: self.configuration.tags,
-          mode: self.configuration.launchMode
+          mode: self.configuration.launchMode,
+          attributes: attributes
         )
         
         do {
@@ -87,7 +95,10 @@ public class ReportingService {
     
     let rootSuiteSemaphore = DispatchSemaphore(value: 0)
     
-    let endPoint = StartItemEndPoint(itemName: suite.name, launchID: launchID, type: .suite)
+    // Apply dynamic suite naming with tags
+    let suiteName = generateDynamicSuiteName(baseName: suite.name)
+    
+    let endPoint = StartItemEndPoint(itemName: suiteName, launchID: launchID, type: .suite)
     try httpClient.callEndPoint(endPoint) { (result: Item) in
       self.rootSuiteID = result.id
       rootSuiteSemaphore.signal()
@@ -108,7 +119,10 @@ public class ReportingService {
     
     let testSuiteSemaphore = DispatchSemaphore(value: 0)
     
-    let endPoint = StartItemEndPoint(itemName: suite.name, parentID: rootSuiteID, launchID: launchID, type: .test)
+    // Apply dynamic suite naming with tags
+    let suiteName = generateDynamicSuiteName(baseName: suite.name)
+    
+    let endPoint = StartItemEndPoint(itemName: suiteName, parentID: rootSuiteID, launchID: launchID, type: .test)
     try httpClient.callEndPoint(endPoint) { (result: Item) in
       self.testSuiteID = result.id
       testSuiteSemaphore.signal()
@@ -377,38 +391,141 @@ private extension ReportingService {
     }
     
     func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
-        // Sanitize the original message to ensure JSON compatibility
-        var enhancedMessage = sanitizeForJSON(originalMessage)
+        // Extract the core error message and clean it up
+        var cleanedMessage = originalMessage
         
-        // Add test case information
-        if let testCase = testCase {
-            enhancedMessage += "\n\n--- Test Case Information ---"
-            enhancedMessage += "\nTest: \(sanitizeForJSON(testCase.name))"
-            enhancedMessage += "\nClass: \(sanitizeForJSON(String(describing: type(of: testCase))))"
+        // Remove duplicate "Failed to failed to" pattern
+        cleanedMessage = cleanedMessage.replacingOccurrences(of: "Failed to failed to", with: "Failed to")
+        
+        // Extract key information from the message
+        let components = extractErrorComponents(from: cleanedMessage)
+        
+        var enhancedMessage = ""
+        
+        // Primary error message (simplified)
+        enhancedMessage += "TEST FAILURE\n"
+        enhancedMessage += "=====================================\n\n"
+        
+        // Error summary
+        if let action = components["action"] {
+            enhancedMessage += "Action: \(sanitizeForJSON(action))\n"
+        }
+        if let element = components["element"] {
+            enhancedMessage += "Element: \(sanitizeForJSON(element))\n"
+        }
+        if let location = components["location"] {
+            enhancedMessage += "Location: \(sanitizeForJSON(location))\n"
+        }
+        if let errorCode = components["errorCode"] {
+            enhancedMessage += "Error Code: \(sanitizeForJSON(errorCode))\n"
         }
         
-        // Add stack trace
-        let stackTrace = Thread.callStackSymbols
-        if stackTrace.count > 1 {
-            enhancedMessage += "\n\n--- Stack Trace ---"
-            // Skip the first few frames (this method, reportError, etc.)
-            let relevantFrames = stackTrace.dropFirst(3).prefix(10)
-            for (index, frame) in relevantFrames.enumerated() {
-                enhancedMessage += "\n\(index): \(sanitizeForJSON(frame))"
+        // Test information
+        if let testCase = testCase {
+            enhancedMessage += "\nTest Information\n"
+            enhancedMessage += "----------------\n"
+            let testName = testCase.name.replacingOccurrences(of: "-[", with: "").replacingOccurrences(of: "]", with: "")
+            enhancedMessage += "Test: \(sanitizeForJSON(testName))\n"
+            
+            // Extract file and line from original message
+            if let fileMatch = cleanedMessage.range(of: #"(\w+\.swift):\d+"#, options: .regularExpression) {
+                let fileInfo = String(cleanedMessage[fileMatch])
+                enhancedMessage += "File: \(sanitizeForJSON(fileInfo))\n"
             }
         }
         
-        // Add device information
+        // Device information
 #if canImport(UIKit)
-        enhancedMessage += "\n\n--- Device Information ---"
-        enhancedMessage += "\nDevice: \(sanitizeForJSON(UIDevice.current.modelName))"
-        enhancedMessage += "\nOS: \(sanitizeForJSON(UIDevice.current.systemName)) \(sanitizeForJSON(UIDevice.current.systemVersion))"
+        enhancedMessage += "\nDevice Information\n"
+        enhancedMessage += "------------------\n"
+        enhancedMessage += "Device: \(sanitizeForJSON(UIDevice.current.modelName))\n"
+        
+        // Handle iPadOS detection
+        var osName = UIDevice.current.systemName
+        if osName == "iOS" && UIDevice.current.userInterfaceIdiom == .pad {
+            let osVersionComponents = UIDevice.current.systemVersion.split(separator: ".")
+            if let majorVersion = osVersionComponents.first, let major = Int(majorVersion), major >= 13 {
+                osName = "iPadOS"
+            }
+        }
+        enhancedMessage += "OS: \(sanitizeForJSON(osName)) \(sanitizeForJSON(UIDevice.current.systemVersion))\n"
 #endif
         
-        enhancedMessage += "\n\n--- Timestamp ---"
-        enhancedMessage += "\n\(sanitizeForJSON(TimeHelper.currentTimeAsString()))"
+        // Simplified stack trace (only most relevant frames)
+        let stackTrace = Thread.callStackSymbols
+        if stackTrace.count > 1 {
+            enhancedMessage += "\nStack Trace (Top 5)\n"
+            enhancedMessage += "-------------------\n"
+            let relevantFrames = stackTrace.dropFirst(3).prefix(5)
+            for (index, frame) in relevantFrames.enumerated() {
+                // Simplify frame display
+                if let simplified = simplifyStackFrame(frame) {
+                    enhancedMessage += "\(index + 1). \(sanitizeForJSON(simplified))\n"
+                }
+            }
+        }
+        
+        // Timestamp
+        enhancedMessage += "\nTimestamp: \(sanitizeForJSON(TimeHelper.currentTimeAsString()))\n"
         
         return enhancedMessage
+    }
+    
+    // Helper to extract error components
+    private func extractErrorComponents(from message: String) -> [String: String] {
+        var components: [String: String] = [:]
+        
+        // Extract action (e.g., "scroll to visible")
+        if let actionMatch = message.range(of: #"Failed to (.+?) (?:Key|element)"#, options: .regularExpression) {
+            let action = String(message[actionMatch]).replacingOccurrences(of: "Failed to ", with: "").replacingOccurrences(of: " Key", with: "").replacingOccurrences(of: " element", with: "")
+            components["action"] = action
+        }
+        
+        // Extract element info (e.g., "label: '9'")
+        if let labelMatch = message.range(of: #"label: '[^']+'"#, options: .regularExpression) {
+            components["element"] = String(message[labelMatch])
+        }
+        
+        // Extract error code (e.g., "kAXErrorCannotComplete")
+        if let errorMatch = message.range(of: #"Error \w+"#, options: .regularExpression) {
+            components["errorCode"] = String(message[errorMatch])
+        }
+        
+        // Extract file location
+        if let fileMatch = message.range(of: #"at (\w+\.swift:\d+)"#, options: .regularExpression) {
+            let location = String(message[fileMatch]).replacingOccurrences(of: "at ", with: "")
+            components["location"] = location
+        }
+        
+        return components
+    }
+    
+    // Helper to simplify stack frame
+    private func simplifyStackFrame(_ frame: String) -> String? {
+        // Extract the most relevant part of the stack frame
+        let components = frame.split(separator: " ").map(String.init)
+        
+        // Look for the module/function name
+        if components.count > 2 {
+            var simplified = ""
+            
+            // Find the module name
+            if let moduleIndex = components.firstIndex(where: { !$0.starts(with: "0x") && !CharacterSet.decimalDigits.isSuperset(of: CharacterSet(charactersIn: $0)) }) {
+                simplified = components[moduleIndex]
+                
+                // Add function name if available
+                if moduleIndex + 1 < components.count {
+                    let functionPart = components[moduleIndex + 1]
+                    if !functionPart.starts(with: "0x") {
+                        simplified += " - \(functionPart)"
+                    }
+                }
+            }
+            
+            return simplified.isEmpty ? nil : simplified
+        }
+        
+        return nil
     }
     
     // MARK: - JSON Safety Helper
@@ -447,6 +564,24 @@ private extension ReportingService {
         // But we could add additional checks if needed
         
         return sanitized
+    }
+    
+    // MARK: - Dynamic Suite Naming
+    func generateDynamicSuiteName(baseName: String) -> String {
+        // If no tags configured, return original name
+        guard !configuration.tags.isEmpty else {
+            return baseName
+        }
+        
+        // Clean the base name - remove .xctest extension if present
+        var cleanedBaseName = baseName
+        if cleanedBaseName.hasSuffix(".xctest") {
+            cleanedBaseName = String(cleanedBaseName.dropLast(7))
+        }
+        
+        // Join tags with underscores and append to suite name
+        let tagsString = configuration.tags.joined(separator: "_")
+        return "\(cleanedBaseName)_\(tagsString)"
     }
   
 }

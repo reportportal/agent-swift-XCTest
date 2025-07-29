@@ -14,13 +14,14 @@ struct StartLaunchEndPoint: EndPoint {
   let relativePath: String = "launch"
   let parameters: [String : Any]
 
-  init(launchName: String, tags: [String], mode: LaunchMode) {
+  init(launchName: String, tags: [String], mode: LaunchMode, attributes: [[String: String]] = []) {
     parameters = [
       "description": "",
       "mode": mode.rawValue,
       "name": launchName,
       "start_time": TimeHelper.currentTimeAsString(),
-      "tags": TagHelper.defaultTags + tags
+      "tags": TagHelper.defaultTags + tags,
+      "attributes": attributes
     ]
   }
 
