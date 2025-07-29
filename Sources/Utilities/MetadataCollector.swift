@@ -61,15 +61,37 @@ class MetadataCollector {
     }
     
     // MARK: - Test Plan Metadata
-    static func collectTestPlanAttributes(from bundle: Bundle) -> [[String: String]] {
+    static func collectTestPlanAttributes(from bundle: Bundle, tags: [String] = []) -> [[String: String]] {
         var attributes: [[String: String]] = []
         
-        // Try to extract test plan from XCTest environment
-        if let testPlanPath = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] {
-            let testPlanName = URL(fileURLWithPath: testPlanPath)
+        // Try multiple ways to get test plan name
+        var testPlanName: String?
+        
+        // 1. Check for explicit test plan name in environment
+        if let explicitTestPlan = ProcessInfo.processInfo.environment["TEST_PLAN_NAME"],
+           !explicitTestPlan.isEmpty {
+            testPlanName = explicitTestPlan
+        }
+        // 2. Extract from XCTest configuration file path
+        else if let testPlanPath = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"],
+                !testPlanPath.isEmpty {
+            let extractedName = URL(fileURLWithPath: testPlanPath)
                 .deletingPathExtension()
                 .lastPathComponent
-            attributes.append(["key": "testplan", "value": testPlanName])
+            // Only use if it's a meaningful name (not empty, not just "/")
+            if !extractedName.isEmpty && extractedName != "/" {
+                testPlanName = extractedName
+            }
+        }
+        // 3. Check for test plan in bundle's Info.plist
+        else if let bundleTestPlan = bundle.infoDictionary?["TestPlanName"] as? String,
+                !bundleTestPlan.isEmpty {
+            testPlanName = bundleTestPlan
+        }
+        
+        // If we found a valid test plan name, add it
+        if let testPlan = testPlanName, !testPlan.isEmpty, testPlan != "/" {
+            attributes.append(["key": "testplan", "value": testPlan])
         }
         
         // Extract configuration from test bundle
@@ -91,14 +113,14 @@ class MetadataCollector {
     }
     
     // MARK: - Combined Attributes
-    static func collectAllAttributes(from bundle: Bundle) -> [[String: String]] {
+    static func collectAllAttributes(from bundle: Bundle, tags: [String] = []) -> [[String: String]] {
         var allAttributes: [[String: String]] = []
         
         // Add device attributes
         allAttributes.append(contentsOf: collectDeviceAttributes())
         
         // Add test plan attributes
-        allAttributes.append(contentsOf: collectTestPlanAttributes(from: bundle))
+        allAttributes.append(contentsOf: collectTestPlanAttributes(from: bundle, tags: tags))
         
         return allAttributes
     }

@@ -41,13 +41,18 @@ public class ReportingService {
   
   private func getStoredLaunchID(completion: @escaping (String?) -> Void) throws {
     let endPoint = GetCurrentLaunchEndPoint()
-    try httpClient.callEndPoint(endPoint) { (result: LaunchListInfo) in
-      guard let launch = result.content.first, launch.status == "IN_PROGRESS" else {
-        completion(nil)
-        return
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: LaunchListInfo) in
+        guard let launch = result.content.first, launch.status == "IN_PROGRESS" else {
+          completion(nil)
+          return
+        }
+        
+        completion(launch.uuid)
       }
-      
-      completion(launch.uuid)
+    } catch {
+      print("⚠️ ReportingService: Failed to get stored launch ID: \(error.localizedDescription)")
+      completion(nil) // Call completion with nil to prevent deadlock
     }
   }
 
@@ -57,9 +62,12 @@ public class ReportingService {
     try getStoredLaunchID { (savedLaunchID: String?) in
       guard let savedLaunchID = savedLaunchID else {
         // Collect metadata attributes
-        let attributes = self.testBundle != nil 
-          ? MetadataCollector.collectAllAttributes(from: self.testBundle!)
-          : MetadataCollector.collectDeviceAttributes()
+        let attributes: [[String: String]]
+        if let bundle = self.testBundle {
+          attributes = MetadataCollector.collectAllAttributes(from: bundle, tags: self.configuration.tags)
+        } else {
+          attributes = MetadataCollector.collectDeviceAttributes()
+        }
         
         let endPoint = StartLaunchEndPoint(
           launchName: self.configuration.launchName,
@@ -71,10 +79,12 @@ public class ReportingService {
         do {
           try self.httpClient.callEndPoint(endPoint) { (result: FirstLaunch) in
             self.launchID = result.id
+            print("✅ ReportPortal Launch created successfully with ID: \(result.id)")
             launchSemaphore.signal()
           }
         } catch let error {
           print("🚨 ReportingService Launch Creation Error: Failed to create new launch on ReportPortal server. Details: \(error.localizedDescription). Check your server configuration and network connectivity.")
+          launchSemaphore.signal() // Signal even on error to prevent deadlock
         }
         
         return
@@ -99,9 +109,15 @@ public class ReportingService {
     let suiteName = generateDynamicSuiteName(baseName: suite.name)
     
     let endPoint = StartItemEndPoint(itemName: suiteName, launchID: launchID, type: .suite)
-    try httpClient.callEndPoint(endPoint) { (result: Item) in
-      self.rootSuiteID = result.id
-      rootSuiteSemaphore.signal()
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Item) in
+        self.rootSuiteID = result.id
+        rootSuiteSemaphore.signal()
+      }
+    } catch {
+      print("🚨 ReportingService: Failed to start root suite '\(suite.name)': \(error.localizedDescription)")
+      rootSuiteSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
     _ = rootSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -123,9 +139,15 @@ public class ReportingService {
     let suiteName = generateDynamicSuiteName(baseName: suite.name)
     
     let endPoint = StartItemEndPoint(itemName: suiteName, parentID: rootSuiteID, launchID: launchID, type: .test)
-    try httpClient.callEndPoint(endPoint) { (result: Item) in
-      self.testSuiteID = result.id
-      testSuiteSemaphore.signal()
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Item) in
+        self.testSuiteID = result.id
+        testSuiteSemaphore.signal()
+      }
+    } catch {
+      print("🚨 ReportingService: Failed to start test suite '\(suite.name)': \(error.localizedDescription)")
+      testSuiteSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
     _ = testSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -150,9 +172,15 @@ public class ReportingService {
       type: .step
     )
     
-    try httpClient.callEndPoint(endPoint) { (result: Item) in
-      self.testID = result.id
-      testSemaphore.signal()
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Item) in
+        self.testID = result.id
+        testSemaphore.signal()
+      }
+    } catch {
+      print("🚨 ReportingService: Failed to start test '\(test.name)': \(error.localizedDescription)")
+      testSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
     _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -167,8 +195,14 @@ public class ReportingService {
     let errorSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = PostLogEndPoint(itemID: testID, level: "error", message: message)
-    try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
-      errorSemaphore.signal()
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
+        errorSemaphore.signal()
+      }
+    } catch {
+      print("⚠️ ReportingService: Failed to report error: \(error.localizedDescription)")
+      errorSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
     _ = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -216,10 +250,16 @@ public class ReportingService {
     
     print("📤 ReportingService Debug: Sending log with \(attachments.count) attachment(s)")
     
-    try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
-      print("✅ ReportingService Debug: Log API responded with success")
-      print("   • Response: \(result)")
-      errorSemaphore.signal()
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
+        print("✅ ReportingService Debug: Log API responded with success")
+        print("   • Response: \(result)")
+        errorSemaphore.signal()
+      }
+    } catch {
+      print("🚨 ReportingService: Failed to report error with screenshot: \(error.localizedDescription)")
+      errorSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
     _ = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
@@ -237,11 +277,17 @@ public class ReportingService {
     
     let endPoint = try FinishItemEndPoint(itemID: testID, status: testStatus, launchID: self.launchID ?? "")
     
-    try httpClient.callEndPoint(endPoint) { (result: Finish) in
-      finishTestSemaphore.signal()
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Finish) in
+        finishTestSemaphore.signal()
+      }
+    } catch {
+      print("⚠️ ReportingService: Failed to finish test '\(test.name)': \(error.localizedDescription)")
+      finishTestSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
-      _ = finishTestSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
+    _ = finishTestSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
   func finishTestSuite() throws {
@@ -253,11 +299,18 @@ public class ReportingService {
     let finishTestSuiteSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = try FinishItemEndPoint(itemID: testSuiteID, status: testSuiteStatus, launchID: self.launchID ?? "")
-    try httpClient.callEndPoint(endPoint) { (result: Finish) in
-      finishTestSuiteSemaphore.signal()
+    
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Finish) in
+        finishTestSuiteSemaphore.signal()
+      }
+    } catch {
+      print("⚠️ ReportingService: Failed to finish test suite: \(error.localizedDescription)")
+      finishTestSuiteSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
-      _ = finishTestSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
+    _ = finishTestSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
   func finishRootSuite() throws {
@@ -269,11 +322,18 @@ public class ReportingService {
     let finishRootSuiteSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = try FinishItemEndPoint(itemID: rootSuiteID, status: launchStatus, launchID: self.launchID ?? "")
-    try httpClient.callEndPoint(endPoint) { (result: Finish) in
-      finishRootSuiteSemaphore.signal()
+    
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Finish) in
+        finishRootSuiteSemaphore.signal()
+      }
+    } catch {
+      print("⚠️ ReportingService: Failed to finish root suite: \(error.localizedDescription)")
+      finishRootSuiteSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
-      _ = finishRootSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
+    _ = finishRootSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
   func finishLaunch() throws {
@@ -289,11 +349,18 @@ public class ReportingService {
     let finishLaunchSemaphore = DispatchSemaphore(value: 0)
     
     let endPoint = FinishLaunchEndPoint(launchID: launchID, status: launchStatus)
-    try httpClient.callEndPoint(endPoint) { (result: LaunchFinish) in
-      finishLaunchSemaphore.signal()
+    
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: LaunchFinish) in
+        finishLaunchSemaphore.signal()
+      }
+    } catch {
+      print("⚠️ ReportingService: Failed to finish launch: \(error.localizedDescription)")
+      finishLaunchSemaphore.signal() // Signal to prevent deadlock
+      throw error
     }
     
-      _ = finishLaunchSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
+    _ = finishLaunchSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
 }

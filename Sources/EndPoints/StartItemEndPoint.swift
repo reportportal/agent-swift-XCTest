@@ -14,7 +14,7 @@ struct StartItemEndPoint: EndPoint {
   var relativePath: String
   let parameters: [String : Any]
 
-  init(itemName: String, parentID: String? = nil, launchID: String, type: TestType) {
+  init(itemName: String, parentID: String? = nil, launchID: String, type: TestType, attributes: [[String: String]] = []) {
     relativePath = "item"
     if let parentID = parentID {
       relativePath += "/\(parentID)"
@@ -26,7 +26,8 @@ struct StartItemEndPoint: EndPoint {
       "name": itemName,
       "start_time": TimeHelper.currentTimeAsString(),
       "tags": [],
-      "type": type.rawValue
+      "type": type.rawValue,
+      "attributes": attributes
     ]
   }
 
