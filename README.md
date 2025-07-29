@@ -53,6 +53,8 @@ Please be aware that this Report Portal agent is designed to work correctly only
 ## Authors
 ReportPortal Team, <support@reportportal.io>
 
+([@rusel95](https://github.com/rusel95))
+
 @DarthRumata, <stas.kirichok@windmill.ch> ([Windmill Smart Solutions](https://github.com/Windmill-Smart-Solutions))
 
 @SergeVKom, <sergvkom@gmail.com> (original library)
