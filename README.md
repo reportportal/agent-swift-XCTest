@@ -56,7 +56,7 @@ To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME
     "environmentVariableEntries": [
       {
         "key": "TEST_PLAN_NAME",
-        "value": "Smoke Tests"
+        "value": "Example Test Plan"
       }
     ]
   }
@@ -65,7 +65,7 @@ To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME
 Or in XCode:
 ![Alt text](./TEST_PLAN_NAME.png)
 
-**Result:** Launch names will appear as `YourLaunchName: Smoke_Tests` in ReportPortal.
+**Result:** Launch names will appear as `YourLaunchName: Example_Test_Plan` in ReportPortal.
 
 **Note:** Spaces in test plan names are automatically replaced with underscores for better compatibility.
 
