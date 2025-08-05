@@ -48,8 +48,7 @@ Example:
 
 # Test Plan Name in Launch Names
 
-To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME` environment variable to your `.xctestplan` file:
-* Manually:
+To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME` environment variable to your `.xctestplan` file manually:
 
 ```json
 {
@@ -63,8 +62,8 @@ To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME
   }
 }
 ```
-* In XCode:
-![Example](./TEST_PLAN_NAME.png)
+Or in XCode:
+![Alt text](./TEST_PLAN_NAME.png)
 
 **Result:** Launch names will appear as `YourLaunchName: Smoke_Tests` in ReportPortal.
 
