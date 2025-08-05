@@ -69,8 +69,15 @@ public class ReportingService {
           attributes = MetadataCollector.collectDeviceAttributes()
         }
         
+        // Get test plan name for launch name enhancement
+        let testPlanName = MetadataCollector.getTestPlanName()
+        let enhancedLaunchName = self.buildEnhancedLaunchName(
+          baseLaunchName: self.configuration.launchName,
+          testPlanName: testPlanName
+        )
+        
         let endPoint = StartLaunchEndPoint(
-          launchName: self.configuration.launchName,
+          launchName: enhancedLaunchName,
           tags: self.configuration.tags,
           mode: self.configuration.launchMode,
           attributes: attributes
@@ -518,17 +525,52 @@ private extension ReportingService {
         enhancedMessage += "OS: \(sanitizeForJSON(osName)) \(sanitizeForJSON(UIDevice.current.systemVersion))\n"
 #endif
         
-        // Simplified stack trace (only most relevant frames)
+        // Enhanced stack trace with more context
         let stackTrace = Thread.callStackSymbols
         if stackTrace.count > 1 {
-            enhancedMessage += "\nStack Trace (Top 5)\n"
-            enhancedMessage += "-------------------\n"
-            let relevantFrames = stackTrace.dropFirst(3).prefix(5)
-            for (index, frame) in relevantFrames.enumerated() {
-                // Simplify frame display
-                if let simplified = simplifyStackFrame(frame) {
-                    enhancedMessage += "\(index + 1). \(sanitizeForJSON(simplified))\n"
+            enhancedMessage += "\nStack Trace\n"
+            enhancedMessage += "-----------\n"
+            
+            // Find the first test-related frame
+            var testFrameIndex = -1
+            for (index, frame) in stackTrace.enumerated() {
+                if frame.contains("test") || frame.contains("Test") {
+                    testFrameIndex = index
+                    break
                 }
+            }
+            
+            // Include frames starting from the test method or from frame 3
+            let startIndex = testFrameIndex >= 0 ? testFrameIndex : 3
+            let relevantFrames = stackTrace.dropFirst(startIndex).prefix(8)
+            
+            var frameNumber = 0
+            for frame in relevantFrames {
+                if let enhancedFrame = enhanceStackFrame(frame) {
+                    frameNumber += 1
+                    enhancedMessage += "\n\(frameNumber). \(sanitizeForJSON(enhancedFrame.description))\n"
+                    
+                    // Only show module if it's not the test framework itself
+                    if !enhancedFrame.module.isEmpty && 
+                       !enhancedFrame.module.contains("ReportPortalAgent") && 
+                       !enhancedFrame.module.contains("XCTest") {
+                        enhancedMessage += "   Module: \(sanitizeForJSON(enhancedFrame.module))\n"
+                    }
+                    
+                    // Show method details if available and meaningful
+                    if !enhancedFrame.function.isEmpty && 
+                       enhancedFrame.function != enhancedFrame.description {
+                        enhancedMessage += "   Method: \(sanitizeForJSON(enhancedFrame.function))\n"
+                    }
+                    
+                    if enhancedFrame.lineNumber > 0 {
+                        enhancedMessage += "   Line: \(enhancedFrame.lineNumber)\n"
+                    }
+                }
+            }
+            
+            if frameNumber == 0 {
+                enhancedMessage += "   (No relevant stack frames available)\n"
             }
         }
         
@@ -567,32 +609,165 @@ private extension ReportingService {
         return components
     }
     
-    // Helper to simplify stack frame
-    private func simplifyStackFrame(_ frame: String) -> String? {
-        // Extract the most relevant part of the stack frame
-        let components = frame.split(separator: " ").map(String.init)
+    // Structure to hold enhanced stack frame information
+    private struct StackFrameInfo {
+        let description: String
+        let module: String
+        let function: String
+        let lineNumber: Int
+    }
+    
+    // Helper to enhance stack frame with more details
+    private func enhanceStackFrame(_ frame: String) -> StackFrameInfo? {
+        // Validate input
+        guard !frame.isEmpty, frame.count < 5000 else { return nil } // Prevent processing extremely long strings
         
-        // Look for the module/function name
-        if components.count > 2 {
-            var simplified = ""
-            
-            // Find the module name
-            if let moduleIndex = components.firstIndex(where: { !$0.starts(with: "0x") && !CharacterSet.decimalDigits.isSuperset(of: CharacterSet(charactersIn: $0)) }) {
-                simplified = components[moduleIndex]
-                
-                // Add function name if available
-                if moduleIndex + 1 < components.count {
-                    let functionPart = components[moduleIndex + 1]
-                    if !functionPart.starts(with: "0x") {
-                        simplified += " - \(functionPart)"
-                    }
+        // Stack frame format: "0   ModuleName   0x... functionName + offset"
+        let components = frame.split(separator: " ", maxSplits: 20, omittingEmptySubsequences: true).map(String.init)
+        
+        guard components.count >= 3 else { return nil }
+        
+        var module = ""
+        var function = ""
+        var lineNumber = 0
+        var description = ""
+        
+        // Find module name (usually at index 1)
+        if components.indices.contains(1) {
+            let potentialModule = components[1]
+            // Additional validation for module name
+            if !potentialModule.starts(with: "0x") && 
+               !potentialModule.allSatisfy({ $0.isNumber }) &&
+               potentialModule.count < 100 { // Reasonable module name length
+                module = String(potentialModule.prefix(50)) // Limit module name length
+            }
+        }
+        
+        // Look for function name (after memory address)
+        var functionStartIndex = -1
+        for (index, component) in components.enumerated() where index < 10 { // Limit search range
+            if component.starts(with: "0x") {
+                functionStartIndex = index + 1
+                break
+            }
+        }
+        
+        if functionStartIndex > 0 && functionStartIndex < components.count && functionStartIndex < 15 {
+            // Extract function name and clean it up
+            var functionComponents: [String] = []
+            let endIndex = min(functionStartIndex + 10, components.count) // Limit function components
+            for i in functionStartIndex..<endIndex {
+                let component = components[i]
+                if component == "+" { break }  // Stop at offset marker
+                if component.count < 200 { // Reasonable component length
+                    functionComponents.append(component)
                 }
             }
             
-            return simplified.isEmpty ? nil : simplified
+            function = functionComponents.prefix(5).joined(separator: " ")
+            
+            // Limit function length before processing
+            function = String(function.prefix(200))
+            
+            // Clean up function name
+            function = function.replacingOccurrences(of: "$s", with: "")  // Swift mangling prefix
+            function = function.replacingOccurrences(of: "$S", with: "")
+            
+            // Try to demangle Swift function names
+            if function.contains("$") && function.count < 150 {
+                // Basic demangling for common patterns
+                function = demangleSwiftName(function)
+            }
         }
         
-        return nil
+        // Extract line number if present (with safety bounds)
+        if frame.count < 2000 { // Only search in reasonably sized strings
+            if let lineMatch = frame.range(of: #":\d{1,5}"#, options: .regularExpression) {
+                let lineStr = String(frame[lineMatch]).dropFirst() // Remove ":"
+                lineNumber = Int(lineStr) ?? 0
+                if lineNumber > 999999 { lineNumber = 0 } // Sanity check
+            }
+        }
+        
+        // Create a human-readable description focusing on the most relevant information
+        if function.contains("test") && !function.isEmpty {
+            // For test methods, simplify the display
+            description = String(function.prefix(100))
+                .replacingOccurrences(of: "-[", with: "")
+                .replacingOccurrences(of: "]", with: "")
+                .replacingOccurrences(of: " ", with: ".")
+        } else if !module.isEmpty && !function.isEmpty {
+            // For regular methods, show module.function format
+            let safeModule = String(module.prefix(50))
+            let safeFunction = String(function.prefix(100))
+            description = "\(safeModule).\(safeFunction)"
+        } else if !function.isEmpty {
+            description = String(function.prefix(100))
+        } else if !module.isEmpty {
+            description = String(module.prefix(50))
+        } else {
+            // Fall back to the most informative part we can find
+            description = components.first(where: { 
+                !$0.starts(with: "0x") && 
+                !$0.allSatisfy({ $0.isNumber }) && 
+                $0.count < 100 
+            }) ?? "Unknown"
+        }
+        
+        // Limit final description length
+        description = String(description.prefix(200))
+        
+        // Add context indicators for special frameworks
+        if function.contains("test") || module.contains("Test") {
+            description = "🧪 " + description
+        } else if module.contains("XCTest") {
+            description = "🔧 " + description
+        } else if module.contains("UIKit") || module.contains("CoreGraphics") {
+            description = "📱 " + description
+        } else if module == "libdispatch.dylib" || module.contains("queue") {
+            description = "⚡ " + description
+        }
+        
+        return StackFrameInfo(
+            description: description,
+            module: module,
+            function: function,
+            lineNumber: lineNumber
+        )
+    }
+    
+    // Basic Swift name demangling (with safety checks)
+    private func demangleSwiftName(_ mangledName: String) -> String {
+        // Safety check: limit input length
+        guard mangledName.count < 500 else { return String(mangledName.prefix(200)) }
+        
+        var demangled = mangledName
+        
+        // Common Swift mangling patterns (limit replacements to prevent excessive processing)
+        let replacements = [
+            ("ySS", "String"),
+            ("ySi", "Int"),
+            ("ySb", "Bool"),
+            ("yXl", "Error"),
+            ("tF", "."),
+            ("fC", ".")
+        ]
+        
+        for (pattern, replacement) in replacements {
+            // Only replace if the result won't be too long
+            let potential = demangled.replacingOccurrences(of: pattern, with: replacement)
+            if potential.count < 300 {
+                demangled = potential
+            }
+        }
+        
+        // Remove common prefixes
+        if demangled.hasPrefix("_T") {
+            demangled = String(demangled.dropFirst(2))
+        }
+        
+        // Final length limit
+        return String(demangled.prefix(200))
     }
     
     // MARK: - JSON Safety Helper
@@ -631,6 +806,17 @@ private extension ReportingService {
         // But we could add additional checks if needed
         
         return sanitized
+    }
+    
+    // MARK: - Enhanced Launch Naming
+    func buildEnhancedLaunchName(baseLaunchName: String, testPlanName: String?) -> String {
+        // If we have a test plan name, include it in the launch name like Android does
+        if let testPlan = testPlanName, !testPlan.isEmpty {
+            // Replace spaces with underscores for better display in ReportPortal
+            let sanitizedTestPlan = testPlan.replacingOccurrences(of: " ", with: "_")
+            return "\(baseLaunchName): \(sanitizedTestPlan)"
+        }
+        return baseLaunchName
     }
     
     // MARK: - Dynamic Suite Naming

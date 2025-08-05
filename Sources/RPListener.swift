@@ -45,7 +45,10 @@ open class RPListener: NSObject, XCTestObservation {
     
     var tags: [String] = []
     if let tagString = bundleProperties["ReportPortalTags"] as? String {
-      tags = tagString.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).components(separatedBy: ",")
+      tags = tagString.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        .components(separatedBy: ",")
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
     }
     var launchMode: LaunchMode = .default
     if let isDebug = bundleProperties["IsDebugLaunchMode"] as? Bool, isDebug == true {

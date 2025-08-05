@@ -46,6 +46,29 @@ Now, you can specify the Report Portal properties:
 Example:
 ![Alt text](./Screen%20Shot.png)
 
+## Test Plan Name in Launch Names
+
+To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME` environment variable to your `.xctestplan` file:
+
+```json
+{
+  "defaultOptions": {
+    "environmentVariableEntries": [
+      {
+        "key": "TEST_PLAN_NAME",
+        "value": "Smoke Tests"
+      }
+    ]
+  }
+}
+```
+
+**Result:** Launch names will appear as `YourLaunchName: Smoke_Tests` in ReportPortal.
+
+**Note:** Spaces in test plan names are automatically replaced with underscores for better compatibility.
+
+**CI Override:** CI can override this value: `TEST_PLAN_NAME="Nightly Tests" xcodebuild test ...`
+
 ## Important Notes
 
 Please be aware that this Report Portal agent is designed to work correctly only when tests are run sequentially. Parallel execution of tests is currently not supported.

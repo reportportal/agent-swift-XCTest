@@ -60,41 +60,22 @@ class MetadataCollector {
         return attributes
     }
     
+    // MARK: - Test Plan Detection
+    static func getTestPlanName() -> String? {
+        let env = ProcessInfo.processInfo.environment
+        if let testPlanName = env["TEST_PLAN_NAME"], !testPlanName.isEmpty {
+            return testPlanName
+        }
+        return nil
+    }
+    
     // MARK: - Test Plan Metadata
     static func collectTestPlanAttributes(from bundle: Bundle, tags: [String] = []) -> [[String: String]] {
         var attributes: [[String: String]] = []
         
-        // Try multiple ways to get test plan name
-        var testPlanName: String?
+        // Note: Test plan name is now only included in launch name, not as an attribute
         
-        // 1. Check for explicit test plan name in environment
-        if let explicitTestPlan = ProcessInfo.processInfo.environment["TEST_PLAN_NAME"],
-           !explicitTestPlan.isEmpty {
-            testPlanName = explicitTestPlan
-        }
-        // 2. Extract from XCTest configuration file path
-        else if let testPlanPath = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"],
-                !testPlanPath.isEmpty {
-            let extractedName = URL(fileURLWithPath: testPlanPath)
-                .deletingPathExtension()
-                .lastPathComponent
-            // Only use if it's a meaningful name (not empty, not just "/")
-            if !extractedName.isEmpty && extractedName != "/" {
-                testPlanName = extractedName
-            }
-        }
-        // 3. Check for test plan in bundle's Info.plist
-        else if let bundleTestPlan = bundle.infoDictionary?["TestPlanName"] as? String,
-                !bundleTestPlan.isEmpty {
-            testPlanName = bundleTestPlan
-        }
-        
-        // If we found a valid test plan name, add it
-        if let testPlan = testPlanName, !testPlan.isEmpty, testPlan != "/" {
-            attributes.append(["key": "testplan", "value": testPlan])
-        }
-        
-        // Extract configuration from test bundle
+        // Extract configuration
         if let testConfiguration = bundle.infoDictionary?["XCTestConfiguration"] as? String {
             attributes.append(["key": "config", "value": testConfiguration])
         } else if ProcessInfo.processInfo.environment["CONFIGURATION"] != nil,

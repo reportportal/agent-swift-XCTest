@@ -9,6 +9,12 @@
     }
   ],
   "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "TEST_PLAN_NAME",
+        "value" : "ExampleTestPlan"
+      }
+    ],
     "targetForVariableExpansion" : {
       "containerPath" : "container:ReportPortalAgent.xcodeproj",
       "identifier" : "9203A38B2135C20C00BFAF82",
