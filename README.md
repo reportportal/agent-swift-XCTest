@@ -46,9 +46,9 @@ Now, you can specify the Report Portal properties:
 Example:
 ![Alt text](./Example.png)
 
-# Test Plan Name in Launch Names
+# Optional: Test Plan Name visibility
 
-To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME` environment variable to your `.xctestplan` file manually:
+To include test plan names in ReportPortal, add the `TEST_PLAN_NAME` environment variable to your `.xctestplan` file manually:
 
 ```json
 {
