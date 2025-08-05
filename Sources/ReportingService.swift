@@ -193,28 +193,6 @@ public class ReportingService {
     _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
-  func reportError(message: String) throws {
-    guard !testID.isEmpty else {
-      print("🚨 ReportingService Error Reporting Failed: Cannot report error '\(message)' - Test ID is missing. This indicates test creation failed. Error will not appear in ReportPortal.")
-      return
-    }
-    
-    let errorSemaphore = DispatchSemaphore(value: 0)
-    
-    let endPoint = PostLogEndPoint(itemID: testID, level: "error", message: message)
-    do {
-      try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
-        errorSemaphore.signal()
-      }
-    } catch {
-      print("⚠️ ReportingService: Failed to report error: \(error.localizedDescription)")
-      errorSemaphore.signal() // Signal to prevent deadlock
-      throw error
-    }
-    
-    _ = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
-  }
-  
   // Enhanced error reporting with screenshot support
   func reportErrorWithScreenshot(message: String, testCase: XCTestCase? = nil) throws {
     guard let launchID = launchID else {
@@ -444,24 +422,6 @@ private extension ReportingService {
         print("🚨 ReportingService Platform Error: Screenshot capture not available on this platform. Only iOS supports screenshot capture.")
         return nil
 #endif
-    }
-    
-    // MARK: - Image Utilities
-#if canImport(UIKit)
-    func resizeImage(_ image: UIImage, to newSize: CGSize) -> UIImage? {
-        UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
-        image.draw(in: CGRect(origin: .zero, size: newSize))
-        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        return resizedImage
-    }
-#endif
-    
-    // MARK: - Size Utilities
-    func formatBytes(_ bytes: Int) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(bytes))
     }
     
     func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
@@ -810,7 +770,6 @@ private extension ReportingService {
     
     // MARK: - Enhanced Launch Naming
     func buildEnhancedLaunchName(baseLaunchName: String, testPlanName: String?) -> String {
-        // If we have a test plan name, include it in the launch name like Android does
         if let testPlan = testPlanName, !testPlan.isEmpty {
             // Replace spaces with underscores for better display in ReportPortal
             let sanitizedTestPlan = testPlan.replacingOccurrences(of: " ", with: "_")
