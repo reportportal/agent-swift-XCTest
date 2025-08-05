@@ -12,7 +12,7 @@
     "environmentVariableEntries" : [
       {
         "key" : "TEST_PLAN_NAME",
-        "value" : "ExampleTestPlan"
+        "value" : "Example Test Plan"
       }
     ],
     "targetForVariableExpansion" : {
