@@ -44,11 +44,12 @@ Now, you can specify the Report Portal properties:
 * IsFinalTestBundle - use to mark last test target as YES, and all others as NO to allow single launch for them
 
 Example:
-![Alt text](./Screen%20Shot.png)
+![Alt text](./Example.png)
 
-## Test Plan Name in Launch Names
+# Test Plan Name in Launch Names
 
 To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME` environment variable to your `.xctestplan` file:
+* Manually:
 
 ```json
 {
@@ -62,6 +63,8 @@ To include test plan names in ReportPortal launch names, add the `TEST_PLAN_NAME
   }
 }
 ```
+* In XCode:
+![Example](./TEST_PLAN_NAME.png)
 
 **Result:** Launch names will appear as `YourLaunchName: Smoke_Tests` in ReportPortal.
 
@@ -76,7 +79,7 @@ Please be aware that this Report Portal agent is designed to work correctly only
 ## Authors
 ReportPortal Team, <support@reportportal.io>
 
-([@rusel95](https://github.com/rusel95))
+[@rusel95](https://github.com/rusel95), <ruslanpopesku95@gmail.com>
 
 @DarthRumata, <stas.kirichok@windmill.ch> ([Windmill Smart Solutions](https://github.com/Windmill-Smart-Solutions))
 
