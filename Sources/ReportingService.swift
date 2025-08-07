@@ -616,16 +616,6 @@ private extension ReportingService {
             
             // Limit function length before processing
             function = String(function.prefix(200))
-            
-            // Clean up function name
-            function = function.replacingOccurrences(of: "$s", with: "")  // Swift mangling prefix
-            function = function.replacingOccurrences(of: "$S", with: "")
-            
-            // Try to demangle Swift function names
-            if function.contains("$") && function.count < 150 {
-                // Basic demangling for common patterns
-                function = demangleSwiftName(function)
-            }
         }
         
         // Extract line number if present (with safety bounds)
@@ -682,40 +672,6 @@ private extension ReportingService {
             function: function,
             lineNumber: lineNumber
         )
-    }
-    
-    // Basic Swift name demangling (with safety checks)
-    private func demangleSwiftName(_ mangledName: String) -> String {
-        // Safety check: limit input length
-        guard mangledName.count < 500 else { return String(mangledName.prefix(200)) }
-        
-        var demangled = mangledName
-        
-        // Common Swift mangling patterns (limit replacements to prevent excessive processing)
-        let replacements = [
-            ("ySS", "String"),
-            ("ySi", "Int"),
-            ("ySb", "Bool"),
-            ("yXl", "Error"),
-            ("tF", "."),
-            ("fC", ".")
-        ]
-        
-        for (pattern, replacement) in replacements {
-            // Only replace if the result won't be too long
-            let potential = demangled.replacingOccurrences(of: pattern, with: replacement)
-            if potential.count < 300 {
-                demangled = potential
-            }
-        }
-        
-        // Remove common prefixes
-        if demangled.hasPrefix("_T") {
-            demangled = String(demangled.dropFirst(2))
-        }
-        
-        // Final length limit
-        return String(demangled.prefix(200))
     }
     
     // MARK: - JSON Safety Helper
