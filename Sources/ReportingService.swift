@@ -475,14 +475,7 @@ private extension ReportingService {
         enhancedMessage += "Device: \(sanitizeForJSON(UIDevice.current.modelName))\n"
         
         // Handle iPadOS detection
-        var osName = UIDevice.current.systemName
-        if osName == "iOS" && UIDevice.current.userInterfaceIdiom == .pad {
-            let osVersionComponents = UIDevice.current.systemVersion.split(separator: ".")
-            if let majorVersion = osVersionComponents.first, let major = Int(majorVersion), major >= 13 {
-                osName = "iPadOS"
-            }
-        }
-        enhancedMessage += "OS: \(sanitizeForJSON(osName)) \(sanitizeForJSON(UIDevice.current.systemVersion))\n"
+        enhancedMessage += "OS: \(sanitizeForJSON(DeviceHelper.osNameAndVersion()))\n"
 #endif
         
         // Enhanced stack trace with more context

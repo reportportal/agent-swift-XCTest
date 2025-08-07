@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		368751BD1F5867200021B74D /* RPListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368751B61F5867200021B74D /* RPListener.swift */; };
 		368751BF1F5867200021B74D /* ReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368751B81F5867200021B74D /* ReportingService.swift */; };
+		85DBACE52E44D5DA00297994 /* DeviceHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85DBACE42E44D5DA00297994 /* DeviceHelper.swift */; };
 		85EE82942E38F79F005825E8 /* MetadataCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85EE82932E38F79F005825E8 /* MetadataCollector.swift */; };
 		9203A3872135882F00BFAF82 /* GetCurrentLaunchEndPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9203A3862135882F00BFAF82 /* GetCurrentLaunchEndPoint.swift */; };
 		9203A38F2135C20C00BFAF82 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9203A38E2135C20C00BFAF82 /* AppDelegate.swift */; };
@@ -82,6 +83,7 @@
 		368751E01F5964AA0021B74D /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		368751E21F596BC70021B74D /* ReportPortal.podspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ReportPortal.podspec; sourceTree = "<group>"; };
 		368751E41F596E990021B74D /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		85DBACE42E44D5DA00297994 /* DeviceHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHelper.swift; sourceTree = "<group>"; };
 		85EE82932E38F79F005825E8 /* MetadataCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataCollector.swift; sourceTree = "<group>"; };
 		9203A3862135882F00BFAF82 /* GetCurrentLaunchEndPoint.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GetCurrentLaunchEndPoint.swift; sourceTree = "<group>"; };
 		9203A38C2135C20C00BFAF82 /* Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -256,6 +258,7 @@
 			isa = PBXGroup;
 			children = (
 				92FEE083212ECB7900ADB1ED /* AuthorizationPlugin.swift */,
+				85DBACE42E44D5DA00297994 /* DeviceHelper.swift */,
 				92FEE07E212ECB7900ADB1ED /* HTTPClient.swift */,
 				92FEE07F212ECB7900ADB1ED /* TimeHelper.swift */,
 				92FEE08D212EEA0300ADB1ED /* TagHelper.swift */,
@@ -482,6 +485,7 @@
 				92FEE06D1000000000000000 /* LogResponse.swift in Sources */,
 				9203A3872135882F00BFAF82 /* GetCurrentLaunchEndPoint.swift in Sources */,
 				92FEE07C212ECB0800ADB1ED /* AgentConfiguration.swift in Sources */,
+				85DBACE52E44D5DA00297994 /* DeviceHelper.swift in Sources */,
 				92FEE092212EED3D00ADB1ED /* FinishLaunchEndPoint.swift in Sources */,
 				92FEE076212EA38600ADB1ED /* TestType.swift in Sources */,
 			);

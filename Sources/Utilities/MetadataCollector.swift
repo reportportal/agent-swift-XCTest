@@ -23,15 +23,7 @@ class MetadataCollector {
         attributes.append(["key": "device", "value": UIDevice.current.modelName])
         
         // OS version - handle iPadOS separately
-        var osName = UIDevice.current.systemName
-        if osName == "iOS" && UIDevice.current.userInterfaceIdiom == .pad {
-            // iPad running iOS 13+ reports as "iOS" but is actually iPadOS
-            let osVersionComponents = UIDevice.current.systemVersion.split(separator: ".")
-            if let majorVersion = osVersionComponents.first, let major = Int(majorVersion), major >= 13 {
-                osName = "iPadOS"
-            }
-        }
-        let osVersion = "\(osName) \(UIDevice.current.systemVersion)"
+        let osVersion = DeviceHelper.osNameAndVersion()
         attributes.append(["key": "os", "value": osVersion])
         
         // Simulator detection
