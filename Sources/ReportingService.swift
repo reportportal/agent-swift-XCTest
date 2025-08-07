@@ -39,23 +39,6 @@ public class ReportingService {
     httpClient.setPlugins([AuthorizationPlugin(token: configuration.portalToken)])
   }
   
-  private func getStoredLaunchID(completion: @escaping (String?) -> Void) throws {
-    let endPoint = GetCurrentLaunchEndPoint()
-    do {
-      try httpClient.callEndPoint(endPoint) { (result: LaunchListInfo) in
-        guard let launch = result.content.first, launch.status == "IN_PROGRESS" else {
-          completion(nil)
-          return
-        }
-        
-        completion(launch.uuid)
-      }
-    } catch {
-      print("⚠️ ReportingService: Failed to get stored launch ID: \(error.localizedDescription)")
-      completion(nil) // Call completion with nil to prevent deadlock
-    }
-  }
-
   func startLaunch() throws {
     let launchSemaphore = DispatchSemaphore(value: 0)
     
@@ -351,6 +334,18 @@ public class ReportingService {
 }
 
 private extension ReportingService {
+  
+  func getStoredLaunchID(completion: @escaping (String?) -> Void) throws {
+    let endPoint = GetCurrentLaunchEndPoint()
+    try httpClient.callEndPoint(endPoint) { (result: LaunchListInfo) in
+      guard let launch = result.content.first, launch.status == "IN_PROGRESS" else {
+        completion(nil)
+        return
+      }
+      
+      completion(launch.uuid)
+    }
+  }
   
   func extractTestName(from test: XCTestCase) -> String {
     let originName = test.name.trimmingCharacters(in: .whitespacesAndNewlines)
