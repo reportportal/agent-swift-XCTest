@@ -16,7 +16,7 @@ enum TagHelper {
   static let defaultTags: [String] = {
     #if canImport(UIKit)
     return [
-      UIDevice.current.systemName,
+      DeviceHelper.detectedOSName(),
       UIDevice.current.systemVersion,
       UIDevice.current.modelName,
       UIDevice.current.model
