@@ -188,7 +188,6 @@ public class ReportingService {
       return
     }
     
-    print("📸 ReportingService Debug: Attempting to capture screenshot for test ID: \(testID)")
     
     let errorSemaphore = DispatchSemaphore(value: 0)
     
@@ -216,12 +215,9 @@ public class ReportingService {
       attachments: attachments
     )
     
-    print("📤 ReportingService Debug: Sending log with \(attachments.count) attachment(s)")
     
     do {
       try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
-        print("✅ ReportingService Debug: Log API responded with success")
-        print("   • Response: \(result)")
         errorSemaphore.signal()
       }
     } catch {
@@ -420,110 +416,123 @@ private extension ReportingService {
     }
     
     func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
-        // Extract the core error message and clean it up
-        var cleanedMessage = originalMessage
+        // Start with the original message as-is (it already has the native format)
+        // This preserves "Test failed on line X in file.swift: description" format
+        var enhancedMessage = originalMessage
         
-        // Remove duplicate "Failed to failed to" pattern
-        cleanedMessage = cleanedMessage.replacingOccurrences(of: "Failed to failed to", with: "Failed to")
+        // Clean up only obvious duplicates without breaking the native format
+        enhancedMessage = enhancedMessage.replacingOccurrences(of: "Failed to failed to", with: "Failed to")
         
-        // Extract key information from the message
-        let components = extractErrorComponents(from: cleanedMessage)
+        // Add a separator before additional details
+        enhancedMessage += "\n\n=====================================\n"
+        enhancedMessage += "Additional Details:\n"
+        enhancedMessage += "=====================================\n"
         
-        var enhancedMessage = ""
+        // Extract key information from the message for structured details
+        let components = extractErrorComponents(from: originalMessage)
         
-        // Primary error message (simplified)
-        enhancedMessage += "TEST FAILURE\n"
-        enhancedMessage += "=====================================\n\n"
-        
-        // Error summary
+        // Add structured error components if found
+        var hasComponents = false
         if let action = components["action"] {
             enhancedMessage += "Action: \(sanitizeForJSON(action))\n"
+            hasComponents = true
         }
         if let element = components["element"] {
             enhancedMessage += "Element: \(sanitizeForJSON(element))\n"
-        }
-        if let location = components["location"] {
-            enhancedMessage += "Location: \(sanitizeForJSON(location))\n"
+            hasComponents = true
         }
         if let errorCode = components["errorCode"] {
             enhancedMessage += "Error Code: \(sanitizeForJSON(errorCode))\n"
+            hasComponents = true
+        }
+        
+        if !hasComponents {
+            // If no specific components found, don't add empty section
+            enhancedMessage = originalMessage + "\n"
         }
         
         // Test information
         if let testCase = testCase {
-            enhancedMessage += "\nTest Information\n"
-            enhancedMessage += "----------------\n"
+            enhancedMessage += "\nTest Context:\n"
+            enhancedMessage += "-------------\n"
             let testName = testCase.name.replacingOccurrences(of: "-[", with: "").replacingOccurrences(of: "]", with: "")
-            enhancedMessage += "Test: \(sanitizeForJSON(testName))\n"
+            enhancedMessage += "Test Name: \(sanitizeForJSON(testName))\n"
             
-            // Extract file and line from original message
-            if let fileMatch = cleanedMessage.range(of: #"(\w+\.swift):\d+"#, options: .regularExpression) {
-                let fileInfo = String(cleanedMessage[fileMatch])
-                enhancedMessage += "File: \(sanitizeForJSON(fileInfo))\n"
+            // Add test execution time
+            if let testRun = testCase.testRun {
+                enhancedMessage += "Execution Time: \(String(format: "%.3f", testRun.totalDuration)) seconds\n"
             }
         }
+        
+        // Tags information - single line
+        if !configuration.tags.isEmpty {
+            enhancedMessage += "\nTags: \(configuration.tags.joined(separator: ", "))\n"
+        }
+        
+        // Environment information
+        enhancedMessage += "\nEnvironment:\n"
+        enhancedMessage += "------------\n"
+        
+        // Test Plan information
+        if let testPlanName = MetadataCollector.getTestPlanName() {
+            enhancedMessage += "Test Plan: \(sanitizeForJSON(testPlanName))\n"
+        }
+        
+        // Configuration (Debug/Release)
+        #if DEBUG
+        enhancedMessage += "Build Configuration: Debug\n"
+        #else
+        enhancedMessage += "Build Configuration: Release\n"
+        #endif
         
         // Device information
 #if canImport(UIKit)
-        enhancedMessage += "\nDevice Information\n"
+        enhancedMessage += "\nDevice Information:\n"
         enhancedMessage += "------------------\n"
         enhancedMessage += "Device: \(sanitizeForJSON(UIDevice.current.modelName))\n"
-        
-        // Handle iPadOS detection
         enhancedMessage += "OS: \(sanitizeForJSON(DeviceHelper.osNameAndVersion()))\n"
+        
+        // Simulator vs Device
+        #if targetEnvironment(simulator)
+        enhancedMessage += "Platform: Simulator\n"
+        #else
+        enhancedMessage += "Platform: Physical Device\n"
+        #endif
+        
+        // Memory info (if available)
+        let deviceInfo = ProcessInfo.processInfo
+        let memoryGB = Double(deviceInfo.physicalMemory) / (1024 * 1024 * 1024)
+        enhancedMessage += "Memory: \(String(format: "%.1f", memoryGB)) GB\n"
 #endif
         
-        // Enhanced stack trace with more context
-        let stackTrace = Thread.callStackSymbols
-        if stackTrace.count > 1 {
-            enhancedMessage += "\nStack Trace\n"
-            enhancedMessage += "-----------\n"
-            
-            // Find the first test-related frame
-            var testFrameIndex = -1
-            for (index, frame) in stackTrace.enumerated() {
-                if frame.contains("test") || frame.contains("Test") {
-                    testFrameIndex = index
-                    break
-                }
+        // Process information
+        enhancedMessage += "\nProcess Information:\n"
+        enhancedMessage += "-------------------\n"
+        let processInfo = ProcessInfo.processInfo
+        enhancedMessage += "Process ID: \(processInfo.processIdentifier)\n"
+        enhancedMessage += "Process Name: \(sanitizeForJSON(processInfo.processName))\n"
+        
+        // Bundle information
+        if let bundle = Bundle.main.infoDictionary {
+            if let appVersion = bundle["CFBundleShortVersionString"] as? String {
+                enhancedMessage += "App Version: \(sanitizeForJSON(appVersion))\n"
             }
-            
-            // Include frames starting from the test method or from frame 3
-            let startIndex = testFrameIndex >= 0 ? testFrameIndex : 3
-            let relevantFrames = stackTrace.dropFirst(startIndex).prefix(8)
-            
-            var frameNumber = 0
-            for frame in relevantFrames {
-                if let enhancedFrame = enhanceStackFrame(frame) {
-                    frameNumber += 1
-                    enhancedMessage += "\n\(frameNumber). \(sanitizeForJSON(enhancedFrame.description))\n"
-                    
-                    // Only show module if it's not the test framework itself
-                    if !enhancedFrame.module.isEmpty && 
-                       !enhancedFrame.module.contains("ReportPortalAgent") && 
-                       !enhancedFrame.module.contains("XCTest") {
-                        enhancedMessage += "   Module: \(sanitizeForJSON(enhancedFrame.module))\n"
-                    }
-                    
-                    // Show method details if available and meaningful
-                    if !enhancedFrame.function.isEmpty && 
-                       enhancedFrame.function != enhancedFrame.description {
-                        enhancedMessage += "   Method: \(sanitizeForJSON(enhancedFrame.function))\n"
-                    }
-                    
-                    if enhancedFrame.lineNumber > 0 {
-                        enhancedMessage += "   Line: \(enhancedFrame.lineNumber)\n"
-                    }
-                }
+            if let buildNumber = bundle["CFBundleVersion"] as? String {
+                enhancedMessage += "Build Number: \(sanitizeForJSON(buildNumber))\n"
             }
-            
-            if frameNumber == 0 {
-                enhancedMessage += "   (No relevant stack frames available)\n"
+            if let bundleId = bundle["CFBundleIdentifier"] as? String {
+                enhancedMessage += "Bundle ID: \(sanitizeForJSON(bundleId))\n"
             }
         }
         
-        // Timestamp
-        enhancedMessage += "\nTimestamp: \(sanitizeForJSON(TimeHelper.currentTimeAsString()))\n"
+        // Human-readable timestamp
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        formatter.locale = Locale.current
+        let humanReadableTime = formatter.string(from: Date())
+        enhancedMessage += "\nTimestamp: \(humanReadableTime)\n"
+        
         
         return enhancedMessage
     }
@@ -546,12 +555,6 @@ private extension ReportingService {
         // Extract error code (e.g., "kAXErrorCannotComplete")
         if let errorMatch = message.range(of: #"Error \w+"#, options: .regularExpression) {
             components["errorCode"] = String(message[errorMatch])
-        }
-        
-        // Extract file location
-        if let fileMatch = message.range(of: #"at (\w+\.swift:\d+)"#, options: .regularExpression) {
-            let location = String(message[fileMatch]).replacingOccurrences(of: "at ", with: "")
-            components["location"] = location
         }
         
         return components
