@@ -28,16 +28,15 @@ class SummatorControllerTests: XCTestCase {
         super.tearDown()
     }
     
+    // ✅ PASSING: Test 13 + 29 = 42  
     func testOnePlusOneIsTwo() {
       let firstField = app.textFields.element(boundBy: 0)
       let secondField = app.textFields.element(boundBy: 1)
       firstField.tap()
-      app.keys["1"].tap()
-      app.keys["3"].tap()
+      firstField.typeText("13")
       
       secondField.tap()
-      app.keys["2"].tap()
-      app.keys["9"].tap()
+      secondField.typeText("29")
       
       let resultField = app.textFields.element(boundBy: 2)
       XCTAssertTrue(resultField.exists, "Text field doesn't exist")
@@ -52,10 +51,10 @@ class SummatorControllerTests: XCTestCase {
         
         // Test 5 + 3 = 8
         firstField.tap()
-        app.keys["5"].tap()
+        firstField.typeText("5")
         
         secondField.tap()
-        app.keys["3"].tap()
+        secondField.typeText("3")
         
         XCTAssertTrue(resultField.exists, "Result field should exist")
         XCTAssertEqual(resultField.value as! String, "8", "5 + 3 should equal 8")
@@ -69,11 +68,10 @@ class SummatorControllerTests: XCTestCase {
         
         // Test 10 + 5 = 15, but expect 20 (will fail)
         firstField.tap()
-        app.keys["1"].tap()
-        app.keys["0"].tap()
+        firstField.typeText("10")
         
         secondField.tap()
-        app.keys["5"].tap()
+        secondField.typeText("5")
         
         XCTAssertTrue(resultField.exists, "Result field should exist")
         XCTAssertEqual(resultField.value as! String, "20", "This test is designed to fail - expecting wrong result")
@@ -87,10 +85,10 @@ class SummatorControllerTests: XCTestCase {
         
         // Test 0 + 7 = 7
         firstField.tap()
-        app.keys["0"].tap()
+        firstField.typeText("0")
         
         secondField.tap()
-        app.keys["7"].tap()
+        secondField.typeText("7")
         
         XCTAssertTrue(resultField.exists, "Result field should exist")
         XCTAssertEqual(resultField.value as! String, "7", "0 + 7 should equal 7")
@@ -121,11 +119,125 @@ class SummatorControllerTests: XCTestCase {
         
         // This will timeout because we're looking for a property that doesn't exist
         firstField.tap()
-        app.keys["9"].tap()
+        firstField.typeText("9")
         
         // This assertion will fail - looking for wrong accessibility identifier
         let nonExistentField = app.textFields["SomeWrongIdentifier"]
         XCTAssertTrue(nonExistentField.waitForExistence(timeout: 2), "This test is designed to fail - wrong identifier")
+    }
+    
+    // ✅ PASSING: Test clear and type functionality
+    func testClearAndTypeInField() {
+        let firstField = app.textFields.element(boundBy: 0)
+        firstField.tap()
+        
+        // Type initial value
+        firstField.typeText("42")
+        
+        // Clear field (select all and delete)
+        firstField.doubleTap()
+        firstField.typeText("")  // Clear by typing empty string
+        
+        // Type new value
+        firstField.typeText("7")
+        
+        XCTAssertEqual(firstField.value as? String ?? "", "7", "Field should contain only 7 after clear and type")
+    }
+    
+    // ❌ FAILING: Test with nil value assertion
+    func testNilValueAssertion() {
+        let resultField = app.textFields.element(boundBy: 2)
+        
+        // The result field starts with "0", not nil
+        XCTAssertNil(resultField.value, "This test is designed to fail - expecting nil but field has value")
+    }
+    
+    // ✅ PASSING: Test multiple digit input
+    func testMultipleDigitInput() {
+        let firstField = app.textFields.element(boundBy: 0)
+        let secondField = app.textFields.element(boundBy: 1)
+        let resultField = app.textFields.element(boundBy: 2)
+        
+        // Test 123 + 456 = 579
+        firstField.tap()
+        firstField.typeText("123")
+        
+        secondField.tap()
+        secondField.typeText("456")
+        
+        XCTAssertEqual(resultField.value as! String, "579", "123 + 456 should equal 579")
+    }
+    
+    // ❌ FAILING: Test with array index out of bounds
+    func testArrayIndexOutOfBounds() {
+        // This will fail because we're trying to access element 10 when only 3 exist
+        let nonExistentField = app.textFields.element(boundBy: 10)
+        XCTAssertTrue(nonExistentField.exists, "This test is designed to fail - index out of bounds")
+    }
+    
+    // ✅ PASSING: Test default values
+    func testDefaultFieldValues() {
+        let firstField = app.textFields.element(boundBy: 0)
+        let secondField = app.textFields.element(boundBy: 1)
+        let resultField = app.textFields.element(boundBy: 2)
+        
+        // Check default values without any interaction
+        XCTAssertEqual(firstField.value as! String, "0", "First field should default to 0")
+        XCTAssertEqual(secondField.value as! String, "0", "Second field should default to 0")
+        XCTAssertEqual(resultField.value as! String, "0", "Result field should default to 0")
+    }
+    
+    // ❌ FAILING: Test with multiple assertions where second fails
+    func testMultipleAssertionsWithFailure() {
+        let firstField = app.textFields.element(boundBy: 0)
+        
+        // First assertion passes
+        XCTAssertTrue(firstField.exists, "First field exists - this passes")
+        
+        // Second assertion fails
+        XCTAssertEqual(firstField.value as! String, "100", "This test is designed to fail - expecting wrong initial value")
+        
+        // Third assertion (won't be reached due to failure above)
+        XCTAssertNotNil(firstField.value, "Field value should not be nil")
+    }
+    
+    // ✅ PASSING: Test app navigation elements
+    func testNavigationElementsExist() {
+        // Check that the app has a navigation bar or title
+        let windows = app.windows
+        let otherElements = app.otherElements
+        
+        XCTAssertGreaterThan(windows.count, 0, "App should have at least one window")
+        XCTAssertGreaterThan(otherElements.count, 0, "App should have other UI elements")
+        XCTAssertTrue(app.exists, "App should exist and be running")
+    }
+    
+    // ❌ FAILING: Test with wrong type casting
+    func testWrongTypeCasting() {
+        let firstField = app.textFields.element(boundBy: 0)
+        firstField.tap()
+        firstField.typeText("5")
+        
+        // This will fail because we're trying to cast to wrong type
+        if let value = firstField.value as? Int {
+            XCTAssertEqual(value, 5, "Value should be 5")
+        } else {
+            XCTFail("This test is designed to fail - value is String not Int")
+        }
+    }
+    
+    // ✅ PASSING: Test keyboard and field interaction
+    func testKeyboardAppears() {
+        let firstField = app.textFields.element(boundBy: 0)
+        firstField.tap()
+        
+        // Test that we can type in the field
+        firstField.typeText("123")
+        XCTAssertEqual(firstField.value as? String, "123", "Field should contain typed value")
+        
+        // Test field exists and is accessible
+        XCTAssertTrue(firstField.exists, "First field should exist")
+        XCTAssertTrue(firstField.isHittable, "First field should be accessible")
     }
     
 }
