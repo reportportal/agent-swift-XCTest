@@ -11,12 +11,32 @@ import XCTest
 import UIKit
 #endif
 
-enum ReportingServiceError: Error {
+enum ReportingServiceError: LocalizedError {
   case launchIdNotFound
   case testSuiteIdNotFound
+  case configurationError
+  case networkError
+  case securityViolation
+  
+  var errorDescription: String? {
+    switch self {
+    case .launchIdNotFound:
+      return "Launch ID not found"
+    case .testSuiteIdNotFound:
+      return "Test Suite ID not found"
+    case .configurationError:
+      return "Invalid configuration"
+    case .networkError:
+      return "Network error occurred"
+    case .securityViolation:
+      return "Security policy violation"
+    }
+  }
 }
 
-public class ReportingService {
+public final class ReportingService {
+  
+  // MARK: - Properties
   
   private let httpClient: HTTPClient
   private let configuration: AgentConfiguration
@@ -29,7 +49,9 @@ public class ReportingService {
   private var testSuiteID: String?
   private var testID = ""
   
-  private let timeOutForRequestExpectation = 10.0
+  private let timeOutForRequestExpectation: TimeInterval = 10.0
+  
+  // MARK: - Initialization
   
   init(configuration: AgentConfiguration, testBundle: Bundle? = nil) {
     self.configuration = configuration

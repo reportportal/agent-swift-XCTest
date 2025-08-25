@@ -11,12 +11,13 @@ import XCTest
 
 open class RPListener: NSObject, XCTestObservation {
   
+  // MARK: - Properties
+  
   public var reportingService: ReportingService?
   private let queue = DispatchQueue(label: "com.report_portal.reporting", qos: .utility)
   
   public override init() {
     super.init()
-    
     XCTestObservationCenter.shared.addTestObserver(self)
   }
   

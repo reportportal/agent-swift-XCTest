@@ -8,7 +8,7 @@
 
 import XCTest
 
-class SummatorControllerTests: XCTestCase {
+final class SummatorControllerTests: XCTestCase {
   
   private let app = XCUIApplication()
         
@@ -40,7 +40,11 @@ class SummatorControllerTests: XCTestCase {
       
       let resultField = app.textFields.element(boundBy: 2)
       XCTAssertTrue(resultField.exists, "Text field doesn't exist")
-      XCTAssertEqual(resultField.value as! String, "42", "Text field value is not correct")
+      if let fieldValue = resultField.value as? String {
+        XCTAssertEqual(fieldValue, "42", "Text field value is not correct")
+      } else {
+        XCTFail("Result field value is not a string")
+      }
     }
     
     // ✅ PASSING: Simple addition test
@@ -57,7 +61,11 @@ class SummatorControllerTests: XCTestCase {
         secondField.typeText("3")
         
         XCTAssertTrue(resultField.exists, "Result field should exist")
-        XCTAssertEqual(resultField.value as! String, "8", "5 + 3 should equal 8")
+        if let fieldValue = resultField.value as? String {
+          XCTAssertEqual(fieldValue, "8", "5 + 3 should equal 8")
+        } else {
+          XCTFail("Result field value is not a string")
+        }
     }
     
     // ❌ FAILING: Intentionally wrong expected result
@@ -74,7 +82,11 @@ class SummatorControllerTests: XCTestCase {
         secondField.typeText("5")
         
         XCTAssertTrue(resultField.exists, "Result field should exist")
-        XCTAssertEqual(resultField.value as! String, "20", "This test is designed to fail - expecting wrong result")
+        if let fieldValue = resultField.value as? String {
+          XCTAssertEqual(fieldValue, "20", "This test is designed to fail - expecting wrong result")
+        } else {
+          XCTFail("Result field value is not a string")
+        }
     }
     
     // ✅ PASSING: Zero addition test
@@ -91,7 +103,11 @@ class SummatorControllerTests: XCTestCase {
         secondField.typeText("7")
         
         XCTAssertTrue(resultField.exists, "Result field should exist")
-        XCTAssertEqual(resultField.value as! String, "7", "0 + 7 should equal 7")
+        if let fieldValue = resultField.value as? String {
+          XCTAssertEqual(fieldValue, "7", "0 + 7 should equal 7")
+        } else {
+          XCTFail("Result field value is not a string")
+        }
     }
     
     // ❌ FAILING: Test non-existent UI element
@@ -165,7 +181,11 @@ class SummatorControllerTests: XCTestCase {
         secondField.tap()
         secondField.typeText("456")
         
-        XCTAssertEqual(resultField.value as! String, "579", "123 + 456 should equal 579")
+        if let fieldValue = resultField.value as? String {
+          XCTAssertEqual(fieldValue, "579", "123 + 456 should equal 579")
+        } else {
+          XCTFail("Result field value is not a string")
+        }
     }
     
     // ❌ FAILING: Test with array index out of bounds
@@ -182,9 +202,15 @@ class SummatorControllerTests: XCTestCase {
         let resultField = app.textFields.element(boundBy: 2)
         
         // Check default values without any interaction
-        XCTAssertEqual(firstField.value as! String, "0", "First field should default to 0")
-        XCTAssertEqual(secondField.value as! String, "0", "Second field should default to 0")
-        XCTAssertEqual(resultField.value as! String, "0", "Result field should default to 0")
+        if let firstValue = firstField.value as? String,
+           let secondValue = secondField.value as? String,
+           let resultValue = resultField.value as? String {
+          XCTAssertEqual(firstValue, "0", "First field should default to 0")
+          XCTAssertEqual(secondValue, "0", "Second field should default to 0")
+          XCTAssertEqual(resultValue, "0", "Result field should default to 0")
+        } else {
+          XCTFail("Field values are not strings")
+        }
     }
     
     // ❌ FAILING: Test with multiple assertions where second fails
@@ -195,7 +221,11 @@ class SummatorControllerTests: XCTestCase {
         XCTAssertTrue(firstField.exists, "First field exists - this passes")
         
         // Second assertion fails
-        XCTAssertEqual(firstField.value as! String, "100", "This test is designed to fail - expecting wrong initial value")
+        if let fieldValue = firstField.value as? String {
+          XCTAssertEqual(fieldValue, "100", "This test is designed to fail - expecting wrong initial value")
+        } else {
+          XCTFail("First field value is not a string")
+        }
         
         // Third assertion (won't be reached due to failure above)
         XCTAssertNotNil(firstField.value, "Field value should not be nil")
