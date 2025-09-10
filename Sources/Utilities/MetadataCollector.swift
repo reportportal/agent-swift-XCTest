@@ -95,6 +95,11 @@ class MetadataCollector {
         // Add test plan attributes
         allAttributes.append(contentsOf: collectTestPlanAttributes(from: bundle, tags: tags))
         
+        // Add tags as individual attributes for ReportPortal dashboard filtering
+        for tag in tags {
+            allAttributes.append(["key": "tag", "value": tag])
+        }
+        
         return allAttributes
     }
 }

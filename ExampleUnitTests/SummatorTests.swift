@@ -9,7 +9,7 @@
 import XCTest
 @testable import Example
 
-class SummatorTests: XCTestCase {
+final class SummatorTests: XCTestCase {
   
   private let summator = SummatorService()
   
@@ -33,17 +33,25 @@ class SummatorTests: XCTestCase {
     let boundary = "Boundary-\(UUID().uuidString)"
     
     // Simulate JSON data like our PostLogEndPoint
-    let jsonData = """
+    let jsonString = """
     {
       "item_id": "test-item-123",
       "level": "error", 
       "message": "Test error - multipart format validation",
       "time": "2025-06-19T15:08:00.000+00:00"
     }
-    """.data(using: .utf8)!
+    """
+    
+    guard let jsonData = jsonString.data(using: .utf8) else {
+      XCTFail("Failed to create JSON data")
+      return
+    }
     
     // Simulate file data
-    let fileData = "FAKE_SCREENSHOT_DATA_FOR_TESTING".data(using: .utf8)!
+    guard let fileData = "FAKE_SCREENSHOT_DATA_FOR_TESTING".data(using: .utf8) else {
+      XCTFail("Failed to create file data")
+      return
+    }
     
     // Test our boundary format construction (matches our HTTPClient implementation)
     let boundaryPrefix = "--\(boundary)\r\n"
@@ -71,7 +79,10 @@ class SummatorTests: XCTestCase {
       print(String(bodyString.prefix(500))) // Show first 500 chars
       
       // Test against the original regex pattern
-      let regex = try! NSRegularExpression(pattern: "[\\-\\w]+\\r\\nContent-Disposition:\\sform-data;\\sname=.*\\r\\n")
+      guard let regex = try? NSRegularExpression(pattern: "[\\-\\w]+\\r\\nContent-Disposition:\\sform-data;\\sname=.*\\r\\n") else {
+        XCTFail("Failed to create regex")
+        return
+      }
       let matches = regex.matches(in: bodyString, range: NSRange(bodyString.startIndex..., in: bodyString))
       
       XCTAssertEqual(matches.count, 2, "Should have 2 regex matches (JSON + file parts)")

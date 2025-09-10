@@ -11,12 +11,32 @@ import XCTest
 import UIKit
 #endif
 
-enum ReportingServiceError: Error {
+enum ReportingServiceError: LocalizedError {
   case launchIdNotFound
   case testSuiteIdNotFound
+  case configurationError
+  case networkError
+  case securityViolation
+  
+  var errorDescription: String? {
+    switch self {
+    case .launchIdNotFound:
+      return "Launch ID not found"
+    case .testSuiteIdNotFound:
+      return "Test Suite ID not found"
+    case .configurationError:
+      return "Invalid configuration"
+    case .networkError:
+      return "Network error occurred"
+    case .securityViolation:
+      return "Security policy violation"
+    }
+  }
 }
 
-public class ReportingService {
+public final class ReportingService {
+  
+  // MARK: - Properties
   
   private let httpClient: HTTPClient
   private let configuration: AgentConfiguration
@@ -29,7 +49,9 @@ public class ReportingService {
   private var testSuiteID: String?
   private var testID = ""
   
-  private let timeOutForRequestExpectation = 10.0
+  private let timeOutForRequestExpectation: TimeInterval = 10.0
+  
+  // MARK: - Initialization
   
   init(configuration: AgentConfiguration, testBundle: Bundle? = nil) {
     self.configuration = configuration
@@ -188,7 +210,6 @@ public class ReportingService {
       return
     }
     
-    print("📸 ReportingService Debug: Attempting to capture screenshot for test ID: \(testID)")
     
     let errorSemaphore = DispatchSemaphore(value: 0)
     
@@ -216,12 +237,9 @@ public class ReportingService {
       attachments: attachments
     )
     
-    print("📤 ReportingService Debug: Sending log with \(attachments.count) attachment(s)")
     
     do {
       try httpClient.callEndPoint(endPoint) { (result: LogResponse) in
-        print("✅ ReportingService Debug: Log API responded with success")
-        print("   • Response: \(result)")
         errorSemaphore.signal()
       }
     } catch {
@@ -420,110 +438,123 @@ private extension ReportingService {
     }
     
     func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
-        // Extract the core error message and clean it up
-        var cleanedMessage = originalMessage
+        // Start with the original message as-is (it already has the native format)
+        // This preserves "Test failed on line X in file.swift: description" format
+        var enhancedMessage = originalMessage
         
-        // Remove duplicate "Failed to failed to" pattern
-        cleanedMessage = cleanedMessage.replacingOccurrences(of: "Failed to failed to", with: "Failed to")
+        // Clean up only obvious duplicates without breaking the native format
+        enhancedMessage = enhancedMessage.replacingOccurrences(of: "Failed to failed to", with: "Failed to")
         
-        // Extract key information from the message
-        let components = extractErrorComponents(from: cleanedMessage)
+        // Add a separator before additional details
+        enhancedMessage += "\n\n=====================================\n"
+        enhancedMessage += "Additional Details:\n"
+        enhancedMessage += "=====================================\n"
         
-        var enhancedMessage = ""
+        // Extract key information from the message for structured details
+        let components = extractErrorComponents(from: originalMessage)
         
-        // Primary error message (simplified)
-        enhancedMessage += "TEST FAILURE\n"
-        enhancedMessage += "=====================================\n\n"
-        
-        // Error summary
+        // Add structured error components if found
+        var hasComponents = false
         if let action = components["action"] {
             enhancedMessage += "Action: \(sanitizeForJSON(action))\n"
+            hasComponents = true
         }
         if let element = components["element"] {
             enhancedMessage += "Element: \(sanitizeForJSON(element))\n"
-        }
-        if let location = components["location"] {
-            enhancedMessage += "Location: \(sanitizeForJSON(location))\n"
+            hasComponents = true
         }
         if let errorCode = components["errorCode"] {
             enhancedMessage += "Error Code: \(sanitizeForJSON(errorCode))\n"
+            hasComponents = true
+        }
+        
+        if !hasComponents {
+            // If no specific components found, don't add empty section
+            enhancedMessage = originalMessage + "\n"
         }
         
         // Test information
         if let testCase = testCase {
-            enhancedMessage += "\nTest Information\n"
-            enhancedMessage += "----------------\n"
+            enhancedMessage += "\nTest Context:\n"
+            enhancedMessage += "-------------\n"
             let testName = testCase.name.replacingOccurrences(of: "-[", with: "").replacingOccurrences(of: "]", with: "")
-            enhancedMessage += "Test: \(sanitizeForJSON(testName))\n"
+            enhancedMessage += "Test Name: \(sanitizeForJSON(testName))\n"
             
-            // Extract file and line from original message
-            if let fileMatch = cleanedMessage.range(of: #"(\w+\.swift):\d+"#, options: .regularExpression) {
-                let fileInfo = String(cleanedMessage[fileMatch])
-                enhancedMessage += "File: \(sanitizeForJSON(fileInfo))\n"
+            // Add test execution time
+            if let testRun = testCase.testRun {
+                enhancedMessage += "Execution Time: \(String(format: "%.3f", testRun.totalDuration)) seconds\n"
             }
         }
+        
+        // Tags information - single line
+        if !configuration.tags.isEmpty {
+            enhancedMessage += "\nTags: \(configuration.tags.joined(separator: ", "))\n"
+        }
+        
+        // Environment information
+        enhancedMessage += "\nEnvironment:\n"
+        enhancedMessage += "------------\n"
+        
+        // Test Plan information
+        if let testPlanName = MetadataCollector.getTestPlanName() {
+            enhancedMessage += "Test Plan: \(sanitizeForJSON(testPlanName))\n"
+        }
+        
+        // Configuration (Debug/Release)
+        #if DEBUG
+        enhancedMessage += "Build Configuration: Debug\n"
+        #else
+        enhancedMessage += "Build Configuration: Release\n"
+        #endif
         
         // Device information
 #if canImport(UIKit)
-        enhancedMessage += "\nDevice Information\n"
+        enhancedMessage += "\nDevice Information:\n"
         enhancedMessage += "------------------\n"
         enhancedMessage += "Device: \(sanitizeForJSON(UIDevice.current.modelName))\n"
-        
-        // Handle iPadOS detection
         enhancedMessage += "OS: \(sanitizeForJSON(DeviceHelper.osNameAndVersion()))\n"
+        
+        // Simulator vs Device
+        #if targetEnvironment(simulator)
+        enhancedMessage += "Platform: Simulator\n"
+        #else
+        enhancedMessage += "Platform: Physical Device\n"
+        #endif
+        
+        // Memory info (if available)
+        let deviceInfo = ProcessInfo.processInfo
+        let memoryGB = Double(deviceInfo.physicalMemory) / (1024 * 1024 * 1024)
+        enhancedMessage += "Memory: \(String(format: "%.1f", memoryGB)) GB\n"
 #endif
         
-        // Enhanced stack trace with more context
-        let stackTrace = Thread.callStackSymbols
-        if stackTrace.count > 1 {
-            enhancedMessage += "\nStack Trace\n"
-            enhancedMessage += "-----------\n"
-            
-            // Find the first test-related frame
-            var testFrameIndex = -1
-            for (index, frame) in stackTrace.enumerated() {
-                if frame.contains("test") || frame.contains("Test") {
-                    testFrameIndex = index
-                    break
-                }
+        // Process information
+        enhancedMessage += "\nProcess Information:\n"
+        enhancedMessage += "-------------------\n"
+        let processInfo = ProcessInfo.processInfo
+        enhancedMessage += "Process ID: \(processInfo.processIdentifier)\n"
+        enhancedMessage += "Process Name: \(sanitizeForJSON(processInfo.processName))\n"
+        
+        // Bundle information
+        if let bundle = Bundle.main.infoDictionary {
+            if let appVersion = bundle["CFBundleShortVersionString"] as? String {
+                enhancedMessage += "App Version: \(sanitizeForJSON(appVersion))\n"
             }
-            
-            // Include frames starting from the test method or from frame 3
-            let startIndex = testFrameIndex >= 0 ? testFrameIndex : 3
-            let relevantFrames = stackTrace.dropFirst(startIndex).prefix(8)
-            
-            var frameNumber = 0
-            for frame in relevantFrames {
-                if let enhancedFrame = enhanceStackFrame(frame) {
-                    frameNumber += 1
-                    enhancedMessage += "\n\(frameNumber). \(sanitizeForJSON(enhancedFrame.description))\n"
-                    
-                    // Only show module if it's not the test framework itself
-                    if !enhancedFrame.module.isEmpty && 
-                       !enhancedFrame.module.contains("ReportPortalAgent") && 
-                       !enhancedFrame.module.contains("XCTest") {
-                        enhancedMessage += "   Module: \(sanitizeForJSON(enhancedFrame.module))\n"
-                    }
-                    
-                    // Show method details if available and meaningful
-                    if !enhancedFrame.function.isEmpty && 
-                       enhancedFrame.function != enhancedFrame.description {
-                        enhancedMessage += "   Method: \(sanitizeForJSON(enhancedFrame.function))\n"
-                    }
-                    
-                    if enhancedFrame.lineNumber > 0 {
-                        enhancedMessage += "   Line: \(enhancedFrame.lineNumber)\n"
-                    }
-                }
+            if let buildNumber = bundle["CFBundleVersion"] as? String {
+                enhancedMessage += "Build Number: \(sanitizeForJSON(buildNumber))\n"
             }
-            
-            if frameNumber == 0 {
-                enhancedMessage += "   (No relevant stack frames available)\n"
+            if let bundleId = bundle["CFBundleIdentifier"] as? String {
+                enhancedMessage += "Bundle ID: \(sanitizeForJSON(bundleId))\n"
             }
         }
         
-        // Timestamp
-        enhancedMessage += "\nTimestamp: \(sanitizeForJSON(TimeHelper.currentTimeAsString()))\n"
+        // Human-readable timestamp
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        formatter.locale = Locale.current
+        let humanReadableTime = formatter.string(from: Date())
+        enhancedMessage += "\nTimestamp: \(humanReadableTime)\n"
+        
         
         return enhancedMessage
     }
@@ -548,12 +579,6 @@ private extension ReportingService {
             components["errorCode"] = String(message[errorMatch])
         }
         
-        // Extract file location
-        if let fileMatch = message.range(of: #"at (\w+\.swift:\d+)"#, options: .regularExpression) {
-            let location = String(message[fileMatch]).replacingOccurrences(of: "at ", with: "")
-            components["location"] = location
-        }
-        
         return components
     }
     
@@ -564,116 +589,7 @@ private extension ReportingService {
         let function: String
         let lineNumber: Int
     }
-    
-    // Helper to enhance stack frame with more details
-    private func enhanceStackFrame(_ frame: String) -> StackFrameInfo? {
-        // Validate input
-        guard !frame.isEmpty, frame.count < 5000 else { return nil } // Prevent processing extremely long strings
-        
-        // Stack frame format: "0   ModuleName   0x... functionName + offset"
-        let components = frame.split(separator: " ", maxSplits: 20, omittingEmptySubsequences: true).map(String.init)
-        
-        guard components.count >= 3 else { return nil }
-        
-        var module = ""
-        var function = ""
-        var lineNumber = 0
-        var description = ""
-        
-        // Find module name (usually at index 1)
-        if components.indices.contains(1) {
-            let potentialModule = components[1]
-            // Additional validation for module name
-            if !potentialModule.starts(with: "0x") && 
-               !potentialModule.allSatisfy({ $0.isNumber }) &&
-               potentialModule.count < 100 { // Reasonable module name length
-                module = String(potentialModule.prefix(50)) // Limit module name length
-            }
-        }
-        
-        // Look for function name (after memory address)
-        var functionStartIndex = -1
-        for (index, component) in components.enumerated() where index < 10 { // Limit search range
-            if component.starts(with: "0x") {
-                functionStartIndex = index + 1
-                break
-            }
-        }
-        
-        if functionStartIndex > 0 && functionStartIndex < components.count && functionStartIndex < 15 {
-            // Extract function name and clean it up
-            var functionComponents: [String] = []
-            let endIndex = min(functionStartIndex + 10, components.count) // Limit function components
-            for i in functionStartIndex..<endIndex {
-                let component = components[i]
-                if component == "+" { break }  // Stop at offset marker
-                if component.count < 200 { // Reasonable component length
-                    functionComponents.append(component)
-                }
-            }
-            
-            function = functionComponents.prefix(5).joined(separator: " ")
-            
-            // Limit function length before processing
-            function = String(function.prefix(200))
-        }
-        
-        // Extract line number if present (with safety bounds)
-        if frame.count < 2000 { // Only search in reasonably sized strings
-            if let lineMatch = frame.range(of: #":\d{1,5}"#, options: .regularExpression) {
-                let lineStr = String(frame[lineMatch]).dropFirst() // Remove ":"
-                lineNumber = Int(lineStr) ?? 0
-                if lineNumber > 999999 { lineNumber = 0 } // Sanity check
-            }
-        }
-        
-        // Create a human-readable description focusing on the most relevant information
-        if function.contains("test") && !function.isEmpty {
-            // For test methods, simplify the display
-            description = String(function.prefix(100))
-                .replacingOccurrences(of: "-[", with: "")
-                .replacingOccurrences(of: "]", with: "")
-                .replacingOccurrences(of: " ", with: ".")
-        } else if !module.isEmpty && !function.isEmpty {
-            // For regular methods, show module.function format
-            let safeModule = String(module.prefix(50))
-            let safeFunction = String(function.prefix(100))
-            description = "\(safeModule).\(safeFunction)"
-        } else if !function.isEmpty {
-            description = String(function.prefix(100))
-        } else if !module.isEmpty {
-            description = String(module.prefix(50))
-        } else {
-            // Fall back to the most informative part we can find
-            description = components.first(where: { 
-                !$0.starts(with: "0x") && 
-                !$0.allSatisfy({ $0.isNumber }) && 
-                $0.count < 100 
-            }) ?? "Unknown"
-        }
-        
-        // Limit final description length
-        description = String(description.prefix(200))
-        
-        // Add context indicators for special frameworks
-        if function.contains("test") || module.contains("Test") {
-            description = "🧪 " + description
-        } else if module.contains("XCTest") {
-            description = "🔧 " + description
-        } else if module.contains("UIKit") || module.contains("CoreGraphics") {
-            description = "📱 " + description
-        } else if module == "libdispatch.dylib" || module.contains("queue") {
-            description = "⚡ " + description
-        }
-        
-        return StackFrameInfo(
-            description: description,
-            module: module,
-            function: function,
-            lineNumber: lineNumber
-        )
-    }
-    
+   
     // MARK: - JSON Safety Helper
     func sanitizeForJSON(_ input: String) -> String {
         // Handle the most common problematic characters that can break JSON

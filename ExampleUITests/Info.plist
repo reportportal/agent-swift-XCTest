@@ -25,7 +25,7 @@
 	<key>ReportPortalLaunchName</key>
 	<string>Demo_Launch</string>
 	<key>ReportPortalTags</key>
-	<string>Test</string>
+	<string>Smoke, Prod, Test, UI</string>
 	<key>ReportPortalToken</key>
 	<string>&lt;token&gt;</string>
 	<key>ReportPortalURL</key>
@@ -33,6 +33,6 @@
 	<key>ReportPortalProjectName</key>
 	<string>&lt;project name&gt;</string>
 	<key>IsFinalTestBundle</key>
-	<false/>
+	<true/>
 </dict>
 </plist>
