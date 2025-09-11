@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ## [3.1.3] - 2025-09-11
+### Added
+- Enhanced error messages with metadata (device info, timestamps, test context), by @rusel95
+### Fixed
+- Missing Line Numbers in Error Messages, by @rusel95
+- Dynamic Suite Naming Not Working, by @rusel95
 
 ## [3.1.2] - 2025-08-07
 
