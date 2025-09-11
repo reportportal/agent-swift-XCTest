@@ -16,7 +16,6 @@ open class RPListener: NSObject, XCTestObservation {
   
   public override init() {
     super.init()
-    
     XCTestObservationCenter.shared.addTestObserver(self)
   }
   
