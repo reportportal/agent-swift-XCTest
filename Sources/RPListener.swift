@@ -282,8 +282,8 @@ open class RPListener: NSObject, XCTestObservation {
             let selector = invocation.selector
             let featureScenarioDataSelector = NSSelectorFromString("featureScenarioData:")
 
-            if nativeTestCaseClass.responds(to: featureScenarioDataSelector),
-               let unmanagedResult = (nativeTestCaseClass as AnyObject).perform(featureScenarioDataSelector, with: selector as Any) {
+            if (nativeTestCaseClass as AnyObject).responds(to: featureScenarioDataSelector),
+                let unmanagedResult = (nativeTestCaseClass as AnyObject).perform(featureScenarioDataSelector, with: selector as Any) {
                 let tupleAny = unmanagedResult.takeRetainedValue()
                 if let tuple = tupleAny as? (Any, Any) {
                     let featureName = (tuple.0 as? NSObject)?.value(forKey: "name") as? String
