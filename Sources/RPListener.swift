@@ -194,17 +194,16 @@ open class RPListener: NSObject, XCTestObservation {
         
         print("🛠 RPListener: Initializing missing Gherkin suites for ReportPortal.")
         queue.sync {
-            if reportingService?.rootSuiteID == nil {
-                try? reportingService?.startRootSuite(XCTestSuite(name: "Gherkin Features"))
+            if reportingService.rootSuiteID == nil {
+                try? reportingService.startRootSuite(XCTestSuite(name: "Gherkin Features"))
             }
-            if reportingService?.testSuiteID == nil {
+            if reportingService.testSuiteID == nil {
                 let suiteName = String(describing: type(of: testCase))
-                try? reportingService?.startTestSuite(XCTestSuite(name: suiteName))
+                try? reportingService.startTestSuite(XCTestSuite(name: suiteName))
             }
         }
     }
 
-    @available(*, deprecated, message: "Use didFailWithDescription for iOS 17+")
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
         guard let reportingService = reportingService else { return }
 
