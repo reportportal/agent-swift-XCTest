@@ -42,7 +42,7 @@ public final class ReportingService {
   private let configuration: AgentConfiguration
   private var testBundle: Bundle?
   
-  private var launchID: String?
+  var launchID: String?
   private var testSuiteStatus = TestStatus.passed
   private var launchStatus = TestStatus.passed
   var rootSuiteID: String?

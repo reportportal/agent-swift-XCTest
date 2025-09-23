@@ -165,24 +165,8 @@ open class RPListener: NSObject, XCTestObservation {
             }
         }
 
-        // Ensure root suite is started
-        if reportingService?.rootSuiteID == nil {
-            do {
-                try reportingService?.startRootSuite(XCTestSuite(name: "Gherkin Features"))
-            } catch {
-                print("🚨 RPListener: Failed to start root suite — \(error.localizedDescription)")
-            }
-        }
-
-        // Ensure test suite is started
-        if reportingService?.testSuiteID == nil {
-            let suiteName = String(describing: type(of: testCase))
-            do {
-                try reportingService?.startTestSuite(XCTestSuite(name: suiteName))
-            } catch {
-                print("🚨 RPListener: Failed to start test suite — \(error.localizedDescription)")
-            }
-        }
+        // ✅ Gherkin-specific suite initialization workaround
+        ensureGherkinSuitesInitialized(for: testCase)
 
         // Unified Gherkin name extraction
         let (featureName, scenarioName) = extractGherkinNames(from: testCase)
@@ -195,12 +179,33 @@ open class RPListener: NSObject, XCTestObservation {
         }
     }
 
+    // MARK: - Gherkin Suite Initialization Helper
+    /// XCTest-Gherkin compatibility note:
+    /// Normally, root/test suites are initialized in testSuiteWillStart.
+    /// However, XCTest-Gherkin dynamically generates suites for scenarios with names
+    /// like "All tests" or "Selected tests", which RPListener ignores.
+    /// As a result, startRootSuite()/startTestSuite() is never called,
+    /// leaving rootSuiteID/testSuiteID unset and causing startTest() to fail.
+    ///
+    /// This helper manually initializes suites if IDs are missing, ensuring
+    /// proper ReportPortal hierarchy for Gherkin scenarios.
+    private func ensureGherkinSuitesInitialized(for testCase: XCTestCase) {
+        guard reportingService?.rootSuiteID == nil || reportingService?.testSuiteID == nil else { return }
+        
+        print("🛠 RPListener: Initializing missing Gherkin suites for ReportPortal.")
+        
+        if reportingService?.rootSuiteID == nil {
+            try? reportingService?.startRootSuite(XCTestSuite(name: "Gherkin Features"))
+        }
+        if reportingService?.testSuiteID == nil {
+            let suiteName = String(describing: type(of: testCase))
+            try? reportingService?.startTestSuite(XCTestSuite(name: suiteName))
+        }
+    }
+
     @available(*, deprecated, message: "Use didFailWithDescription for iOS 17+")
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-        guard let reportingService = reportingService else {
-            print("🚨 RPListener: ReportingService missing. Issue for '\(testCase.name)' not reported.")
-            return
-        }
+        guard let reportingService = reportingService else { return }
 
         queue.async {
             do {
@@ -216,10 +221,7 @@ open class RPListener: NSObject, XCTestObservation {
     }
 
     public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
-        guard let reportingService = reportingService else {
-            print("🚨 RPListener: ReportingService missing. Failure for '\(testCase.name)' not reported.")
-            return
-        }
+        guard let reportingService = reportingService else { return }
 
         queue.async {
             do {
@@ -236,11 +238,7 @@ open class RPListener: NSObject, XCTestObservation {
         guard let reportingService = reportingService else { return }
 
         queue.async {
-            do {
-                try reportingService.finishTest(testCase)
-            } catch {
-                print("🚨 RPListener Test Finish Error: \(error.localizedDescription)")
-            }
+            try? reportingService.finishTest(testCase)
         }
     }
   
@@ -253,14 +251,10 @@ open class RPListener: NSObject, XCTestObservation {
         }
         
         queue.async {
-            do {
-                if testSuite.name.contains(".xctest") {
-                    try reportingService.finishRootSuite()
-                } else {
-                    try reportingService.finishTestSuite()
-                }
-            } catch {
-                print("🚨 RPListener Suite Finish Error: \(error.localizedDescription)")
+            if testSuite.name.contains(".xctest") {
+                try? reportingService.finishRootSuite()
+            } else {
+                try? reportingService.finishTestSuite()
             }
         }
     }
@@ -269,16 +263,17 @@ open class RPListener: NSObject, XCTestObservation {
         guard let reportingService = reportingService else { return }
 
         queue.sync {
-            do {
-                try reportingService.finishLaunch()
-            } catch {
-                print("🚨 RPListener Launch Finish Error: \(error.localizedDescription)")
-            }
+            try? reportingService.finishLaunch()
         }
     }
 
     // MARK: - Gherkin Detection & Name Extraction
     private func extractGherkinNames(from testCase: XCTestCase) -> (feature: String?, scenario: String?) {
+        // Safety check: If neither NativeTestCase nor XCGNativeInitializer exists, skip
+        guard NSClassFromString("NativeTestCase") != nil || NSClassFromString("XCGNativeInitializer") != nil else {
+            return (nil, nil)
+        }
+        
         if let nativeTestCaseClass = NSClassFromString("NativeTestCase"),
            testCase.isKind(of: nativeTestCaseClass),
            let invocation = testCase.invocation {
@@ -288,7 +283,7 @@ open class RPListener: NSObject, XCTestObservation {
 
             if nativeTestCaseClass.responds(to: featureScenarioDataSelector),
                let unmanagedResult = (nativeTestCaseClass as AnyObject).perform(featureScenarioDataSelector, with: selector as Any) {
-                let tupleAny = unmanagedResult.takeUnretainedValue()
+                let tupleAny = unmanagedResult.takeRetainedValue()
                 if let tuple = tupleAny as? (Any, Any) {
                     let featureName = (tuple.0 as? NSObject)?.value(forKey: "name") as? String
                     let scenarioName = (tuple.1 as? NSObject)?.value(forKey: "name") as? String
