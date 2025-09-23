@@ -45,8 +45,8 @@ public final class ReportingService {
   private var launchID: String?
   private var testSuiteStatus = TestStatus.passed
   private var launchStatus = TestStatus.passed
-  private var rootSuiteID: String?
-  private var testSuiteID: String?
+  var rootSuiteID: String?
+  var testSuiteID: String?
   private var testID = ""
   
   private let timeOutForRequestExpectation: TimeInterval = 10.0
@@ -195,6 +195,47 @@ public final class ReportingService {
       throw error
     }
     
+    _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
+  }
+    
+  func startTest(_ test: XCTestCase, featureName: String?, scenarioName: String?) throws {
+    guard let launchID = launchID else {
+      print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Launch ID is missing.")
+      throw ReportingServiceError.launchIdNotFound
+    }
+    guard let testSuiteID = testSuiteID else {
+      print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Test Suite ID is missing.")
+      throw ReportingServiceError.testSuiteIdNotFound
+    }
+        
+    let testSemaphore = DispatchSemaphore(value: 0)
+        
+    // Build a more descriptive name for Gherkin scenarios
+    var finalName: String
+    if let feature = featureName, let scenario = scenarioName {
+      finalName = "\(feature) - \(scenario)"
+    } else {
+      finalName = extractTestName(from: test)
+    }
+        
+    let endPoint = StartItemEndPoint(
+      itemName: finalName,
+      parentID: testSuiteID,
+      launchID: launchID,
+      type: .step
+    )
+        
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Item) in
+          self.testID = result.id
+          testSemaphore.signal()
+      }
+    } catch {
+      print("🚨 ReportingService: Failed to start test '\(finalName)': \(error.localizedDescription)")
+      testSemaphore.signal()
+      throw error
+    }
+        
     _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
@@ -391,51 +432,50 @@ private extension ReportingService {
     return result
   }
     
-    // MARK: - Screenshot Capture
-    func captureScreenshot(testCase: XCTestCase?) -> (data: Data, fileExtension: String, mimeType: String)? {
+  func captureScreenshot(testCase: XCTestCase?) -> (data: Data, fileExtension: String, mimeType: String)? {
 #if canImport(XCTest) && canImport(UIKit)
-        // Direct screenshot capture using XCUIScreen
-        let screenshot = XCUIScreen.main.screenshot()
-        let originalData = screenshot.pngRepresentation
+    // Direct screenshot capture using XCUIScreen
+    let screenshot = XCUIScreen.main.screenshot()
+    let originalData = screenshot.pngRepresentation
+
+    // Convert to UIImage for format processing
+    guard let uiImage = UIImage(data: originalData) else {
+      return nil
+    }
         
-        // Convert to UIImage for format processing
-        guard let uiImage = UIImage(data: originalData) else {
-            return nil
+    // Smart compression strategy: JPEG works better than PNG for screenshots
+    var bestData = originalData
+    var isJpeg = false
+        
+    // Try JPEG compression first (much more effective for screenshots)
+    if let jpegData = uiImage.jpegData(compressionQuality: 0.7) {
+        if jpegData.count < originalData.count {
+            bestData = jpegData
+            isJpeg = true
         }
+    }
         
-        // Smart compression strategy: JPEG works better than PNG for screenshots
-        var bestData = originalData
-        var isJpeg = false
-        
-        // Try JPEG compression first (much more effective for screenshots)
-        if let jpegData = uiImage.jpegData(compressionQuality: 0.7) {
-            if jpegData.count < originalData.count {
+    // If still too large, try lower quality JPEG
+    if bestData.count > 100 * 1024 && !isJpeg { // Still over 100KB and not using JPEG yet
+        if let jpegData = uiImage.jpegData(compressionQuality: 0.5) {
+            if jpegData.count < bestData.count {
                 bestData = jpegData
                 isJpeg = true
             }
         }
-        
-        // If still too large, try lower quality JPEG
-        if bestData.count > 100 * 1024 && !isJpeg { // Still over 100KB and not using JPEG yet
-            if let jpegData = uiImage.jpegData(compressionQuality: 0.5) {
-                if jpegData.count < bestData.count {
-                    bestData = jpegData
-                    isJpeg = true
-                }
-            }
-        }
-        
-        // Return appropriate format information based on what we're actually sending
-        if isJpeg {
-            return (bestData, "jpg", "image/jpeg")
-        } else {
-            return (bestData, "png", "image/png")
-        }
-#else
-        print("🚨 ReportingService Platform Error: Screenshot capture not available on this platform. Only iOS supports screenshot capture.")
-        return nil
-#endif
     }
+        
+    // Return appropriate format information based on what we're actually sending
+    if isJpeg {
+        return (bestData, "jpg", "image/jpeg")
+    } else {
+        return (bestData, "png", "image/png")
+    }
+#else
+    print("🚨 ReportingService Platform Error: Screenshot capture not available on this platform. Only iOS supports screenshot capture.")
+    return nil
+#endif
+  }
     
     func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
         // Start with the original message as-is (it already has the native format)
@@ -662,5 +702,37 @@ extension String {
   var isLowercased: Bool {
     return lowercased() == self
   }
+}
+
+extension ReportingService {
+    public func log(message: String, level: LogLevel, attachment: (data: Data, fileExtension: String, mimeType: String)? = nil) throws {
+        guard let launchID = launchID, !testID.isEmpty else {
+            print("⚠️ ReportingService: Cannot log message '\(message)' - missing launchID/testID.")
+            return
+        }
+        
+        var attachments: [FileAttachment] = []
+        if let att = attachment {
+            let filename = "step_screenshot_\(Int(Date().timeIntervalSince1970)).\(att.fileExtension)"
+            attachments.append(FileAttachment(data: att.data, filename: filename, mimeType: att.mimeType))
+        }
+        
+        let endPoint = PostLogEndPoint(
+            itemUuid: testID,
+            launchUuid: launchID,
+            level: level.rawValue,
+            message: message,
+            attachments: attachments
+        )
+        
+        try httpClient.callEndPoint(endPoint) { (_: LogResponse) in }
+    }
+}
+
+public enum LogLevel: String {
+    case info
+    case warn
+    case error
+    case debug
 }
 
