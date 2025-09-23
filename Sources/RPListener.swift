@@ -190,16 +190,17 @@ open class RPListener: NSObject, XCTestObservation {
     /// This helper manually initializes suites if IDs are missing, ensuring
     /// proper ReportPortal hierarchy for Gherkin scenarios.
     private func ensureGherkinSuitesInitialized(for testCase: XCTestCase) {
-        guard reportingService?.rootSuiteID == nil || reportingService?.testSuiteID == nil else { return }
+        guard let reportingService = reportingService, reportingService.rootSuiteID == nil || reportingService.testSuiteID == nil else { return }
         
         print("🛠 RPListener: Initializing missing Gherkin suites for ReportPortal.")
-        
-        if reportingService?.rootSuiteID == nil {
-            try? reportingService?.startRootSuite(XCTestSuite(name: "Gherkin Features"))
-        }
-        if reportingService?.testSuiteID == nil {
-            let suiteName = String(describing: type(of: testCase))
-            try? reportingService?.startTestSuite(XCTestSuite(name: suiteName))
+        queue.sync {
+            if reportingService?.rootSuiteID == nil {
+                try? reportingService?.startRootSuite(XCTestSuite(name: "Gherkin Features"))
+            }
+            if reportingService?.testSuiteID == nil {
+                let suiteName = String(describing: type(of: testCase))
+                try? reportingService?.startTestSuite(XCTestSuite(name: suiteName))
+            }
         }
     }
 

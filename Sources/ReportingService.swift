@@ -42,11 +42,11 @@ public final class ReportingService {
   private let configuration: AgentConfiguration
   private var testBundle: Bundle?
   
-  var launchID: String?
+  private(set) var launchID: String?
   private var testSuiteStatus = TestStatus.passed
   private var launchStatus = TestStatus.passed
-  var rootSuiteID: String?
-  var testSuiteID: String?
+  private(set) var rootSuiteID: String?
+  private(set) var testSuiteID: String?
   private var testID = ""
   
   private let timeOutForRequestExpectation: TimeInterval = 10.0
@@ -435,6 +435,8 @@ private extension ReportingService {
   func captureScreenshot(testCase: XCTestCase?) -> (data: Data, fileExtension: String, mimeType: String)? {
 #if canImport(XCTest) && canImport(UIKit)
     // Direct screenshot capture using XCUIScreen
+    // Guard: ensure UI testing context (XCUIScreen is available at runtime)
+    guard NSClassFromString("XCUIScreen") != nil else { return nil }
     let screenshot = XCUIScreen.main.screenshot()
     let originalData = screenshot.pngRepresentation
 
@@ -442,27 +444,22 @@ private extension ReportingService {
     guard let uiImage = UIImage(data: originalData) else {
       return nil
     }
-        
-    // Smart compression strategy: JPEG works better than PNG for screenshots
+
+    // Smart compression: prefer JPEG and target max size (~2MB)
+    let maxBytes = 2_000_000
     var bestData = originalData
     var isJpeg = false
         
-    // Try JPEG compression first (much more effective for screenshots)
-    if let jpegData = uiImage.jpegData(compressionQuality: 0.7) {
-        if jpegData.count < originalData.count {
-            bestData = jpegData
-            isJpeg = true
+    // Iteratively compress to approach size cap
+    var qualities: [CGFloat] = [0.7, 0.6, 0.5, 0.4, 0.3]
+    for q in qualities {
+      if let jpeg = uiImage.jpegData(compressionQuality: q) {
+        if jpeg.count < bestData.count || bestData.count > maxBytes {
+          bestData = jpeg
+          isJpeg = true
         }
-    }
-        
-    // If still too large, try lower quality JPEG
-    if bestData.count > 100 * 1024 && !isJpeg { // Still over 100KB and not using JPEG yet
-        if let jpegData = uiImage.jpegData(compressionQuality: 0.5) {
-            if jpegData.count < bestData.count {
-                bestData = jpegData
-                isJpeg = true
-            }
-        }
+        if bestData.count <= maxBytes { break }
+      }
     }
         
     // Return appropriate format information based on what we're actually sending
