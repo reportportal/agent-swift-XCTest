@@ -223,29 +223,29 @@ open class RPListener: NSObject, XCTestObservation {
 
     // Legacy API (pre-iOS 17, Xcode <15)
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-        guard let reportingService = reportingService else { return }
-
-        queue.async {
-            do {
-                let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
-                    ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
-                    : ""
-                let errorMessage = "Test '\(issue.description)' failed\(lineNumberString), \(issue.description)"
-                try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
-            } catch {
-                print("🚨 RPListener Issue Reporting Error: \(error.localizedDescription)")
-            }
-        }
+        let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
+            ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
+            : ""
+        let errorMessage = "Test '\(issue.description)' failed\(lineNumberString), \(issue.description)"
+        
+        reportFailure(testCase: testCase, message: errorMessage)
     }
 
+    // Modern API (iOS 17+, Xcode 15+)
     public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
-        guard let reportingService = reportingService else { return }
+        let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
+        let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
+        
+        reportFailure(testCase: testCase, message: errorMessage)
+    }
 
+    // MARK: - Private helper
+    private func reportFailure(testCase: XCTestCase, message: String) {
+        guard let reportingService = reportingService else { return }
+        
         queue.async {
             do {
-                let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
-                let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
-                try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
+                try reportingService.reportErrorWithScreenshot(message: message, testCase: testCase)
             } catch {
                 print("🚨 RPListener Failure Reporting Error: \(error.localizedDescription)")
             }
