@@ -192,7 +192,12 @@ open class RPListener: NSObject, XCTestObservation {
     /// This helper manually initializes suites if IDs are missing, ensuring
     /// proper ReportPortal hierarchy for Gherkin scenarios.
     private func ensureGherkinSuitesInitialized(for testCase: XCTestCase) {
+        private func ensureGherkinSuitesInitialized(for testCase: XCTestCase) {
         guard let reportingService = reportingService, reportingService.rootSuiteID == nil || reportingService.testSuiteID == nil else { return }
+        // Only apply this workaround when XCTest-Gherkin is present
+        guard NSClassFromString("NativeTestCase") != nil || NSClassFromString("XCGNativeInitializer") != nil else { return }
+        guard let reportingService = reportingService,
+                reportingService.rootSuiteID == nil || reportingService.testSuiteID == nil else { return }
         
         print("🛠 RPListener: Initializing missing Gherkin suites for ReportPortal.")
         queue.sync {
@@ -215,8 +220,8 @@ open class RPListener: NSObject, XCTestObservation {
                 let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
                     ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
                     : ""
-                let errorMessage = "Test '\(issue.description)' failed\(lineNumberString), \(issue.description)"
-                try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
+                let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString), \(issue.description)"
+                reportFailure(testCase: testCase, message: errorMessage)
             } catch {
                 print("🚨 RPListener Issue Reporting Error: \(error.localizedDescription)")
             }
@@ -228,12 +233,12 @@ open class RPListener: NSObject, XCTestObservation {
         let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
             ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
             : ""
-        let errorMessage = "Test '\(issue.description)' failed\(lineNumberString), \(issue.description)"
+        let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString): \(issue.description)"
         
         reportFailure(testCase: testCase, message: errorMessage)
     }
 
-    // Modern API (iOS 17+, Xcode 15+)
+    // Legacy API (pre-iOS 17, Xcode < 15)
     public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
         let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
         let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
