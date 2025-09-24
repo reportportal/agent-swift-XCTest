@@ -204,6 +204,24 @@ open class RPListener: NSObject, XCTestObservation {
         }
     }
 
+    // Modern API (iOS 17+, Xcode 15+)
+    public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
+        guard let reportingService = reportingService else { return }
+
+        queue.async {
+            do {
+                let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
+                    ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
+                    : ""
+                let errorMessage = "Test '\(issue.description)' failed\(lineNumberString), \(issue.description)"
+                try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
+            } catch {
+                print("🚨 RPListener Issue Reporting Error: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // Legacy API (pre-iOS 17, Xcode <15)
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
         guard let reportingService = reportingService else { return }
 
