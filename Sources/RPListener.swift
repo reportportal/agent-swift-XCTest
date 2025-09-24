@@ -124,6 +124,8 @@ open class RPListener: NSObject, XCTestObservation {
         
         queue.async {
             do {
+                // Ensure launch is started before starting suites (idempotent)
+                try reportingService.startLaunch()
                 if testSuite.name.contains(".xctest") {
                     try reportingService.startRootSuite(testSuite)
                 } else {
@@ -301,7 +303,7 @@ open class RPListener: NSObject, XCTestObservation {
 
             if (nativeTestCaseClass as AnyObject).responds(to: featureScenarioDataSelector),
                 let unmanagedResult = (nativeTestCaseClass as AnyObject).perform(featureScenarioDataSelector, with: selector as Any) {
-                let tupleAny = unmanagedResult.takeRetainedValue()
+                let tupleAny = unmanagedResult.takeUnRetainedValue()
                 if let tuple = tupleAny as? (Any, Any) {
                     let featureName = (tuple.0 as? NSObject)?.value(forKey: "name") as? String
                     let scenarioName = (tuple.1 as? NSObject)?.value(forKey: "name") as? String
