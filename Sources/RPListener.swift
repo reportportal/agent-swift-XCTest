@@ -210,6 +210,7 @@ open class RPListener: NSObject, XCTestObservation {
     }
 
     // Modern API (iOS 17+, Xcode 15+)
+    @available(iOS 17.0, macOS 14.0, *)
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
         let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
             ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
