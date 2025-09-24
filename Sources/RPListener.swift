@@ -192,7 +192,6 @@ open class RPListener: NSObject, XCTestObservation {
     /// This helper manually initializes suites if IDs are missing, ensuring
     /// proper ReportPortal hierarchy for Gherkin scenarios.
     private func ensureGherkinSuitesInitialized(for testCase: XCTestCase) {
-        private func ensureGherkinSuitesInitialized(for testCase: XCTestCase) {
         // Only apply this workaround when XCTest-Gherkin is present
         guard NSClassFromString("NativeTestCase") != nil || NSClassFromString("XCGNativeInitializer") != nil else { return }
         guard let reportingService = reportingService,
@@ -212,19 +211,11 @@ open class RPListener: NSObject, XCTestObservation {
 
     // Modern API (iOS 17+, Xcode 15+)
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
-        guard let reportingService = reportingService else { return }
-
-        queue.async {
-            do {
-                let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
-                    ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
-                    : ""
-                let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString), \(issue.description)"
-                reportFailure(testCase: testCase, message: errorMessage)
-            } catch {
-                print("🚨 RPListener Issue Reporting Error: \(error.localizedDescription)")
-            }
-        }
+        let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
+            ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
+            : ""
+        let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString), \(issue.description)"
+        reportFailure(testCase: testCase, message: errorMessage)
     }
 
     // Legacy API (pre-iOS 17, Xcode <15)
@@ -307,7 +298,7 @@ open class RPListener: NSObject, XCTestObservation {
 
             if (nativeTestCaseClass as AnyObject).responds(to: featureScenarioDataSelector),
                 let unmanagedResult = (nativeTestCaseClass as AnyObject).perform(featureScenarioDataSelector, with: selector as Any) {
-                let tupleAny = unmanagedResult.takeUnRetainedValue()
+                let tupleAny = unmanagedResult.takeUnretainedValue()
                 if let tuple = tupleAny as? (Any, Any) {
                     let featureName = (tuple.0 as? NSObject)?.value(forKey: "name") as? String
                     let scenarioName = (tuple.1 as? NSObject)?.value(forKey: "name") as? String
