@@ -42,11 +42,11 @@ public final class ReportingService {
   private let configuration: AgentConfiguration
   private var testBundle: Bundle?
   
-  private var launchID: String?
+  private(set) var launchID: String?
   private var testSuiteStatus = TestStatus.passed
   private var launchStatus = TestStatus.passed
-  private var rootSuiteID: String?
-  private var testSuiteID: String?
+  private(set) var rootSuiteID: String?
+  private(set) var testSuiteID: String?
   private var testID = ""
   
   private let timeOutForRequestExpectation: TimeInterval = 10.0
@@ -165,6 +165,16 @@ public final class ReportingService {
     _ = testSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
+  /// Starts a test item for the given XCTestCase on the reporting server and stores the resulting `testID`.
+  /// 
+  /// This sends a StartItem request using the extracted test name and the current `testSuiteID`/`launchID`,
+  /// waits (up to `timeOutForRequestExpectation`) for the response, and assigns `self.testID` on success.
+  /// 
+  /// - Parameter test: The XCTestCase whose name will be used to create the test item.
+  /// - Throws:
+  ///   - `ReportingServiceError.launchIdNotFound` if no launch has been started.
+  ///   - `ReportingServiceError.testSuiteIdNotFound` if no test suite has been started.
+  ///   - Any error thrown by the HTTP client while calling the endpoint.
   func startTest(_ test: XCTestCase) throws {
     guard let launchID = launchID else {
       print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Launch ID is missing.")
@@ -197,8 +207,68 @@ public final class ReportingService {
     
     _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
+    
+  /// Starts a test item on the reporting server and records the returned test identifier.
+  /// 
+  /// If both `featureName` and `scenarioName` are provided, the test item name is formed as
+  /// "`featureName` - `scenarioName`"; otherwise the test name is derived from the `XCTestCase` via `extractTestName(from:)`.
+  /// On successful creation, the service's `testID` is set to the server-returned item id. The call blocks until the create request completes or a timeout (`timeOutForRequestExpectation`) elapses.
+  /// - Parameters:
+  ///   - test: The `XCTestCase` whose execution is being reported.
+  ///   - featureName: Optional Gherkin feature name to use when forming the test item name.
+  ///   - scenarioName: Optional Gherkin scenario name to use when forming the test item name.
+  /// - Throws:
+  ///   - `ReportingServiceError.launchIdNotFound` if no active launch is available.
+  ///   - `ReportingServiceError.testSuiteIdNotFound` if no active test suite is available.
+  ///   - Any error thrown by the underlying HTTP client when creating the test item.
+  func startTest(_ test: XCTestCase, featureName: String?, scenarioName: String?) throws {
+    guard let launchID = launchID else {
+      print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Launch ID is missing.")
+      throw ReportingServiceError.launchIdNotFound
+    }
+    guard let testSuiteID = testSuiteID else {
+      print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Test Suite ID is missing.")
+      throw ReportingServiceError.testSuiteIdNotFound
+    }
+        
+    let testSemaphore = DispatchSemaphore(value: 0)
+        
+    // Build a more descriptive name for Gherkin scenarios
+    var finalName: String
+    if let feature = featureName, let scenario = scenarioName {
+      finalName = "\(feature) - \(scenario)"
+    } else {
+      finalName = extractTestName(from: test)
+    }
+        
+    let endPoint = StartItemEndPoint(
+      itemName: finalName,
+      parentID: testSuiteID,
+      launchID: launchID,
+      type: .step
+    )
+        
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Item) in
+          self.testID = result.id
+          testSemaphore.signal()
+      }
+    } catch {
+      print("🚨 ReportingService: Failed to start test '\(finalName)': \(error.localizedDescription)")
+      testSemaphore.signal()
+      throw error
+    }
+        
+    _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
+  }
   
-  // Enhanced error reporting with screenshot support
+  /// Reports an error to the remote reporting server, optionally attaching a screenshot captured from the provided test case.
+  /// 
+  /// Builds an enhanced error message (including test and environment context), attempts to capture a screenshot, and posts a log entry with level `"error"`. If a screenshot is captured it is uploaded as a binary attachment; failure to capture a screenshot does not prevent the log from being sent.
+  /// - Parameters:
+  ///   - message: The original error message to report. This will be incorporated into the enhanced message sent to the server.
+  ///   - testCase: Optional XCTestCase used to capture a screenshot and to add test-specific context to the enhanced message. If `nil` no screenshot or test context will be included.
+  /// - Throws: `ReportingServiceError.launchIdNotFound` if there is no active launch ID. Also rethrows any networking or HTTP client errors encountered while posting the log.
   func reportErrorWithScreenshot(message: String, testCase: XCTestCase? = nil) throws {
     guard let launchID = launchID else {
       print("🚨 ReportingService Screenshot Error: Cannot report error with screenshot - Launch ID is missing. Error: '\(message)'")
@@ -365,6 +435,15 @@ private extension ReportingService {
     }
   }
   
+  /// Extracts a human-friendly test name from an `XCTestCase` instance, applying configured test-name transformation rules.
+  /// 
+  /// The returned name is derived from `test.name` and then modified according to `configuration.testNameRules`:
+  /// - `stripTestPrefix`: removes the first 4 characters from the extracted test identifier.
+  /// - `whiteSpaceOnUnderscore`: replaces underscores with spaces.
+  /// - `whiteSpaceOnCamelCase`: inserts spaces between a lowercase-to-uppercase boundary (e.g., `myTestName` -> `my Test Name`).
+  /// 
+  /// - Parameter test: The XCTestCase whose `name` will be parsed and transformed.
+  /// - Returns: A cleaned, human-readable test name suitable for display in reports.
   func extractTestName(from test: XCTestCase) -> String {
     let originName = test.name.trimmingCharacters(in: .whitespacesAndNewlines)
     let components = originName.components(separatedBy: " ")
@@ -391,52 +470,62 @@ private extension ReportingService {
     return result
   }
     
-    // MARK: - Screenshot Capture
-    func captureScreenshot(testCase: XCTestCase?) -> (data: Data, fileExtension: String, mimeType: String)? {
+  /// Captures a device screenshot (using XCUIScreen) and returns image data ready for upload.
+  /// 
+  /// The method prefers a JPEG representation and will iteratively compress the image to try to keep the payload near or below ~2 MB; if JPEG compression is not smaller, the original PNG is returned. Returns nil when screenshots are not available on the current platform or if capture/encoding fails.
+  /// - Parameters:
+  ///   - testCase: An optional `XCTestCase` for API symmetry (currently not used by the capture routine).
+  /// - Returns: A tuple (data, fileExtension, mimeType) containing the image bytes, the file extension ("jpg" or "png"), and the MIME type ("image/jpeg" or "image/png"), or `nil` if capture is unavailable or failed (e.g., non-iOS platforms or missing XCUIScreen).
+  func captureScreenshot(testCase: XCTestCase?) -> (data: Data, fileExtension: String, mimeType: String)? {
 #if canImport(XCTest) && canImport(UIKit)
-        // Direct screenshot capture using XCUIScreen
-        let screenshot = XCUIScreen.main.screenshot()
-        let originalData = screenshot.pngRepresentation
-        
-        // Convert to UIImage for format processing
-        guard let uiImage = UIImage(data: originalData) else {
-            return nil
-        }
-        
-        // Smart compression strategy: JPEG works better than PNG for screenshots
-        var bestData = originalData
-        var isJpeg = false
-        
-        // Try JPEG compression first (much more effective for screenshots)
-        if let jpegData = uiImage.jpegData(compressionQuality: 0.7) {
-            if jpegData.count < originalData.count {
-                bestData = jpegData
-                isJpeg = true
-            }
-        }
-        
-        // If still too large, try lower quality JPEG
-        if bestData.count > 100 * 1024 && !isJpeg { // Still over 100KB and not using JPEG yet
-            if let jpegData = uiImage.jpegData(compressionQuality: 0.5) {
-                if jpegData.count < bestData.count {
-                    bestData = jpegData
-                    isJpeg = true
-                }
-            }
-        }
-        
-        // Return appropriate format information based on what we're actually sending
-        if isJpeg {
-            return (bestData, "jpg", "image/jpeg")
-        } else {
-            return (bestData, "png", "image/png")
-        }
-#else
-        print("🚨 ReportingService Platform Error: Screenshot capture not available on this platform. Only iOS supports screenshot capture.")
-        return nil
-#endif
+    // Direct screenshot capture using XCUIScreen
+    // Guard: ensure UI testing context (XCUIScreen is available at runtime)
+    guard NSClassFromString("XCUIScreen") != nil else { return nil }
+    let screenshot = XCUIScreen.main.screenshot()
+    let originalData = screenshot.pngRepresentation
+
+    // Convert to UIImage for format processing
+    guard let uiImage = UIImage(data: originalData) else {
+      return nil
     }
+
+    // Smart compression: prefer JPEG and target max size (~2MB)
+    let maxBytes = 2_000_000
+    var bestData = originalData
+    var isJpeg = false
+        
+    // Iteratively compress to approach size cap
+    var qualities: [CGFloat] = [0.7, 0.6, 0.5, 0.4, 0.3]
+    for q in qualities {
+      if let jpeg = uiImage.jpegData(compressionQuality: q) {
+        if jpeg.count < bestData.count || bestData.count > maxBytes {
+          bestData = jpeg
+          isJpeg = true
+        }
+        if bestData.count <= maxBytes { break }
+      }
+    }
+        
+    // Return appropriate format information based on what we're actually sending
+    if isJpeg {
+        return (bestData, "jpg", "image/jpeg")
+    } else {
+        return (bestData, "png", "image/png")
+    }
+#else
+    print("🚨 ReportingService Platform Error: Screenshot capture not available on this platform. Only iOS supports screenshot capture.")
+    return nil
+#endif
+  }
     
+    /// Builds an enhanced, human-readable error message by appending structured diagnostics and runtime context to the provided failure text.
+    /// 
+    /// The originalMessage is preserved (with minimal duplicate-cleanup) and followed by an "Additional Details" section that may include extracted error components (action, element, error code), test context (name and execution time) when a testCase is provided, tags, environment, build configuration, device and process information, bundle/app metadata, and a timestamp. Values are sanitized for safe JSON embedding where included.
+    ///
+    /// - Parameters:
+    ///   - originalMessage: The raw failure text (e.g., XCTest's failure description). This text is kept intact as the basis of the returned message.
+    ///   - testCase: Optional XCTestCase whose name and testRun (execution time) will be appended under "Test Context" when available.
+    /// - Returns: A single String containing the original message plus appended diagnostic details suitable for logging or reporting.
     func createEnhancedErrorMessage(originalMessage: String, testCase: XCTestCase?) -> String {
         // Start with the original message as-is (it already has the native format)
         // This preserves "Test failed on line X in file.swift: description" format
@@ -662,5 +751,46 @@ extension String {
   var isLowercased: Bool {
     return lowercased() == self
   }
+}
+
+extension ReportingService {
+    /// Posts a log message (optionally with a binary attachment) for the current test item to the reporting server.
+    /// 
+    /// If no active launch ID or no current test ID is available this method returns without sending anything.
+    /// - Parameters:
+    ///   - message: The log message text to send.
+    ///   - level: Log level used by the remote API (`info`, `warn`, `error`, `debug`).
+    ///   - attachment: Optional tuple describing a single binary attachment: `data`, file extension (without dot), and MIME type.
+    ///                 When provided a filename is generated using a timestamp (e.g. `step_screenshot_163... .png`).
+    /// - Throws: Rethrows any error produced by the underlying HTTP client when calling the log endpoint.
+    public func log(message: String, level: LogLevel, attachment: (data: Data, fileExtension: String, mimeType: String)? = nil) throws {
+        guard let launchID = launchID, !testID.isEmpty else {
+            print("⚠️ ReportingService: Cannot log message '\(message)' - missing launchID/testID.")
+            return
+        }
+        
+        var attachments: [FileAttachment] = []
+        if let att = attachment {
+            let filename = "step_screenshot_\(Int(Date().timeIntervalSince1970)).\(att.fileExtension)"
+            attachments.append(FileAttachment(data: att.data, filename: filename, mimeType: att.mimeType))
+        }
+        
+        let endPoint = PostLogEndPoint(
+            itemUuid: testID,
+            launchUuid: launchID,
+            level: level.rawValue,
+            message: message,
+            attachments: attachments
+        )
+        
+        try httpClient.callEndPoint(endPoint) { (_: LogResponse) in }
+    }
+}
+
+public enum LogLevel: String {
+    case info
+    case warn
+    case error
+    case debug
 }
 
