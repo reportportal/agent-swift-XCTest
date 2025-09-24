@@ -209,6 +209,7 @@ open class RPListener: NSObject, XCTestObservation {
         }
     }
 
+#if swift(>=5.9) // Swift 5.9 is shipped with Xcode 15 / iOS 17 SDK
     // Modern API (iOS 17+, Xcode 15+)
     @available(iOS 17.0, macOS 14.0, *)
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
@@ -218,22 +219,24 @@ open class RPListener: NSObject, XCTestObservation {
         let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString), \(issue.description)"
         reportFailure(testCase: testCase, message: errorMessage)
     }
-
+#else
     // Legacy API (pre-iOS 17, Xcode <15)
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
         let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
             ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
             : ""
         let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString): \(issue.description)"
-        
         reportFailure(testCase: testCase, message: errorMessage)
     }
+#endif
 
-    // Legacy API (pre-iOS 17, Xcode < 15)
-    public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
+    // Legacy API (very old XCTest)
+    public func testCase(_ testCase: XCTestCase,
+                         didFailWithDescription description: String,
+                         inFile filePath: String?,
+                         atLine lineNumber: Int) {
         let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
         let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
-        
         reportFailure(testCase: testCase, message: errorMessage)
     }
 
