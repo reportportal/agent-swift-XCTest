@@ -193,7 +193,6 @@ open class RPListener: NSObject, XCTestObservation {
     /// proper ReportPortal hierarchy for Gherkin scenarios.
     private func ensureGherkinSuitesInitialized(for testCase: XCTestCase) {
         private func ensureGherkinSuitesInitialized(for testCase: XCTestCase) {
-        guard let reportingService = reportingService, reportingService.rootSuiteID == nil || reportingService.testSuiteID == nil else { return }
         // Only apply this workaround when XCTest-Gherkin is present
         guard NSClassFromString("NativeTestCase") != nil || NSClassFromString("XCGNativeInitializer") != nil else { return }
         guard let reportingService = reportingService,
