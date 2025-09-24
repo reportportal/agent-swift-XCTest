@@ -208,24 +208,19 @@ open class RPListener: NSObject, XCTestObservation {
             }
         }
     }
-
-#if swift(>=5.9) // Swift 5.9 is shipped with Xcode 15 / iOS 17 SDK
-    // Modern API (iOS 17+, Xcode 15+)
-    @available(iOS 17.0, macOS 14.0, *)
-    public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
-        let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
-            ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
-            : ""
-        let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString), \(issue.description)"
+    
+#if os(macOS)
+    // macOS API
+    public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
+        let lineNumberString = issue.sourceCodeContext.location?.lineNumber.map { " on line \($0)" } ?? ""
+        let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString): \(issue.description)"
         reportFailure(testCase: testCase, message: errorMessage)
     }
 #else
-    // Legacy API (pre-iOS 17, Xcode <15)
-    public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-        let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
-            ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
-            : ""
-        let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString): \(issue.description)"
+    // API for iOS, iPadOS, tvOS, visionOS, watchOS
+    public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
+        let lineNumberString = issue.sourceCodeContext.location?.lineNumber.map { " on line \($0)" } ?? ""
+        let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString), \(issue.description)"
         reportFailure(testCase: testCase, message: errorMessage)
     }
 #endif
