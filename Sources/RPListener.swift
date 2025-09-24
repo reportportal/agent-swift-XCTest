@@ -212,14 +212,16 @@ open class RPListener: NSObject, XCTestObservation {
 #if os(macOS)
     // macOS API
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-        let lineNumberString = issue.sourceCodeContext.location?.lineNumber.map { " on line \($0)" } ?? ""
+        let lineNumberString = (issue.sourceCodeContext.location?.lineNumber)
+            .map { " on line \($0)" } ?? ""
         let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString): \(issue.description)"
         reportFailure(testCase: testCase, message: errorMessage)
     }
 #else
     // API for iOS, iPadOS, tvOS, visionOS, watchOS
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
-        let lineNumberString = issue.sourceCodeContext.location?.lineNumber.map { " on line \($0)" } ?? ""
+        let lineNumberString = (issue.sourceCodeContext.location?.lineNumber)
+            .map { " on line \($0)" } ?? ""
         let errorMessage = "Test '\(testCase.name)' failed\(lineNumberString), \(issue.description)"
         reportFailure(testCase: testCase, message: errorMessage)
     }
