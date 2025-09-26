@@ -27,13 +27,6 @@ open class RPListener: NSObject, XCTestObservation {
 //  }
   
   private func readConfiguration(from testBundle: Bundle) -> AgentConfiguration {
-    // 🔍 Debug helper: list all bundles and check for RPConfig.plist
-    print("🔍 RPListener: Listing all loaded bundles and searching for RPConfig.plist...")
-    for bundle in Bundle.allBundles {
-      let hasConfig = bundle.path(forResource: "RPConfig", ofType: "plist") != nil
-      print("   • Bundle: \(bundle.bundlePath) — RPConfig.plist: \(hasConfig ? "✅ found" : "❌ not found")")
-    }
-
     func findConfigBundle() -> Bundle? {
       for bundle in Bundle.allBundles {
         if bundle.path(forResource: "RPConfig", ofType: "plist") != nil {
