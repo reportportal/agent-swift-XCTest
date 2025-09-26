@@ -42,11 +42,11 @@ public final class ReportingService {
   private let configuration: AgentConfiguration
   private var testBundle: Bundle?
   
-  private var launchID: String?
+  private(set) var launchID: String?
   private var testSuiteStatus = TestStatus.passed
   private var launchStatus = TestStatus.passed
-  private var rootSuiteID: String?
-  private var testSuiteID: String?
+  private(set) var rootSuiteID: String?
+  private(set) var testSuiteID: String?
   private var testID = ""
   
   private let timeOutForRequestExpectation: TimeInterval = 10.0
@@ -165,7 +165,7 @@ public final class ReportingService {
     _ = testSuiteSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
-  func startTest(_ test: XCTestCase) throws {
+  public func startTest(_ test: XCTestCase) throws {
     guard let launchID = launchID else {
       print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Launch ID is missing.")
       throw ReportingServiceError.launchIdNotFound
@@ -195,6 +195,47 @@ public final class ReportingService {
       throw error
     }
     
+    _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
+  }
+    
+  public func startTest(_ test: XCTestCase, featureName: String?, scenarioName: String?) throws {
+    guard let launchID = launchID else {
+      print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Launch ID is missing.")
+      throw ReportingServiceError.launchIdNotFound
+    }
+    guard let testSuiteID = testSuiteID else {
+      print("🚨 ReportingService Critical Error: Cannot start test '\(test.name)' - Test Suite ID is missing.")
+      throw ReportingServiceError.testSuiteIdNotFound
+    }
+        
+    let testSemaphore = DispatchSemaphore(value: 0)
+        
+    // Build a more descriptive name for Gherkin scenarios
+    var finalName: String
+    if let feature = featureName, let scenario = scenarioName {
+      finalName = "\(feature) - \(scenario)"
+    } else {
+      finalName = extractTestName(from: test)
+    }
+        
+    let endPoint = StartItemEndPoint(
+      itemName: finalName,
+      parentID: testSuiteID,
+      launchID: launchID,
+      type: .step
+    )
+        
+    do {
+      try httpClient.callEndPoint(endPoint) { (result: Item) in
+          self.testID = result.id
+          testSemaphore.signal()
+      }
+    } catch {
+      print("🚨 ReportingService: Failed to start test '\(finalName)': \(error.localizedDescription)")
+      testSemaphore.signal()
+      throw error
+    }
+        
     _ = testSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
   
@@ -250,9 +291,33 @@ public final class ReportingService {
     
     _ = errorSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
-    
+   
+  public func finishTest(_ test: XCTestCase, status: String) throws {
+    var testStatus: TestStatus = .passed
+    if status == "failed" {
+      testSuiteStatus = .failed
+      launchStatus = .failed
+      testStatus = .failed
+    } else {
+      testSuiteStatus = .passed
+    }
+
+    let finishTestSemaphore = DispatchSemaphore(value: 0)
+    let endPoint = try FinishItemEndPoint(itemID: testID, status: testStatus, launchID: self.launchID ?? "")
+
+    do {
+      try httpClient.callEndPoint(endPoint) { (_: Finish) in
+        finishTestSemaphore.signal()
+      }
+    } catch {
+      finishTestSemaphore.signal()
+      throw error
+    }
+
+    _ = finishTestSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
+  }
   
-  func finishTest(_ test: XCTestCase) throws {
+  public func finishTest(_ test: XCTestCase) throws {
     let testStatus = test.testRun!.hasSucceeded ? TestStatus.passed : TestStatus.failed
     if testStatus == .failed {
       testSuiteStatus = .failed
@@ -348,7 +413,36 @@ public final class ReportingService {
     
     _ = finishLaunchSemaphore.wait(timeout: .now() + timeOutForRequestExpectation)
   }
-  
+    
+  public func log(message: String, level: LogLevel, attachment: (data: Data, fileExtension: String, mimeType: String)? = nil) throws {
+    guard let launchID = launchID, !testID.isEmpty else {
+      print("⚠️ ReportingService: Cannot log message '\(message)' - missing launchID/testID.")
+      return
+    }
+        
+    var attachments: [FileAttachment] = []
+    if let att = attachment {
+      let filename = "step_screenshot_\(Int(Date().timeIntervalSince1970)).\(att.fileExtension)"
+      attachments.append(FileAttachment(data: att.data, filename: filename, mimeType: att.mimeType))
+    }
+        
+    let endPoint = PostLogEndPoint(
+      itemUuid: testID,
+      launchUuid: launchID,
+      level: level.rawValue,
+      message: message,
+      attachments: attachments
+    )
+        
+    try httpClient.callEndPoint(endPoint) { (_: LogResponse) in }
+  }
+}
+
+public enum LogLevel: String {
+    case info
+    case warn
+    case error
+    case debug
 }
 
 private extension ReportingService {

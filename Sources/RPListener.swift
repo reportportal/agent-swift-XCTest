@@ -10,18 +10,46 @@ import Foundation
 import XCTest
 
 open class RPListener: NSObject, XCTestObservation {
-  
+  public static let shared = RPListener()
+
   public var reportingService: ReportingService?
   private let queue = DispatchQueue(label: "com.report_portal.reporting", qos: .utility)
-  
-  public override init() {
+
+  private override init() {
     super.init()
     XCTestObservationCenter.shared.addTestObserver(self)
   }
+    
+//  /// Explicit bootstrap for test targets (call once early in test lifecycle)
+//  @discardableResult
+//  public static func register() -> RPListener {
+//    return RPListener.shared
+//  }
   
   private func readConfiguration(from testBundle: Bundle) -> AgentConfiguration {
-    guard
-      let bundlePath = testBundle.path(forResource: "Info", ofType: "plist"),
+    // 🔍 Debug helper: list all bundles and check for RPConfig.plist
+    print("🔍 RPListener: Listing all loaded bundles and searching for RPConfig.plist...")
+    for bundle in Bundle.allBundles {
+      let hasConfig = bundle.path(forResource: "RPConfig", ofType: "plist") != nil
+      print("   • Bundle: \(bundle.bundlePath) — RPConfig.plist: \(hasConfig ? "✅ found" : "❌ not found")")
+    }
+
+    func findConfigBundle() -> Bundle? {
+      for bundle in Bundle.allBundles {
+        if bundle.path(forResource: "RPConfig", ofType: "plist") != nil {
+          return bundle
+        }
+      }
+      return nil
+    }
+
+    var configBundle: Bundle? = testBundle
+    if configBundle?.path(forResource: "RPConfig", ofType: "plist") == nil {
+      print("⚠️ RPListener: RPConfig.plist not found in provided bundle: \(testBundle.bundlePath)")
+      configBundle = findConfigBundle()
+    }
+
+    guard let bundlePath = configBundle?.path(forResource: "RPConfig", ofType: "plist"),
       let bundleProperties = NSDictionary(contentsOfFile: bundlePath) as? [String: Any],
       let portalPath = bundleProperties["ReportPortalURL"] as? String,
       let portalURL = URL(string: portalPath),
@@ -30,7 +58,7 @@ open class RPListener: NSObject, XCTestObservation {
       let shouldFinishLaunch = bundleProperties["IsFinalTestBundle"] as? Bool,
       let launchName = bundleProperties["ReportPortalLaunchName"] as? String else
     {
-      fatalError("Configure properties for report portal in the Info.plist")
+      fatalError("❌ RPListener: Configure properties for ReportPortal in RPConfig.plist")
     }
     
     let shouldReport: Bool
@@ -90,20 +118,22 @@ open class RPListener: NSObject, XCTestObservation {
     
     let reportingService = ReportingService(configuration: configuration, testBundle: testBundle)
     self.reportingService = reportingService
-    
-    queue.async {
-      do {
-        try reportingService.startLaunch()
-      } catch let error {
-        print("🚨 RPListener Launch Start Error: Failed to start ReportPortal launch for test bundle. This will prevent all test results from being reported. Error details: \(error.localizedDescription)")
-      }
+    do {
+      try reportingService.startLaunch()
+    } catch let error {
+      print("🚨 RPListener Launch Start Error: Failed to start ReportPortal launch for test bundle. This will prevent all test results from being reported. Error details: \(error.localizedDescription)")
     }
   }
   
   public func testSuiteWillStart(_ testSuite: XCTestSuite) {
-    guard let reportingService = self.reportingService else { 
+    guard let reportingService = self.reportingService else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test suite '\(testSuite.name)' will not be reported to ReportPortal.")
-      return 
+      return
+    }
+    // Skip NativeTestCase suites — handled by featureScenarioTest()
+    if let nativeTestCaseClass = NSClassFromString("NativeTestCase"), suiteContainsNativeTestCase(testSuite, nativeClass: nativeTestCaseClass) {
+      print("ℹ️ RPListener: Skipping startTestSuite for '\(testSuite.name)' — contains NativeTestCase")
+      return
     }
     
     guard
@@ -127,14 +157,52 @@ open class RPListener: NSObject, XCTestObservation {
   }
 
   public func testCaseWillStart(_ testCase: XCTestCase) {
-    guard let reportingService = self.reportingService else { 
+    if let nativeTestCaseClass = NSClassFromString("NativeTestCase"), testCase.isKind(of: nativeTestCaseClass) {
+      print("ℹ️ RPListener: Skipping startTest for \(testCase.name) — handled by NativeTestCase")
+      return
+    }
+    if let nativeTestCaseClass = NSClassFromString("XCTest_Gherkin.NativeTestCase"), testCase.isKind(of: nativeTestCaseClass) {
+      print("ℹ️ RPListener: Skipping startTest for \(testCase.name) — handled by NativeTestCase.featureScenarioTest()")
+      return
+    }
+    // Bootstrap reportingService if needed
+    if reportingService == nil {
+      print("⚠️ RPListener: reportingService is nil — initializing now")
+      let configBundle = Bundle.main // or scan all bundles for RPConfig.plist
+      let configuration = readConfiguration(from: configBundle)
+      guard configuration.shouldSendReport else {
+        print("🚨 RPListener: Reporting disabled in config.")
+        return
+      }
+      let service = ReportingService(configuration: configuration, testBundle: configBundle)
+      reportingService = service
+      try? service.startLaunch()
+    }
+
+    guard let service = reportingService else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test case '\(testCase.name)' will not be reported to ReportPortal.")
-      return 
+      return
+    }
+
+    // Ensure launch started
+    if service.launchID == nil {
+      try? service.startLaunch()
+    }
+
+    // Ensure root suite started
+    if service.rootSuiteID == nil {
+      try? service.startRootSuite(XCTestSuite(name: "Default Root Suite"))
+    }
+
+    // Ensure test suite started
+    if service.testSuiteID == nil {
+      let suiteName = String(describing: type(of: testCase))
+      try? service.startTestSuite(XCTestSuite(name: suiteName))
     }
 
     queue.async {
       do {
-        try reportingService.startTest(testCase)
+        try service.startTest(testCase)
       } catch let error {
         print("🚨 RPListener Test Start Error: Failed to start test case '\(testCase.name)' in ReportPortal. Error details: \(error.localizedDescription)")
       }
@@ -143,9 +211,9 @@ open class RPListener: NSObject, XCTestObservation {
 
   @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
   public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-    guard let reportingService = self.reportingService else { 
+    guard let reportingService = self.reportingService else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test issue for '\(testCase.name)' will not be reported to ReportPortal.")
-      return 
+      return
     }
 
     queue.async {
@@ -164,9 +232,9 @@ open class RPListener: NSObject, XCTestObservation {
 
   // For iOs 17+
   public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
-    guard let reportingService = self.reportingService else { 
+    guard let reportingService = self.reportingService else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test failure for '\(testCase.name)' will not be reported to ReportPortal.")
-      return 
+      return
     }
 
     queue.async {
@@ -182,10 +250,22 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
-    guard let reportingService = self.reportingService else { 
-      print("🚨 RPListener Configuration Error: ReportingService is not available. Test completion for '\(testCase.name)' will not be reported to ReportPortal.")
-      return 
+    // Detect NativeTestCase (module-qualified or not)
+    if String(describing: type(of: testCase)).contains("NativeTestCase") {
+      guard let service = reportingService else {
+        print("🚨 RPListener: ReportingService is not available. Cannot finish NativeTestCase '\(testCase.name)'")
+        return
+      }
+      let passed = testCase.testRun?.hasSucceeded ?? true
+      let status = passed ? "passed" : "failed"
+      print("ℹ️ RPListener: NativeTestCase '\(testCase.name)' finished with status: \(status)")
+      queue.async {
+        try? service.finishTest(testCase, status: status)
+      }
+      return
     }
+
+    guard let reportingService = reportingService else { return }
 
     queue.async {
       do {
@@ -197,9 +277,14 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
-    guard let reportingService = self.reportingService else { 
+    guard let reportingService = self.reportingService else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test suite completion for '\(testSuite.name)' will not be reported to ReportPortal.")
-      return 
+      return
+    }
+
+    if let nativeTestCaseClass = NSClassFromString("NativeTestCase"), suiteContainsNativeTestCase(testSuite, nativeClass: nativeTestCaseClass) {
+      print("ℹ️ RPListener: Skipping startTestSuite for '\(testSuite.name)' — contains NativeTestCase")
+      return
     }
     
     guard
@@ -223,9 +308,9 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testBundleDidFinish(_ testBundle: Bundle) {
-    guard let reportingService = self.reportingService else { 
+    guard let reportingService = self.reportingService else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test bundle completion will not be reported to ReportPortal.")
-      return 
+      return
     }
 
     queue.sync() {
@@ -236,4 +321,17 @@ open class RPListener: NSObject, XCTestObservation {
       }
     }
   }
+    
+  private func suiteContainsNativeTestCase(_ suite: XCTestSuite, nativeClass: AnyClass) -> Bool {
+    for test in suite.tests {
+      if test.isKind(of: nativeClass) { return true }
+      if let childSuite = test as? XCTestSuite,
+        suiteContainsNativeTestCase(childSuite, nativeClass: nativeClass) {
+        return true
+      }
+    }
+    return false
+  }
 }
+
+private let _rpListenerBootstrap = RPListener.shared
