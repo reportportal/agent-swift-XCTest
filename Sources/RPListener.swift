@@ -244,19 +244,24 @@ open class RPListener: NSObject, XCTestObservation {
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
     // Detect NativeTestCase (module-qualified or not)
-    if String(describing: type(of: testCase)).contains("NativeTestCase") {
-      guard let service = reportingService else {
-        print("🚨 RPListener: ReportingService is not available. Cannot finish NativeTestCase '\(testCase.name)'")
+//    if String(describing: type(of: testCase)).contains("NativeTestCase") {
+//      guard let service = reportingService else {
+//        print("🚨 RPListener: ReportingService is not available. Cannot finish NativeTestCase '\(testCase.name)'")
+//        return
+//      }
+//      let passed = testCase.testRun?.hasSucceeded ?? true
+//      let status = passed ? "passed" : "failed"
+//      print("ℹ️ RPListener: NativeTestCase '\(testCase.name)' finished with status: \(status)")
+//      queue.async {
+//        try? service.finishTest(testCase, status: status)
+//      }
+//      return
+//    }
+      
+      if String(describing: type(of: testCase)).contains("NativeTestCase") {
+        print("ℹ️ RPListener: Skipping finishTest for \(testCase.name) — handled by NativeTestCase")
         return
       }
-      let passed = testCase.testRun?.hasSucceeded ?? true
-      let status = passed ? "passed" : "failed"
-      print("ℹ️ RPListener: NativeTestCase '\(testCase.name)' finished with status: \(status)")
-      queue.async {
-        try? service.finishTest(testCase, status: status)
-      }
-      return
-    }
 
     guard let reportingService = reportingService else { return }
 

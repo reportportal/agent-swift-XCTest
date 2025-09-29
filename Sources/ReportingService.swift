@@ -214,6 +214,8 @@ public final class ReportingService {
     var finalName: String
     if let feature = featureName, let scenario = scenarioName {
       finalName = "\(feature) - \(scenario)"
+    } else if let scenario = scenarioName {
+        finalName = scenario
     } else {
       finalName = extractTestName(from: test)
     }
