@@ -19,12 +19,6 @@ open class RPListener: NSObject, XCTestObservation {
     super.init()
     XCTestObservationCenter.shared.addTestObserver(self)
   }
-    
-//  /// Explicit bootstrap for test targets (call once early in test lifecycle)
-//  @discardableResult
-//  public static func register() -> RPListener {
-//    return RPListener.shared
-//  }
   
   private func readConfiguration(from testBundle: Bundle) -> AgentConfiguration {
     func findConfigBundle() -> Bundle? {
@@ -244,24 +238,10 @@ open class RPListener: NSObject, XCTestObservation {
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
     // Detect NativeTestCase (module-qualified or not)
-//    if String(describing: type(of: testCase)).contains("NativeTestCase") {
-//      guard let service = reportingService else {
-//        print("🚨 RPListener: ReportingService is not available. Cannot finish NativeTestCase '\(testCase.name)'")
-//        return
-//      }
-//      let passed = testCase.testRun?.hasSucceeded ?? true
-//      let status = passed ? "passed" : "failed"
-//      print("ℹ️ RPListener: NativeTestCase '\(testCase.name)' finished with status: \(status)")
-//      queue.async {
-//        try? service.finishTest(testCase, status: status)
-//      }
-//      return
-//    }
-      
-      if String(describing: type(of: testCase)).contains("NativeTestCase") {
-        print("ℹ️ RPListener: Skipping finishTest for \(testCase.name) — handled by NativeTestCase")
-        return
-      }
+    if String(describing: type(of: testCase)).contains("NativeTestCase") {
+      print("ℹ️ RPListener: Skipping finishTest for \(testCase.name) — handled by NativeTestCase")
+      return
+    }
 
     guard let reportingService = reportingService else { return }
 
