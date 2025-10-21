@@ -15,7 +15,6 @@
 		9203A38F2135C20C00BFAF82 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9203A38E2135C20C00BFAF82 /* AppDelegate.swift */; };
 		9203A3912135C20C00BFAF82 /* SummatorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9203A3902135C20C00BFAF82 /* SummatorViewController.swift */; };
 		9203A3942135C20C00BFAF82 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9203A3922135C20C00BFAF82 /* Main.storyboard */; };
-		9203A3962135C20E00BFAF82 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9203A3952135C20E00BFAF82 /* Assets.xcassets */; };
 		9203A3992135C20E00BFAF82 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9203A3972135C20E00BFAF82 /* LaunchScreen.storyboard */; };
 		9203A3A42135C20E00BFAF82 /* SummatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9203A3A32135C20E00BFAF82 /* SummatorTests.swift */; };
 		9203A3AF2135C20E00BFAF82 /* SummatorControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9203A3AE2135C20E00BFAF82 /* SummatorControllerTests.swift */; };
@@ -90,7 +89,6 @@
 		9203A38E2135C20C00BFAF82 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		9203A3902135C20C00BFAF82 /* SummatorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummatorViewController.swift; sourceTree = "<group>"; };
 		9203A3932135C20C00BFAF82 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
-		9203A3952135C20E00BFAF82 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9203A3982135C20E00BFAF82 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		9203A39A2135C20E00BFAF82 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9203A39F2135C20E00BFAF82 /* ExampleUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ExampleUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -216,7 +214,6 @@
 				9203A3902135C20C00BFAF82 /* SummatorViewController.swift */,
 				9203A3BA2136B21F00BFAF82 /* SummatorService.swift */,
 				9203A3922135C20C00BFAF82 /* Main.storyboard */,
-				9203A3952135C20E00BFAF82 /* Assets.xcassets */,
 				9203A3972135C20E00BFAF82 /* LaunchScreen.storyboard */,
 				9203A39A2135C20E00BFAF82 /* Info.plist */,
 			);
@@ -437,7 +434,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				9203A3992135C20E00BFAF82 /* LaunchScreen.storyboard in Resources */,
-				9203A3962135C20E00BFAF82 /* Assets.xcassets in Resources */,
 				9203A3942135C20C00BFAF82 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
