@@ -19,7 +19,7 @@ As a developer running XCTest suites, I want to execute multiple test suites in 
 
 1. **Given** 3 test suites configured for parallel execution, **When** tests run concurrently, **Then** each test's results appear correctly in ReportPortal under the same launch with proper suite/test hierarchy
 2. **Given** parallel tests running, **When** one test fails, **Then** the failure is reported correctly without affecting other concurrent tests' reporting
-3. **Given** parallel execution enabled, **When** tests complete, **Then** launch finalization happens only after ALL test bundles finish (respecting IsFinalTestBundle flag)
+3. **Given** parallel execution enabled, **When** tests complete, **Then** launch finalization happens only after ALL test bundles finish (via reference counting mechanism)
 
 ---
 
@@ -58,7 +58,7 @@ As a CI/CD engineer, I want test execution time reduced from 6 hours to 1-2 hour
 - **Slow/Failed ReportPortal API**: When ReportPortal API is slow or returns errors during parallel execution, individual test reporting failures must be logged to console but not block other tests. Each test operation handles its own errors independently.
 - **Concurrent Launch Status Updates**: Race conditions when multiple tests finish simultaneously are prevented by Actor isolation in LaunchManager. Status aggregation uses atomic operations within the actor.
 - **Out-of-Order Bundle Completion**: Reference counting handles non-final bundles completing after final bundle. LaunchManager maintains active bundle count; finalization triggers only when count reaches zero.
-- **Launch Finalization with IsFinalTestBundle**: The IsFinalTestBundle flag is respected but not solely relied upon. Each bundle increments reference count on start and decrements on finish. Launch finalizes when count reaches zero, ensuring all bundles have completed.
+- **Launch Finalization Strategy**: Reference counting is the primary finalization mechanism. Each bundle increments reference count on start and decrements on finish. Launch finalizes when count reaches zero, ensuring all bundles have completed. The legacy IsFinalTestBundle flag is ignored in parallel execution mode to prevent premature finalization.
 - **Test Name Collisions**: Parallel tests with identical identifiers are disambiguated using XCTest's internal test identifier which includes bundle + suite + case hierarchy. OperationTracker uses full qualified identifiers as keys.
 - **Catastrophic Bundle Failure**: If a bundle crashes before decrementing reference count, a timeout mechanism (configurable, default 30 minutes) forces finalization to prevent hung launches. Edge case already addressed in reference counting strategy.
 
@@ -71,7 +71,7 @@ As a CI/CD engineer, I want test execution time reduced from 6 hours to 1-2 hour
 - **FR-003**: System MUST isolate state per test operation (each test gets independent context - IDs, status, metadata)
 - **FR-004**: System MUST use non-blocking async operations for all ReportPortal API calls (remove DispatchSemaphore blocking)
 - **FR-005**: System MUST aggregate launch status correctly from multiple concurrent test operations using Actor-isolated state
-- **FR-006**: System MUST handle launch finalization using reference counting: each bundle increments counter on start, decrements on finish; finalization triggers when counter reaches zero
+- **FR-006**: System MUST handle launch finalization using reference counting as the primary mechanism: each bundle increments counter on start, decrements on finish; finalization triggers when counter reaches zero (IsFinalTestBundle flag ignored in parallel mode)
 - **FR-007**: System MUST support both suite-level and test-case-level parallelism
 - **FR-008**: System MUST maintain backward compatibility with sequential execution (parallel execution is opt-in)
 - **FR-009**: System MUST provide thread-safe operations for all shared resources using Swift Actor isolation (LaunchManager, OperationTracker as Actors)
@@ -181,7 +181,10 @@ As a CI/CD engineer, I want test execution time reduced from 6 hours to 1-2 hour
 - Q: What logging strategy should be used for debugging parallel execution issues? → A: Structured logging with correlation IDs per test operation (trace test lifecycle across threads)
 - Q: What is the maximum expected number of concurrent tests in real-world CI environments? → A: 10 concurrent operations maximum
 
+### Session 2025-10-21
+
+- Q: Should IsFinalTestBundle flag control launch finalization, or should reference counting be the primary mechanism? → A: Reference counting replaces flag dependency - launch finalizes when active bundle count reaches zero
+
 ## Open Questions / Needs Clarification
 
-- Should we support dynamic parallelism configuration or require test plan/Xcode configuration? - Yes
 - What is the acceptable memory overhead for parallel execution? (current baseline: 2x at 10 concurrent operations)
