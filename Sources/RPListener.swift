@@ -91,16 +91,19 @@ open class RPListener: NSObject, XCTestObservation {
       return
     }
 
-    // Create async service for v4.0.0 parallel execution
+    // Create service for v4.0.0 async/await parallel execution
     let reportingService = ReportingService(configuration: configuration)
     self.reportingService = reportingService
 
-    // T013: Increment bundle count for parallel execution support
-    Task {
-      await launchManager.incrementBundleCount()
+    // T013: Increment bundle count and create launch if needed
+    // Use Task.detached with high priority to ensure launch creation happens immediately
+    // Note: XCTest observation methods are synchronous, so we can't await here
+    // Subsequent method calls will wait for launch ID via actor isolation
+    Task.detached(priority: .high) {
+      await self.launchManager.incrementBundleCount()
 
       // Check if this is the first bundle - if so, create launch
-      if await launchManager.getLaunchID() == nil {
+      if await self.launchManager.getLaunchID() == nil {
         do {
           // Collect metadata attributes
           let attributes: [[String: String]]
@@ -112,7 +115,7 @@ open class RPListener: NSObject, XCTestObservation {
 
           // Get test plan name for launch name enhancement
           let testPlanName = MetadataCollector.getTestPlanName()
-          let enhancedLaunchName = buildEnhancedLaunchName(
+          let enhancedLaunchName = self.buildEnhancedLaunchName(
             baseLaunchName: configuration.launchName,
             testPlanName: testPlanName
           )
@@ -128,7 +131,7 @@ open class RPListener: NSObject, XCTestObservation {
           Logger.shared.error("Failed to start launch: \(error.localizedDescription)")
         }
       } else {
-        let launchID = await launchManager.getLaunchID()
+        let launchID = await self.launchManager.getLaunchID()
         Logger.shared.info("Using existing launch: \(launchID ?? "unknown")")
       }
     }
