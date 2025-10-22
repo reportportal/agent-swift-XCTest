@@ -2,12 +2,12 @@
 //  TestOperation.swift
 //  ReportPortalAgent
 //
-//  Created on 2025-10-22.
+//  Created by Ruslan Popesku on 10/22/25.
 //  Copyright © 2025 ReportPortal. All rights reserved.
 //
 
 import Foundation
-import XCTest
+@preconcurrency import XCTest
 
 /// Represents an isolated execution context for a single test case.
 /// Immutable value type ensures no shared state between concurrent tests.
@@ -15,8 +15,8 @@ struct TestOperation: Sendable {
     /// Unique identifier for tracing this test's lifecycle across logs
     let correlationID: UUID
 
-    /// ReportPortal item ID for this test case (from StartItem response)
-    let testID: String
+    /// ReportPortal item ID for this test case (mutable to set after API call)
+    var testID: String
 
     /// Parent suite ID (for hierarchy)
     let suiteID: String
