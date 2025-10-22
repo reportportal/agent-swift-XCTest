@@ -2,7 +2,7 @@
 //  SuiteOperation.swift
 //  ReportPortalAgent
 //
-//  Created on 2025-10-22.
+//  Created by Ruslan Popesku on 10/22/25.
 //  Copyright © 2025 ReportPortal. All rights reserved.
 //
 
