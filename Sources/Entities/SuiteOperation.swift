@@ -13,8 +13,8 @@ struct SuiteOperation: Sendable {
     /// Unique identifier for this suite's lifecycle
     let correlationID: UUID
 
-    /// ReportPortal item ID for this suite
-    let suiteID: String
+    /// ReportPortal item ID for this suite (mutable to set after API call)
+    var suiteID: String
 
     /// Parent root suite ID (nil for root)
     let rootSuiteID: String?
