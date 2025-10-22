@@ -74,9 +74,8 @@ As a CI/CD engineer, I want test execution time reduced from 6 hours to 1-2 hour
 - **FR-006**: System MUST handle launch finalization using reference counting as the primary mechanism: each bundle increments counter on start, decrements on finish; finalization triggers when counter reaches zero (IsFinalTestBundle flag ignored in parallel mode)
 - **FR-007**: System MUST support both suite-level and test-case-level parallelism
 - **FR-008**: System MUST maintain backward compatibility with sequential execution (parallel execution is opt-in)
-- **FR-009**: System MUST provide thread-safe operations for all shared resources using Swift Actor isolation (LaunchManager, OperationTracker as Actors)
+- **FR-009**: System MUST use Swift Actor model for all shared mutable state (LaunchManager, OperationTracker as Actors) to provide thread-safe operations and prevent race conditions at compile time
 - **FR-010**: System MUST handle concurrent attachment uploads without mixing data between tests
-- **FR-011**: System MUST use Actor model for shared mutable state to prevent race conditions at compile time
 
 ### Key Entities *(include if feature involves data)*
 
@@ -102,21 +101,21 @@ As a CI/CD engineer, I want test execution time reduced from 6 hours to 1-2 hour
 
 - **NFR-001**: ReportPortal API operations must be fully asynchronous and non-blocking using async/await
 - **NFR-002**: No artificial waits or semaphore blocks (current 10-second blocking waits must be eliminated)
-- **NFR-003**: System must support up to 10 concurrent test operations without degradation (based on typical CI environments with 4 parallel workers)
+- **NFR-003**: System must support up to 10 concurrent test operations (Xcode/CLI controls parallelism level; agent must not degrade functionality regardless of concurrency)
 - **NFR-004**: Memory usage must not exceed 2x baseline when running with 10 concurrent operations
 
 ### Observability
 
 - **NFR-012**: All test operation lifecycle events (start, finish, errors) MUST be logged with structured format
-- **NFR-013**: Each test operation MUST have unique correlation ID propagated through all related log entries
+- **NFR-013**: Each test operation MUST have unique correlation ID propagated through all related local log entries (console output for debugging; not sent to ReportPortal)
 - **NFR-014**: Logs MUST include timestamps, thread context, operation type, and ReportPortal IDs for traceability
 - **NFR-015**: Error logs MUST include full context (test name, correlation ID, API endpoint, error details) for debugging
 
 ### Reliability
 
-- **NFR-005**: Network failures or ReportPortal API errors must not crash test execution or corrupt other tests' data
+- **NFR-005**: Network failures or ReportPortal API errors must not crash test execution or corrupt other tests' data (Task-based error isolation ensures independence between concurrent tests)
 - **NFR-006**: Race condition detection via thread sanitizer must pass with zero warnings
-- **NFR-007**: Launch finalization must be atomic and execute exactly once even with concurrent bundle completions
+- **NFR-007**: Launch finalization must be atomic and execute exactly once even with concurrent bundle completions (guaranteed by LaunchManager Actor isolation)
 
 ### Maintainability
 
@@ -184,7 +183,8 @@ As a CI/CD engineer, I want test execution time reduced from 6 hours to 1-2 hour
 ### Session 2025-10-21
 
 - Q: Should IsFinalTestBundle flag control launch finalization, or should reference counting be the primary mechanism? → A: Reference counting replaces flag dependency - launch finalizes when active bundle count reaches zero
-
-## Open Questions / Needs Clarification
-
-- What is the acceptable memory overhead for parallel execution? (current baseline: 2x at 10 concurrent operations)
+- Q: How should "without degradation" be measured for NFR-003 (10 concurrent operations)? → A: Not measurable by agent - Xcode/CLI controls test parallelism level
+- Q: How is "exactly once" finalization guaranteed with concurrent bundles (NFR-007)? → A: Actor isolation guarantees exactly-once; no additional mechanism needed
+- Q: Should correlation IDs be included in local logs only or also ReportPortal logs? → A: Local agent logs only (console output for debugging parallel execution)
+- Q: Should FR-009 and FR-011 (both requiring Actor model) be merged? → A: Merge into FR-009, remove FR-011
+- Q: How should network error isolation between concurrent tests be validated (NFR-005)? → A: Task-based error isolation sufficient; validate via existing integration tests
