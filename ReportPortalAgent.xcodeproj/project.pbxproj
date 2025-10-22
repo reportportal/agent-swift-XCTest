@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		368751BD1F5867200021B74D /* RPListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368751B61F5867200021B74D /* RPListener.swift */; };
-		368751BF1F5867200021B74D /* ReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368751B81F5867200021B74D /* ReportingService.swift */; };
 		85529CCB2EA9081D0080536D /* ConcurrentSuiteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CC92EA9081D0080536D /* ConcurrentSuiteTests.swift */; };
 		85529CCC2EA9081D0080536D /* ConcurrentTestCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CCA2EA9081D0080536D /* ConcurrentTestCaseTests.swift */; };
 		85529CCE2EA909140080536D /* ReportingServiceAsync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CCD2EA909140080536D /* ReportingServiceAsync.swift */; };
@@ -56,6 +55,7 @@
 		92FEE094212EEE2D00ADB1ED /* FinishItemEndPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FEE093212EEE2D00ADB1ED /* FinishItemEndPoint.swift */; };
 		92FEE096212EF30700ADB1ED /* StartItemEndPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FEE095212EF30700ADB1ED /* StartItemEndPoint.swift */; };
 		92FEE098212F028B00ADB1ED /* PostLogEndPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FEE097212F028B00ADB1ED /* PostLogEndPoint.swift */; };
+		FE6653CD2899F4316DA698AB /* ReportingServiceError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0875240659673E68475617D3 /* ReportingServiceError.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,10 +90,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0875240659673E68475617D3 /* ReportingServiceError.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReportingServiceError.swift; sourceTree = "<group>"; };
 		368751A51F5866CA0021B74D /* ReportPortalAgent.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ReportPortalAgent.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		368751A91F5866CA0021B74D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		368751B61F5867200021B74D /* RPListener.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RPListener.swift; sourceTree = "<group>"; };
-		368751B81F5867200021B74D /* ReportingService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReportingService.swift; sourceTree = "<group>"; };
 		368751E01F5964AA0021B74D /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		368751E21F596BC70021B74D /* ReportPortal.podspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ReportPortal.podspec; sourceTree = "<group>"; };
 		368751E41F596E990021B74D /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
@@ -219,12 +219,12 @@
 				92FEE06A212E924B00ADB1ED /* Entities */,
 				92FEE07D212ECB7900ADB1ED /* Utilities */,
 				9203A3C22137264000BFAF82 /* LaunchMode.swift */,
-				368751B81F5867200021B74D /* ReportingService.swift */,
 				85529CCD2EA909140080536D /* ReportingServiceAsync.swift */,
 				368751B61F5867200021B74D /* RPListener.swift */,
 				92FEE073212EA37200ADB1ED /* TestStatus.swift */,
 				92FEE075212EA38600ADB1ED /* TestType.swift */,
 				368751A91F5866CA0021B74D /* Info.plist */,
+				0875240659673E68475617D3 /* ReportingServiceError.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -505,7 +505,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				92FEE087212ECB7900ADB1ED /* TimeHelper.swift in Sources */,
-				368751BF1F5867200021B74D /* ReportingService.swift in Sources */,
 				85EE82942E38F79F005825E8 /* MetadataCollector.swift in Sources */,
 				92FEE074212EA37200ADB1ED /* TestStatus.swift in Sources */,
 				9203A3C32137264000BFAF82 /* LaunchMode.swift in Sources */,
@@ -536,6 +535,7 @@
 				85DBACE52E44D5DA00297994 /* DeviceHelper.swift in Sources */,
 				92FEE092212EED3D00ADB1ED /* FinishLaunchEndPoint.swift in Sources */,
 				92FEE076212EA38600ADB1ED /* TestType.swift in Sources */,
+				FE6653CD2899F4316DA698AB /* ReportingServiceError.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
