@@ -52,6 +52,7 @@
       }
     },
     {
+      "parallelizable" : true,
       "target" : {
         "containerPath" : "container:ReportPortalAgent.xcodeproj",
         "identifier" : "9203A39E2135C20E00BFAF82",
