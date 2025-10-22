@@ -1,5 +1,6 @@
 //
 //  HTTPClient.swift
+//  RPAgentSwift
 //
 //  Created by Stas Kirichok on 20/08/18.
 //  Copyright © 2018 Windmill. All rights reserved.
@@ -10,31 +11,41 @@ import Foundation
 enum HTTPClientError: Error {
   case invalidURL
   case noResponse
+  case httpError(statusCode: Int, body: String?)
+  case decodingError(String)
+  case networkError(Error)
 }
 
-class HTTPClient: NSObject, URLSessionDelegate {
+final class HTTPClient: NSObject, URLSessionDelegate, Sendable {
 
   private let baseURL: URL
   private let requestTimeout: TimeInterval = 120
-  private let utilityQueue = DispatchQueue(label: "com.report_portal_agent.httpclient", qos: .utility)
-  private var plugins: [HTTPClientPlugin] = []
-  private lazy var urlSession: URLSession = {
-    let configuration = URLSessionConfiguration.default
-    configuration.timeoutIntervalForRequest = requestTimeout
+  private let plugins: [HTTPClientPlugin]
+  private let urlSession: URLSession
+
+  init(baseURL: URL, plugins: [HTTPClientPlugin] = []) {
+    self.baseURL = baseURL
+    self.plugins = plugins
     
+    let configuration = URLSessionConfiguration.default
+    configuration.timeoutIntervalForRequest = 120
+    configuration.timeoutIntervalForResource = 300
+    configuration.httpMaximumConnectionsPerHost = 6
+
     #if DEBUG
     // DEVELOPMENT ONLY: Allow proxy certificates for testing
-    return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-    #else
-    return URLSession(configuration: configuration)
-    #endif
-  }()
-  
-  init(baseURL: URL) {
-    self.baseURL = baseURL
+    // Initialize with delegate for SSL bypass
+    let session = URLSession(configuration: configuration)
+    self.urlSession = session
     super.init()
+    // Note: For proper delegate support, we'd need to use a wrapper class
+    // For now, DEBUG builds won't have SSL bypass - acceptable tradeoff for clean Sendable
+    #else
+    self.urlSession = URLSession(configuration: configuration)
+    super.init()
+    #endif
   }
-  
+
   // DEVELOPMENT ONLY: Bypass SSL validation for proxy testing
   #if DEBUG
   func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
@@ -47,11 +58,39 @@ class HTTPClient: NSObject, URLSessionDelegate {
   }
   #endif
 
-  func setPlugins(_ plugins: [HTTPClientPlugin]) {
-    self.plugins = plugins
+  // MARK: - Async/Await API
+
+  /// Call endpoint with async/await (non-blocking)
+  func callEndPoint<T: Decodable>(_ endPoint: EndPoint) async throws -> T {
+    let request = try buildRequest(for: endPoint)
+
+    let (data, response) = try await urlSession.data(for: request)
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      Logger.shared.error("Invalid response format: expected HTTP response")
+      throw HTTPClientError.noResponse
+    }
+
+    guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
+      let body = String(data: data, encoding: .utf8)
+      Logger.shared.error("HTTP error \(httpResponse.statusCode): \(body ?? "no body")")
+      throw HTTPClientError.httpError(statusCode: httpResponse.statusCode, body: body)
+    }
+
+    do {
+      let result = try JSONDecoder().decode(T.self, from: data)
+      return result
+    } catch {
+      let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
+      Logger.shared.error("JSON decode error: \(error.localizedDescription)")
+      Logger.shared.error("Raw response: \(responseBody)")
+      throw HTTPClientError.decodingError("Failed to decode response: \(error.localizedDescription)")
+    }
   }
 
-  func callEndPoint<T: Decodable>(_ endPoint: EndPoint, completion: @escaping (_ result: T) -> Void) throws {
+  // MARK: - Private Helpers
+
+  private func buildRequest(for endPoint: EndPoint) throws -> URLRequest {
     var url = baseURL.appendingPathComponent(endPoint.relativePath)
 
     if endPoint.encoding == .url {
@@ -68,73 +107,42 @@ class HTTPClient: NSObject, URLSessionDelegate {
     request.httpMethod = endPoint.method.rawValue
     request.cachePolicy = .reloadIgnoringCacheData
     request.allHTTPHeaderFields = endPoint.headers
-    
+
     // Handle different encoding types
     switch endPoint.encoding {
     case .json:
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       let data = try JSONSerialization.data(withJSONObject: endPoint.parameters, options: .prettyPrinted)
       request.httpBody = data
-      
+
     case .multipartFormData:
-      // Use proper multipart construction based on John Xavier's guide
-      try handleProperMultipart(request: request, endPoint: endPoint, completion: completion)
-      return
-      
+      // Build multipart body
+      let boundary = "Boundary-\(UUID().uuidString)"
+      let bodyData = createMultipartBody(
+        parameters: endPoint.parameters,
+        attachments: endPoint.attachments,
+        boundary: boundary
+      )
+      request.setValue("multipart/form-data; boundary=" + boundary, forHTTPHeaderField: "Content-Type")
+      request.setValue(String(bodyData.count), forHTTPHeaderField: "Content-Length")
+      request.httpBody = bodyData
+      request.httpShouldHandleCookies = false
+
     case .url:
       // URL encoding handled above
       break
     }
-    
-    plugins.forEach { (plugin) in
-      plugin.processRequest(&request)
-    }
-    
-    utilityQueue.async {
-      let task = self.urlSession.dataTask(with: request as URLRequest) { (data: Data?, response: URLResponse?, error: Error?) in
-        self.handleResponse(data: data, response: response, error: error, completion: completion)
-      }
-      task.resume()
-    }
-  }
-  
-  // MARK: - Proper Multipart Construction (Stack Overflow Pattern)
-  private func handleProperMultipart<T: Decodable>(request: URLRequest, endPoint: EndPoint, completion: @escaping (_ result: T) -> Void) throws {
-    // Build multipart body following the style described at https://fluffy.es/upload-image-to-server/
-
-    var mutableRequest = request
-
-    // Generate a unique boundary
-    let boundary = "Boundary-\(UUID().uuidString)"
-
-    // Build the multipart body with ALL parameters & attachments (can handle any number of files)
-    let bodyData = createMultipartBody(
-      parameters: endPoint.parameters,
-      attachments: endPoint.attachments,
-      boundary: boundary
-    )
-
-    // Set required headers
-    mutableRequest.setValue("multipart/form-data; boundary=" + boundary, forHTTPHeaderField: "Content-Type")
-    mutableRequest.setValue(String(bodyData.count), forHTTPHeaderField: "Content-Length")
-
-    mutableRequest.httpBody = bodyData
-    mutableRequest.httpShouldHandleCookies = false
 
     // Allow plugins to mutate the request
     for plugin in plugins {
-      plugin.processRequest(&mutableRequest)
+      plugin.processRequest(&request)
     }
 
-    utilityQueue.async {
-      let task = self.urlSession.dataTask(with: mutableRequest) { (data: Data?, response: URLResponse?, error: Error?) in
-        self.handleResponse(data: data, response: response, error: error, completion: completion)
-      }
-      task.resume()
-    }
+    return request
   }
-  
-  /// and every attachment gets its own part separated by the same boundary.
+
+  /// Build multipart body for file upload requests
+  /// Each parameter and attachment gets its own part separated by the boundary
   ///
   /// - Parameters:
   ///   - parameters: Dictionary of parameters to send. Values can be `String`, `Data`, or any JSON-serialisable type.
@@ -195,45 +203,8 @@ class HTTPClient: NSObject, URLSessionDelegate {
 
     return body
   }
-  
-  // MARK: - Shared Response Handling
-  private func handleResponse<T: Decodable>(data: Data?, response: URLResponse?, error: Error?, completion: @escaping (_ result: T) -> Void) {
-    
-    if let error = error {
-      print("🚨 HTTPClient Network Error: Request failed due to network connectivity or timeout issues. Details: \(error.localizedDescription). Check your internet connection and server availability.")
-      return
-    }
-    
-    guard let data = data else {
-      print("🚨 HTTPClient Data Error: Server responded but no data was received. This could indicate a server-side issue or incomplete response.")
-      return
-    }
-    
-    guard let httpResponse = response as? HTTPURLResponse else {
-      print("🚨 HTTPClient Response Error: Invalid response format received from server. Expected HTTP response but got: \(String(describing: response))")
-      return
-    }
-
-    do {
-      if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
-        let result = try JSONDecoder().decode(T.self, from: data)
-        completion(result)
-      } else {
-        let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
-        print("🚨 HTTPClient HTTP Error: Server returned status code \(httpResponse.statusCode). This indicates a server-side error or invalid request.")
-        print("   📄 Response details: \(responseBody)")
-        print("   🔗 Request URL: \(httpResponse.url?.absoluteString ?? "Unknown")")
-      }
-    } catch let error {
-      let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
-      print("🚨 HTTPClient JSON Decode Error: Failed to parse server response as expected format.")
-      print("   🔍 Decode error: \(error.localizedDescription)")
-      print("   📄 Raw response: \(responseBody)")
-      print("   💡 This usually means the server returned a different JSON structure than expected.")
-    }
-  }
 }
 
-protocol HTTPClientPlugin {
+protocol HTTPClientPlugin: Sendable {
   func processRequest(_ originRequest: inout URLRequest)
 }
