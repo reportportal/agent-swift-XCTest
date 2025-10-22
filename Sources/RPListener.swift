@@ -144,7 +144,7 @@ open class RPListener: NSObject, XCTestObservation {
   
   public func testSuiteWillStart(_ testSuite: XCTestSuite) {
     guard let asyncService = reportingServiceAsync else {
-      print("🚨 RPListener Configuration Error: ReportingService is not available. Test suite '\(testSuite.name)' will not be reported to ReportPortal.")
+      print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test suite '\(testSuite.name)' will not be reported to ReportPortal.")
       return
     }
 
@@ -214,7 +214,7 @@ open class RPListener: NSObject, XCTestObservation {
 
   public func testCaseWillStart(_ testCase: XCTestCase) {
     guard let asyncService = reportingServiceAsync else {
-      print("🚨 RPListener Configuration Error: ReportingService is not available. Test case '\(testCase.name)' will not be reported to ReportPortal.")
+      print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test case '\(testCase.name)' will not be reported to ReportPortal.")
       return
     }
 
@@ -310,7 +310,7 @@ open class RPListener: NSObject, XCTestObservation {
   @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
   public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
     guard let asyncService = reportingServiceAsync else {
-      print("🚨 RPListener Configuration Error: ReportingService is not available. Test issue for '\(testCase.name)' will not be reported to ReportPortal.")
+      print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test issue for '\(testCase.name)' will not be reported to ReportPortal.")
       return
     }
 
@@ -366,7 +366,7 @@ open class RPListener: NSObject, XCTestObservation {
   // For iOs 17+
   public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
     guard let asyncService = reportingServiceAsync else {
-      print("🚨 RPListener Configuration Error: ReportingService is not available. Test failure for '\(testCase.name)' will not be reported to ReportPortal.")
+      print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test failure for '\(testCase.name)' will not be reported to ReportPortal.")
       return
     }
 
@@ -419,7 +419,7 @@ open class RPListener: NSObject, XCTestObservation {
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
     guard let asyncService = reportingServiceAsync else {
-      print("🚨 RPListener Configuration Error: ReportingService is not available. Test completion for '\(testCase.name)' will not be reported to ReportPortal.")
+      print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test completion for '\(testCase.name)' will not be reported to ReportPortal.")
       return
     }
 
@@ -459,7 +459,7 @@ open class RPListener: NSObject, XCTestObservation {
   
   public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
     guard let asyncService = reportingServiceAsync else {
-      print("🚨 RPListener Configuration Error: ReportingService is not available. Test suite completion for '\(testSuite.name)' will not be reported to ReportPortal.")
+      print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test suite completion for '\(testSuite.name)' will not be reported to ReportPortal.")
       return
     }
 
@@ -499,7 +499,7 @@ open class RPListener: NSObject, XCTestObservation {
   
   public func testBundleDidFinish(_ testBundle: Bundle) {
     guard reportingServiceAsync != nil else {
-      print("🚨 RPListener Configuration Error: ReportingService is not available. Test bundle completion will not be reported to ReportPortal.")
+      print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test bundle completion will not be reported to ReportPortal.")
       return
     }
 
