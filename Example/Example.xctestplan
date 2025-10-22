@@ -11,9 +11,9 @@
       "id" : "A1B2C3D4-E5F6-4A5B-8C9D-1234567890AB",
       "name" : "Parallel Execution with Thread Sanitizer",
       "options" : {
-        "threadSanitizerEnabled" : true,
         "maximumTestExecutionTimeAllowance" : 600,
-        "testExecutionOrdering" : "random"
+        "testExecutionOrdering" : "random",
+        "threadSanitizerEnabled" : true
       }
     }
   ],
@@ -32,15 +32,15 @@
         "value" : "INFO"
       }
     ],
-    "maximumTestRepetitions" : 1,
-    "testRepetitionMode" : "none",
-    "parallelizationEnabled" : true,
     "maximumParallelTestExecutionWorkers" : 4,
+    "maximumTestRepetitions" : 1,
+    "parallelizationEnabled" : true,
     "targetForVariableExpansion" : {
       "containerPath" : "container:ReportPortalAgent.xcodeproj",
       "identifier" : "9203A38B2135C20C00BFAF82",
       "name" : "Example"
-    }
+    },
+    "testRepetitionMode" : "none"
   },
   "testTargets" : [
     {
