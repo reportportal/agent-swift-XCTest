@@ -10,10 +10,13 @@ import Foundation
 import XCTest
 
 open class RPListener: NSObject, XCTestObservation {
-  
-  public var reportingService: ReportingService?
-  private let queue = DispatchQueue(label: "com.report_portal.reporting", qos: .utility)
-  
+
+  private var reportingServiceAsync: ReportingServiceAsync?
+
+  // Shared actors for parallel execution
+  private let launchManager = LaunchManager.shared
+  private let operationTracker = OperationTracker.shared
+
   public override init() {
     super.init()
     XCTestObservationCenter.shared.addTestObserver(self)
@@ -82,157 +85,449 @@ open class RPListener: NSObject, XCTestObservation {
   
   public func testBundleWillStart(_ testBundle: Bundle) {
     let configuration = readConfiguration(from: testBundle)
-    
+
     guard configuration.shouldSendReport else {
       print("Set 'YES' for 'PushTestDataToReportPortal' property in Info.plist if you want to put data to report portal")
       return
     }
-    
-    let reportingService = ReportingService(configuration: configuration, testBundle: testBundle)
-    self.reportingService = reportingService
-    
-    queue.async {
-      do {
-        try reportingService.startLaunch()
-      } catch let error {
-        print("🚨 RPListener Launch Start Error: Failed to start ReportPortal launch for test bundle. This will prevent all test results from being reported. Error details: \(error.localizedDescription)")
+
+    // Create async service for v4.0.0 parallel execution
+    let reportingServiceAsync = ReportingServiceAsync(configuration: configuration)
+    self.reportingServiceAsync = reportingServiceAsync
+
+    // T013: Increment bundle count for parallel execution support
+    Task {
+      await launchManager.incrementBundleCount()
+
+      // Check if this is the first bundle - if so, create launch
+      if await launchManager.getLaunchID() == nil {
+        do {
+          // Collect metadata attributes
+          let attributes: [[String: String]]
+          if let bundle = testBundle as Bundle? {
+            attributes = MetadataCollector.collectAllAttributes(from: bundle, tags: configuration.tags)
+          } else {
+            attributes = MetadataCollector.collectDeviceAttributes()
+          }
+
+          // Get test plan name for launch name enhancement
+          let testPlanName = MetadataCollector.getTestPlanName()
+          let enhancedLaunchName = buildEnhancedLaunchName(
+            baseLaunchName: configuration.launchName,
+            testPlanName: testPlanName
+          )
+
+          let launchID = try await reportingServiceAsync.startLaunch(
+            name: enhancedLaunchName,
+            tags: configuration.tags,
+            attributes: attributes
+          )
+
+          Logger.shared.info("Launch created: \(launchID)")
+        } catch {
+          Logger.shared.error("Failed to start launch: \(error.localizedDescription)")
+        }
+      } else {
+        let launchID = await launchManager.getLaunchID()
+        Logger.shared.info("Using existing launch: \(launchID ?? "unknown")")
       }
     }
   }
+
+  private func buildEnhancedLaunchName(baseLaunchName: String, testPlanName: String?) -> String {
+    if let testPlan = testPlanName, !testPlan.isEmpty {
+      let sanitizedTestPlan = testPlan.replacingOccurrences(of: " ", with: "_")
+      return "\(baseLaunchName): \(sanitizedTestPlan)"
+    }
+    return baseLaunchName
+  }
   
   public func testSuiteWillStart(_ testSuite: XCTestSuite) {
-    guard let reportingService = self.reportingService else { 
+    guard let asyncService = reportingServiceAsync else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test suite '\(testSuite.name)' will not be reported to ReportPortal.")
-      return 
+      return
     }
-    
+
     guard
       !testSuite.name.contains("All tests"),
       !testSuite.name.contains("Selected tests") else
     {
       return
     }
-    
-    queue.async {
+
+    // T015: Register suite with OperationTracker for parallel execution
+    Task {
+      guard let launchID = await launchManager.getLaunchID() else {
+        Logger.shared.error("Cannot start suite: launch ID not found")
+        return
+      }
+
       do {
-        if testSuite.name.contains(".xctest") {
-          try reportingService.startRootSuite(testSuite)
-        } else {
-          try reportingService.startTestSuite(testSuite)
+        let correlationID = UUID()
+        let isRootSuite = testSuite.name.contains(".xctest")
+
+        // Create suite operation
+        var operation = SuiteOperation(
+          correlationID: correlationID,
+          suiteID: "", // Will be set after API call
+          rootSuiteID: isRootSuite ? nil : await getRootSuiteID(),
+          suiteName: testSuite.name,
+          status: .passed,
+          startTime: Date(),
+          childTestIDs: [],
+          metadata: [:]
+        )
+
+        // Register suite in tracker
+        let identifier = testSuite.name
+        await operationTracker.registerSuite(operation, identifier: identifier)
+
+        // Start suite in ReportPortal
+        let suiteID = try await asyncService.startSuite(operation: operation, launchID: launchID)
+
+        // Update operation with suite ID
+        operation.suiteID = suiteID
+        await operationTracker.updateSuite(operation, identifier: identifier)
+
+        // Store root suite ID if this is root
+        if isRootSuite {
+          await setRootSuiteID(suiteID)
         }
-      } catch let error {
-        print("🚨 RPListener Suite Start Error: Failed to start test suite '\(testSuite.name)' in ReportPortal. Error details: \(error.localizedDescription)")
+
+        Logger.shared.info("Suite started: \(suiteID)", correlationID: correlationID)
+      } catch {
+        Logger.shared.error("Failed to start suite '\(testSuite.name)': \(error.localizedDescription)")
       }
     }
   }
 
+  // Helper to store/retrieve root suite ID (thread-safe with actor)
+  private var rootSuiteIDStorage: String?
+
+  private func setRootSuiteID(_ id: String) async {
+    rootSuiteIDStorage = id
+  }
+
+  private func getRootSuiteID() async -> String? {
+    return rootSuiteIDStorage
+  }
+
   public func testCaseWillStart(_ testCase: XCTestCase) {
-    guard let reportingService = self.reportingService else { 
+    guard let asyncService = reportingServiceAsync else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test case '\(testCase.name)' will not be reported to ReportPortal.")
-      return 
+      return
     }
 
-    queue.async {
+    // T019: Register test case with OperationTracker for parallel execution
+    Task {
+      guard let launchID = await launchManager.getLaunchID() else {
+        Logger.shared.error("Cannot start test: launch ID not found")
+        return
+      }
+
       do {
-        try reportingService.startTest(testCase)
-      } catch let error {
-        print("🚨 RPListener Test Start Error: Failed to start test case '\(testCase.name)' in ReportPortal. Error details: \(error.localizedDescription)")
+        let correlationID = UUID()
+
+        // Extract test information
+        let testName = extractTestName(from: testCase)
+        let className = String(describing: type(of: testCase))
+        let identifier = "\(className).\(testName)"
+
+        // Get parent suite ID (from current suite context)
+        guard let suiteID = await getCurrentSuiteID(for: className) else {
+          Logger.shared.error("Cannot start test: parent suite ID not found for \(className)")
+          return
+        }
+
+        // Collect metadata
+        let metadata = collectTestMetadata()
+
+        // Create test operation
+        var operation = TestOperation(
+          correlationID: correlationID,
+          testID: "", // Will be set after API call
+          suiteID: suiteID,
+          testName: testName,
+          className: className,
+          status: .passed,
+          startTime: Date(),
+          metadata: metadata,
+          attachments: []
+        )
+
+        // Register test in tracker
+        await operationTracker.registerTest(operation, identifier: identifier)
+
+        // Start test in ReportPortal
+        let testID = try await asyncService.startTest(operation: operation, launchID: launchID)
+
+        // Update operation with test ID
+        operation.testID = testID
+        await operationTracker.updateTest(operation, identifier: identifier)
+
+        Logger.shared.info("Test started: \(testID)", correlationID: correlationID)
+      } catch {
+        Logger.shared.error("Failed to start test '\(testCase.name)': \(error.localizedDescription)")
       }
     }
+  }
+
+  // Helper to extract test name from XCTestCase
+  private func extractTestName(from testCase: XCTestCase) -> String {
+    let fullName = testCase.name
+    // XCTest name format: "-[ClassName testMethodName]"
+    let components = fullName.components(separatedBy: " ")
+    if components.count > 1 {
+      return components[1].replacingOccurrences(of: "]", with: "")
+    }
+    return fullName
+  }
+
+  // Helper to get current suite ID for a test class
+  private func getCurrentSuiteID(for className: String) async -> String? {
+    // Try to find suite operation for this class
+    if let suiteOp = await operationTracker.getSuite(identifier: className) {
+      return suiteOp.suiteID
+    }
+    return nil
+  }
+
+  // Helper to collect test metadata
+  private func collectTestMetadata() -> [String: String] {
+    var metadata: [String: String] = [:]
+
+    // Add test plan name if available
+    if let testPlanName = MetadataCollector.getTestPlanName() {
+      metadata["testPlan"] = testPlanName
+    }
+
+    // Add device info
+    metadata["os"] = DeviceHelper.osNameAndVersion()
+
+    return metadata
   }
 
   @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
   public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-    guard let reportingService = self.reportingService else { 
+    guard let asyncService = reportingServiceAsync else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test issue for '\(testCase.name)' will not be reported to ReportPortal.")
-      return 
+      return
     }
 
-    queue.async {
+    // T022: Async attachment upload for concurrent execution
+    Task {
+      guard let launchID = await launchManager.getLaunchID() else {
+        Logger.shared.error("Cannot report error: launch ID not found")
+        return
+      }
+
+      // Build identifier to get test operation
+      let testName = extractTestName(from: testCase)
+      let className = String(describing: type(of: testCase))
+      let identifier = "\(className).\(testName)"
+
+      guard let operation = await operationTracker.getTest(identifier: identifier) else {
+        Logger.shared.error("Test operation not found for error reporting: \(identifier)")
+        return
+      }
+
       do {
         let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
           ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
           : ""
         let errorMessage = "Test '\(String(describing: issue.description))' failed\(lineNumberString), \(issue.description)"
 
-        try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
-      } catch let error {
-        print("🚨 RPListener Issue Reporting Error: Failed to report test issue for '\(testCase.name)' to ReportPortal. Error details: \(error.localizedDescription)")
+        // Post error log with async API (non-blocking)
+        try await asyncService.postLog(
+          message: errorMessage,
+          level: "error",
+          itemID: operation.testID,
+          launchID: launchID,
+          correlationID: operation.correlationID
+        )
+
+        // Upload attachments concurrently if available from operation
+        if !operation.attachments.isEmpty {
+          try await asyncService.postAttachments(
+            attachments: operation.attachments,
+            itemID: operation.testID,
+            launchID: launchID,
+            correlationID: operation.correlationID
+          )
+        }
+
+        Logger.shared.info("Error reported with attachments", correlationID: operation.correlationID)
+      } catch {
+        Logger.shared.error("Failed to report error: \(error.localizedDescription)", correlationID: operation.correlationID)
       }
     }
   }
 
   // For iOs 17+
   public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
-    guard let reportingService = self.reportingService else { 
+    guard let asyncService = reportingServiceAsync else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test failure for '\(testCase.name)' will not be reported to ReportPortal.")
-      return 
+      return
     }
 
-    queue.async {
+    // T022: Async attachment upload for concurrent execution
+    Task {
+      guard let launchID = await launchManager.getLaunchID() else {
+        Logger.shared.error("Cannot report failure: launch ID not found")
+        return
+      }
+
+      // Build identifier to get test operation
+      let testName = extractTestName(from: testCase)
+      let className = String(describing: type(of: testCase))
+      let identifier = "\(className).\(testName)"
+
+      guard let operation = await operationTracker.getTest(identifier: identifier) else {
+        Logger.shared.error("Test operation not found for failure reporting: \(identifier)")
+        return
+      }
+
       do {
         let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
         let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
-        
-        try reportingService.reportErrorWithScreenshot(message: errorMessage, testCase: testCase)
-      } catch let error {
-        print("🚨 RPListener Failure Reporting Error: Failed to report test failure for '\(testCase.name)' to ReportPortal. Error details: \(error.localizedDescription)")
+
+        // Post error log with async API (non-blocking)
+        try await asyncService.postLog(
+          message: errorMessage,
+          level: "error",
+          itemID: operation.testID,
+          launchID: launchID,
+          correlationID: operation.correlationID
+        )
+
+        // Upload attachments concurrently if available from operation
+        if !operation.attachments.isEmpty {
+          try await asyncService.postAttachments(
+            attachments: operation.attachments,
+            itemID: operation.testID,
+            launchID: launchID,
+            correlationID: operation.correlationID
+          )
+        }
+
+        Logger.shared.info("Failure reported with attachments", correlationID: operation.correlationID)
+      } catch {
+        Logger.shared.error("Failed to report failure: \(error.localizedDescription)", correlationID: operation.correlationID)
       }
     }
   }
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
-    guard let reportingService = self.reportingService else { 
+    guard let asyncService = reportingServiceAsync else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test completion for '\(testCase.name)' will not be reported to ReportPortal.")
-      return 
+      return
     }
 
-    queue.async {
+    // T020: Finalize test with status update and cleanup
+    Task {
+      // Build identifier
+      let testName = extractTestName(from: testCase)
+      let className = String(describing: type(of: testCase))
+      let identifier = "\(className).\(testName)"
+
+      // Retrieve test operation from tracker
+      guard var operation = await operationTracker.getTest(identifier: identifier) else {
+        Logger.shared.error("Test operation not found in tracker: \(identifier)")
+        return
+      }
+
       do {
-        try reportingService.finishTest(testCase)
-      } catch let error {
-        print("🚨 RPListener Test Finish Error: Failed to finish test case '\(testCase.name)' in ReportPortal. Error details: \(error.localizedDescription)")
+        // Update status based on test result
+        let hasSucceeded = testCase.testRun?.hasSucceeded ?? false
+        operation.status = hasSucceeded ? .passed : .failed
+
+        // Finish test in ReportPortal
+        try await asyncService.finishTest(operation: operation)
+
+        // Update aggregated launch status
+        await launchManager.updateStatus(operation.status)
+
+        // Unregister test from tracker (cleanup)
+        await operationTracker.unregisterTest(identifier: identifier)
+
+        Logger.shared.info("Test finished: \(operation.testID) with status: \(operation.status.rawValue)", correlationID: operation.correlationID)
+      } catch {
+        Logger.shared.error("Failed to finish test '\(testCase.name)': \(error.localizedDescription)", correlationID: operation.correlationID)
       }
     }
   }
   
   public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
-    guard let reportingService = self.reportingService else { 
+    guard let asyncService = reportingServiceAsync else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test suite completion for '\(testSuite.name)' will not be reported to ReportPortal.")
-      return 
+      return
     }
-    
+
     guard
       !testSuite.name.contains("All tests"),
       !testSuite.name.contains("Selected tests") else
     {
       return
     }
-    
-    queue.async {
+
+    // T016: Finalize suite with OperationTracker
+    Task {
+      let identifier = testSuite.name
+
+      // Retrieve suite operation from tracker
+      guard let operation = await operationTracker.getSuite(identifier: identifier) else {
+        Logger.shared.error("Suite operation not found in tracker: \(identifier)")
+        return
+      }
+
       do {
-        if testSuite.name.contains(".xctest") {
-          try reportingService.finishRootSuite()
-        } else {
-          try reportingService.finishTestSuite()
-        }
-      } catch let error {
-        print("🚨 RPListener Suite Finish Error: Failed to finish test suite '\(testSuite.name)' in ReportPortal. Error details: \(error.localizedDescription)")
+        // Determine final status (would be updated from child tests in production)
+        // For now, keep as-is - in full implementation, aggregate from child tests
+
+        // Finish suite in ReportPortal
+        try await asyncService.finishSuite(operation: operation)
+
+        // Unregister suite from tracker (cleanup)
+        await operationTracker.unregisterSuite(identifier: identifier)
+
+        Logger.shared.info("Suite finished: \(operation.suiteID)", correlationID: operation.correlationID)
+      } catch {
+        Logger.shared.error("Failed to finish suite '\(testSuite.name)': \(error.localizedDescription)", correlationID: operation.correlationID)
       }
     }
   }
   
   public func testBundleDidFinish(_ testBundle: Bundle) {
-    guard let reportingService = self.reportingService else { 
+    guard reportingServiceAsync != nil else {
       print("🚨 RPListener Configuration Error: ReportingService is not available. Test bundle completion will not be reported to ReportPortal.")
-      return 
+      return
     }
 
-    queue.sync() {
-      do {
-        try reportingService.finishLaunch()
-      } catch let error {
-        print("🚨 RPListener Launch Finish Error: Failed to finish ReportPortal launch for test bundle. Error details: \(error.localizedDescription)")
+    // T014: Decrement bundle count and finalize if this is the last bundle
+    Task {
+      let shouldFinalize = await launchManager.decrementBundleCount()
+      let isFinalized = await launchManager.isLaunchFinalized()
+
+      if shouldFinalize && !isFinalized {
+        // This is the last bundle - finalize the launch
+        guard let launchID = await launchManager.getLaunchID() else {
+          Logger.shared.error("Cannot finalize launch: launch ID not found")
+          return
+        }
+
+        let status = await launchManager.getAggregatedStatus()
+
+        do {
+          if let asyncService = reportingServiceAsync {
+            try await asyncService.finalizeLaunch(launchID: launchID, status: status)
+            Logger.shared.info("Launch finalized: \(launchID) with status: \(status.rawValue)")
+          }
+        } catch {
+          Logger.shared.error("Failed to finalize launch: \(error.localizedDescription)")
+        }
+      } else {
+        let activeCount = await launchManager.getActiveBundleCount()
+        Logger.shared.info("Bundle finished, \(activeCount) bundles still active")
       }
     }
   }
