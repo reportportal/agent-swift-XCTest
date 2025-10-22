@@ -11,7 +11,7 @@ import XCTest
 
 open class RPListener: NSObject, XCTestObservation {
 
-  private var reportingServiceAsync: ReportingServiceAsync?
+  private var reportingService: ReportingService?
 
   // Shared actors for parallel execution
   private let launchManager = LaunchManager.shared
