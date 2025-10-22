@@ -92,8 +92,8 @@ open class RPListener: NSObject, XCTestObservation {
     }
 
     // Create async service for v4.0.0 parallel execution
-    let reportingServiceAsync = ReportingServiceAsync(configuration: configuration)
-    self.reportingServiceAsync = reportingServiceAsync
+    let reportingService = ReportingService(configuration: configuration)
+    self.reportingService = reportingService
 
     // T013: Increment bundle count for parallel execution support
     Task {
@@ -117,7 +117,7 @@ open class RPListener: NSObject, XCTestObservation {
             testPlanName: testPlanName
           )
 
-          let launchID = try await reportingServiceAsync.startLaunch(
+          let launchID = try await reportingService.startLaunch(
             name: enhancedLaunchName,
             tags: configuration.tags,
             attributes: attributes
@@ -143,7 +143,7 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testSuiteWillStart(_ testSuite: XCTestSuite) {
-    guard let asyncService = reportingServiceAsync else {
+    guard let asyncService = reportingService else {
       print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test suite '\(testSuite.name)' will not be reported to ReportPortal.")
       return
     }
@@ -213,7 +213,7 @@ open class RPListener: NSObject, XCTestObservation {
   }
 
   public func testCaseWillStart(_ testCase: XCTestCase) {
-    guard let asyncService = reportingServiceAsync else {
+    guard let asyncService = reportingService else {
       print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test case '\(testCase.name)' will not be reported to ReportPortal.")
       return
     }
@@ -309,7 +309,7 @@ open class RPListener: NSObject, XCTestObservation {
 
   @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
   public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-    guard let asyncService = reportingServiceAsync else {
+    guard let asyncService = reportingService else {
       print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test issue for '\(testCase.name)' will not be reported to ReportPortal.")
       return
     }
@@ -365,7 +365,7 @@ open class RPListener: NSObject, XCTestObservation {
 
   // For iOs 17+
   public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
-    guard let asyncService = reportingServiceAsync else {
+    guard let asyncService = reportingService else {
       print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test failure for '\(testCase.name)' will not be reported to ReportPortal.")
       return
     }
@@ -418,7 +418,7 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testCaseDidFinish(_ testCase: XCTestCase) {
-    guard let asyncService = reportingServiceAsync else {
+    guard let asyncService = reportingService else {
       print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test completion for '\(testCase.name)' will not be reported to ReportPortal.")
       return
     }
@@ -458,7 +458,7 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
-    guard let asyncService = reportingServiceAsync else {
+    guard let asyncService = reportingService else {
       print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test suite completion for '\(testSuite.name)' will not be reported to ReportPortal.")
       return
     }
@@ -498,7 +498,7 @@ open class RPListener: NSObject, XCTestObservation {
   }
   
   public func testBundleDidFinish(_ testBundle: Bundle) {
-    guard reportingServiceAsync != nil else {
+    guard reportingService != nil else {
       print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test bundle completion will not be reported to ReportPortal.")
       return
     }
@@ -518,7 +518,7 @@ open class RPListener: NSObject, XCTestObservation {
         let status = await launchManager.getAggregatedStatus()
 
         do {
-          if let asyncService = reportingServiceAsync {
+          if let asyncService = reportingService {
             try await asyncService.finalizeLaunch(launchID: launchID, status: status)
             Logger.shared.info("Launch finalized: \(launchID) with status: \(status.rawValue)")
           }
