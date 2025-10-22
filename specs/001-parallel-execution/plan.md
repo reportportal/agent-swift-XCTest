@@ -29,9 +29,9 @@ Enable parallel test execution for the Swift XCTest ReportPortal agent to reduce
 - Network errors must not crash tests or corrupt other operations
 **Scale/Scope**: 
 - Refactor 3 core files: RPListener.swift, ReportingService.swift, HTTPClient
-- Add 4 new entities: TestOperation, SuiteOperation, LaunchManager (Actor), OperationTracker (Actor)
+- Add 5 new entities: TestOperation, SuiteOperation, LaunchManager (Actor), OperationTracker (Actor), Logger
 - Update Package.swift swift-tools-version: 5.1 → 5.5
-- Estimated 30 hours development (Phase breakdown in original context)
+- Estimated 32 hours development (Phase breakdown in original context)
 
 ## Constitution Check
 
