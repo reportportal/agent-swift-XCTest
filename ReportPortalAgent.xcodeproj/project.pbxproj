@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		368751BD1F5867200021B74D /* RPListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368751B61F5867200021B74D /* RPListener.swift */; };
-		85529CCB2EA9081D0080536D /* ConcurrentSuiteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CC92EA9081D0080536D /* ConcurrentSuiteTests.swift */; };
-		85529CCC2EA9081D0080536D /* ConcurrentTestCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CCA2EA9081D0080536D /* ConcurrentTestCaseTests.swift */; };
 		85529CCE2EA909140080536D /* ReportingServiceAsync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CCD2EA909140080536D /* ReportingServiceAsync.swift */; };
 		85529CD22EA9094F0080536D /* OperationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CD12EA9094F0080536D /* OperationTracker.swift */; };
 		85529CE22EA90A060080536D /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CE12EA90A060080536D /* Logger.swift */; };
@@ -97,8 +95,6 @@
 		368751E01F5964AA0021B74D /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		368751E21F596BC70021B74D /* ReportPortal.podspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ReportPortal.podspec; sourceTree = "<group>"; };
 		368751E41F596E990021B74D /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
-		85529CC92EA9081D0080536D /* ConcurrentSuiteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrentSuiteTests.swift; sourceTree = "<group>"; };
-		85529CCA2EA9081D0080536D /* ConcurrentTestCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrentTestCaseTests.swift; sourceTree = "<group>"; };
 		85529CCD2EA909140080536D /* ReportingServiceAsync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingServiceAsync.swift; sourceTree = "<group>"; };
 		85529CCF2EA9092D0080536D /* LaunchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchManager.swift; sourceTree = "<group>"; };
 		85529CD12EA9094F0080536D /* OperationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTracker.swift; sourceTree = "<group>"; };
@@ -256,8 +252,6 @@
 			children = (
 				9203A3A32135C20E00BFAF82 /* SummatorTests.swift */,
 				9203A3A52135C20E00BFAF82 /* Info.plist */,
-				85529CC92EA9081D0080536D /* ConcurrentSuiteTests.swift */,
-				85529CCA2EA9081D0080536D /* ConcurrentTestCaseTests.swift */,
 			);
 			path = ExampleUnitTests;
 			sourceTree = "<group>";
@@ -554,8 +548,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				9203A3A42135C20E00BFAF82 /* SummatorTests.swift in Sources */,
-				85529CCB2EA9081D0080536D /* ConcurrentSuiteTests.swift in Sources */,
-				85529CCC2EA9081D0080536D /* ConcurrentTestCaseTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
