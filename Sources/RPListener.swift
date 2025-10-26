@@ -125,7 +125,10 @@ open class RPListener: NSObject, XCTestObservation {
                         tags: configuration.tags,
                         attributes: attributes
                     )
-                    
+
+                    // Save launch ID to LaunchManager so other operations can access it
+                    await self.launchManager.setLaunchID(launchID)
+
                     Logger.shared.info("Launch created: \(launchID)")
                 } catch {
                     Logger.shared.error("Failed to start launch: \(error.localizedDescription)")
