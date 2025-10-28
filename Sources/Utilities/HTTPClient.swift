@@ -64,7 +64,13 @@ final class HTTPClient: NSObject, URLSessionDelegate, Sendable {
   func callEndPoint<T: Decodable>(_ endPoint: EndPoint) async throws -> T {
     let request = try buildRequest(for: endPoint)
 
-    let (data, response) = try await urlSession.data(for: request)
+    let (data, response): (Data, URLResponse)
+    do {
+      (data, response) = try await urlSession.data(for: request)
+    } catch {
+      Logger.shared.error("Network error: \(error.localizedDescription)")
+      throw HTTPClientError.networkError(error)
+    }
 
     guard let httpResponse = response as? HTTPURLResponse else {
       Logger.shared.error("Invalid response format: expected HTTP response")
