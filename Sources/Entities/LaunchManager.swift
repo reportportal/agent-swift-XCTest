@@ -22,6 +22,9 @@ actor LaunchManager {
     /// ReportPortal launch ID (shared across all bundles)
     private var launchID: String?
 
+    /// Shared Task for launch creation (allows multiple bundles to await same operation)
+    private var launchCreationTask: Task<String, Error>?
+
     /// Number of active test bundles (for reference counting)
     private var activeBundleCount: Int = 0
 
@@ -56,16 +59,44 @@ actor LaunchManager {
 
     // MARK: - Launch Management
 
-    /// Store ReportPortal launch ID after launch creation
-    /// - Parameter id: Launch ID from StartLaunch API response
-    func setLaunchID(_ id: String) {
-        self.launchID = id
-        if launchStartTime == nil {
-            launchStartTime = Date()
+    /// Get or await launch ID
+    /// Multiple bundles calling this will await the same launch creation
+    /// - Parameter launchTask: Task that creates the launch (passed from caller)
+    /// - Returns: Launch ID (either existing or from task)
+    func getOrAwaitLaunchID(launchTask: Task<String, Error>) async throws -> String {
+        // If launch already exists, return it immediately
+        if let existingID = launchID {
+            // Cancel the new task since we don't need it
+            launchTask.cancel()
+            return existingID
+        }
+
+        // If launch creation is in progress, await the existing task
+        if let existingTask = launchCreationTask {
+            // Cancel the new task since we already have one
+            launchTask.cancel()
+            return try await existingTask.value
+        }
+
+        // Store the task so other bundles can await it
+        launchCreationTask = launchTask
+
+        // Await the result
+        do {
+            let id = try await launchTask.value
+            self.launchID = id
+            if self.launchStartTime == nil {
+                self.launchStartTime = Date()
+            }
+            return id
+        } catch {
+            // Clear task on failure so another bundle can retry
+            launchCreationTask = nil
+            throw error
         }
     }
 
-    /// Retrieve current launch ID
+    /// Retrieve current launch ID (non-blocking check)
     /// - Returns: Launch ID if set, `nil` if launch not yet started
     func getLaunchID() -> String? {
         return launchID
@@ -108,6 +139,7 @@ actor LaunchManager {
     /// Reset state for next launch (if agent is reused)
     func reset() {
         launchID = nil
+        launchCreationTask = nil
         activeBundleCount = 0
         aggregatedStatus = .passed
         isFinalized = false
