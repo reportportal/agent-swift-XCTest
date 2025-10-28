@@ -14,6 +14,20 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
+    // MARK: - UI Element Helpers
+
+    private var firstField: XCUIElement {
+        app.textFields.element(boundBy: 0)
+    }
+
+    private var secondField: XCUIElement {
+        app.textFields.element(boundBy: 1)
+    }
+
+    private var resultField: XCUIElement {
+        app.textFields.element(boundBy: 2)
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
@@ -25,9 +39,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test01_AddTwoSmallNumbers() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("2")
@@ -40,9 +51,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test02_AddTenAndFive() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("10")
@@ -55,9 +63,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test03_AddZeroAndNumber() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("0")
@@ -70,9 +75,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test04_AddNumberAndZero() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("9")
@@ -85,9 +87,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test05_AddZeroAndZero() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("0")
@@ -102,9 +101,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test06_AddTwoDigitNumbers() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("13")
@@ -117,9 +113,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test07_AddFiftyAndThirty() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("50")
@@ -132,9 +125,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test08_AddTwentyFiveAndTwentyFive() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("25")
@@ -147,9 +137,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test09_AddNinetyAndTen() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("90")
@@ -162,9 +149,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test10_AddFortyTwoAndEight() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("42")
@@ -179,9 +163,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test11_AddThreeDigitNumbers() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("123")
@@ -194,9 +175,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test12_AddHundredAndTwoHundred() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("100")
@@ -209,9 +187,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test13_AddLargeNumbers() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("555")
@@ -224,9 +199,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test14_AddThreeHundredAndSevenHundred() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("300")
@@ -239,9 +211,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test15_AddNineHundredAndOne() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("900")
@@ -256,9 +225,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test16_ResultUpdatesImmediately() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("1")
@@ -273,9 +239,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test17_ResultPersistsAcrossFocusChanges() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("5")
@@ -292,9 +255,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test18_MultipleCalculations() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("10")
@@ -307,9 +267,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test19_SequentialUpdates() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("3")
@@ -322,9 +279,6 @@ final class ParallelCalculationsUITests: XCTestCase {
 
     func test20_ComplexCalculation() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         firstField.tap()
         firstField.typeText("8")

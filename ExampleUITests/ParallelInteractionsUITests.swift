@@ -14,6 +14,20 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
+    // MARK: - UI Element Helpers
+
+    private var firstField: XCUIElement {
+        app.textFields.element(boundBy: 0)
+    }
+
+    private var secondField: XCUIElement {
+        app.textFields.element(boundBy: 1)
+    }
+
+    private var resultField: XCUIElement {
+        app.textFields.element(boundBy: 2)
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
@@ -25,7 +39,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test01_TapTypeCheckSequence() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
 
         firstField.tap()
         XCTAssertTrue(firstField.exists, "Field exists after tap")
@@ -38,10 +51,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test02_CompleteAdditionWorkflow() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("15")
 
@@ -53,8 +62,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test03_MultipleFieldInteractionCycle() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         for i in 1...3 {
             firstField.tap()
@@ -67,8 +74,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test04_RapidFieldSwitching() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         secondField.tap()
@@ -80,7 +85,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test05_TypeClearTypeWorkflow() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
 
         firstField.tap()
         firstField.typeText("999")
@@ -96,7 +100,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test06_FieldStatesAfterInteraction() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
 
         let initialExists = firstField.exists
         let initialEnabled = firstField.isEnabled
@@ -112,10 +115,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test07_AllFieldsRemainAccessible() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("10")
 
@@ -127,7 +126,6 @@ final class ParallelInteractionsUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.35)
         let initialCount = app.textFields.count
 
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("123")
 
@@ -138,8 +136,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test09_FieldOrderPreservation() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         firstField.typeText("1")
@@ -156,7 +152,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test10_StateAfterMultipleInteractions() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
 
         firstField.tap()
         firstField.typeText("5")
@@ -174,17 +169,12 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test11_SimultaneousFieldAccess() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         XCTAssertTrue(firstField.exists && secondField.exists && resultField.exists, "All fields accessible simultaneously")
     }
 
     func test12_CrossFieldValueCheck() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         firstField.typeText("7")
@@ -199,8 +189,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test13_IndependentFieldUpdates() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         firstField.typeText("100")
@@ -214,10 +202,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test14_ResultReflectsAllInputs() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("12")
 
@@ -229,10 +213,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test15_ConsecutiveCalculations() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("5")
 
@@ -247,7 +227,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test16_EmptyFieldInteraction() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
 
         firstField.tap()
         // Don't type anything
@@ -257,7 +236,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test17_DoubleFieldEntry() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
 
         firstField.tap()
         firstField.typeText("1")
@@ -268,7 +246,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test18_FieldExistsAfterLongInteraction() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
 
         firstField.tap()
         firstField.typeText("1")
@@ -282,8 +259,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test19_MultipleFieldsAccessibleAfterWork() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         firstField.typeText("50")
@@ -297,9 +272,6 @@ final class ParallelInteractionsUITests: XCTestCase {
 
     func test20_CompleteUserJourney() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         // Step 1: Check initial state
         XCTAssertTrue(firstField.exists, "Step 1: First field exists")

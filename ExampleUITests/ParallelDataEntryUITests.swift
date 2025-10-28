@@ -14,6 +14,20 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
+    // MARK: - UI Element Helpers
+
+    private var firstField: XCUIElement {
+        app.textFields.element(boundBy: 0)
+    }
+
+    private var secondField: XCUIElement {
+        app.textFields.element(boundBy: 1)
+    }
+
+    private var resultField: XCUIElement {
+        app.textFields.element(boundBy: 2)
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
@@ -25,7 +39,7 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test01_EnterSingleDigitInFirstField() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
+
         firstField.tap()
         firstField.typeText("7")
         XCTAssertEqual(firstField.value as? String, "7", "Should display single digit")
@@ -33,7 +47,7 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test02_EnterSingleDigitInSecondField() {
         Thread.sleep(forTimeInterval: 0.3)
-        let secondField = app.textFields.element(boundBy: 1)
+
         secondField.tap()
         secondField.typeText("9")
         XCTAssertEqual(secondField.value as? String, "9", "Should display single digit")
@@ -41,7 +55,7 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test03_EnterZero() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
+
         firstField.tap()
         firstField.typeText("0")
         XCTAssertEqual(firstField.value as? String, "0", "Should handle zero input")
@@ -49,7 +63,7 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test04_EnterNine() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
+
         firstField.tap()
         firstField.typeText("9")
         XCTAssertEqual(firstField.value as? String, "9", "Should handle nine input")
@@ -57,7 +71,7 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test05_EnterFive() {
         Thread.sleep(forTimeInterval: 0.3)
-        let secondField = app.textFields.element(boundBy: 1)
+
         secondField.tap()
         secondField.typeText("5")
         XCTAssertEqual(secondField.value as? String, "5", "Should handle five input")
@@ -67,7 +81,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test06_EnterTwoDigits() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("42")
         XCTAssertEqual(firstField.value as? String, "42", "Should display two digits")
@@ -75,7 +88,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test07_EnterThreeDigits() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("123")
         XCTAssertEqual(firstField.value as? String, "123", "Should display three digits")
@@ -83,7 +95,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test08_EnterFourDigits() {
         Thread.sleep(forTimeInterval: 0.35)
-        let secondField = app.textFields.element(boundBy: 1)
         secondField.tap()
         secondField.typeText("9876")
         XCTAssertEqual(secondField.value as? String, "9876", "Should display four digits")
@@ -91,7 +102,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test09_EnterLargeNumber() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("12345")
         XCTAssertEqual(firstField.value as? String, "12345", "Should handle large numbers")
@@ -99,7 +109,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test10_EnterSequentialNumbers() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("1234567890")
         XCTAssertTrue((firstField.value as? String)?.count ?? 0 > 0, "Should accept sequential input")
@@ -109,7 +118,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test11_RapidTyping() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("111")
         XCTAssertEqual(firstField.value as? String, "111", "Should handle rapid typing")
@@ -117,8 +125,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test12_AlternatingFields() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         firstField.typeText("1")
@@ -132,8 +138,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test13_BackAndForthEntry() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         firstField.typeText("10")
@@ -149,8 +153,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test14_MultipleFieldUpdates() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         firstField.typeText("7")
@@ -164,7 +166,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test15_ClearAndReenter() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
 
         firstField.tap()
         firstField.typeText("99")
@@ -178,7 +179,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test16_EnterRepeatingDigits() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("777")
         XCTAssertEqual(firstField.value as? String, "777", "Should handle repeating digits")
@@ -186,7 +186,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test17_EnterSequentialDigits() {
         Thread.sleep(forTimeInterval: 0.45)
-        let secondField = app.textFields.element(boundBy: 1)
         secondField.tap()
         secondField.typeText("123")
         XCTAssertEqual(secondField.value as? String, "123", "Should handle sequential digits")
@@ -194,7 +193,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test18_EnterReverseSequence() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("321")
         XCTAssertEqual(firstField.value as? String, "321", "Should handle reverse sequence")
@@ -202,7 +200,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test19_EnterAlternatingDigits() {
         Thread.sleep(forTimeInterval: 0.45)
-        let secondField = app.textFields.element(boundBy: 1)
         secondField.tap()
         secondField.typeText("101")
         XCTAssertEqual(secondField.value as? String, "101", "Should handle alternating digits")
@@ -210,7 +207,6 @@ final class ParallelDataEntryUITests: XCTestCase {
 
     func test20_EnterAllZeros() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("000")
         XCTAssertTrue((firstField.value as? String)?.contains("0") ?? false, "Should handle multiple zeros")

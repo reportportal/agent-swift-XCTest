@@ -14,6 +14,20 @@ final class ParallelNavigationUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
+    // MARK: - UI Element Helpers
+
+    private var firstField: XCUIElement {
+        app.textFields.element(boundBy: 0)
+    }
+
+    private var secondField: XCUIElement {
+        app.textFields.element(boundBy: 1)
+    }
+
+    private var resultField: XCUIElement {
+        app.textFields.element(boundBy: 2)
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
@@ -40,10 +54,6 @@ final class ParallelNavigationUITests: XCTestCase {
 
     func test03_TextFieldsAreAccessible() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         XCTAssertTrue(firstField.isHittable, "First field should be accessible")
         XCTAssertTrue(secondField.isHittable, "Second field should be accessible")
         XCTAssertTrue(resultField.isHittable, "Result field should be accessible")
@@ -63,21 +73,18 @@ final class ParallelNavigationUITests: XCTestCase {
 
     func test06_FirstFieldVisible() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         XCTAssertTrue(firstField.exists, "First field should exist")
         XCTAssertTrue(firstField.isEnabled, "First field should be enabled")
     }
 
     func test07_SecondFieldVisible() {
         Thread.sleep(forTimeInterval: 0.35)
-        let secondField = app.textFields.element(boundBy: 1)
         XCTAssertTrue(secondField.exists, "Second field should exist")
         XCTAssertTrue(secondField.isEnabled, "Second field should be enabled")
     }
 
     func test08_ResultFieldVisible() {
         Thread.sleep(forTimeInterval: 0.35)
-        let resultField = app.textFields.element(boundBy: 2)
         XCTAssertTrue(resultField.exists, "Result field should exist")
         XCTAssertTrue(resultField.isEnabled, "Result field should be enabled")
     }
@@ -90,10 +97,6 @@ final class ParallelNavigationUITests: XCTestCase {
 
     func test10_FieldOrderIsCorrect() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         XCTAssertTrue(firstField.exists, "First field in correct position")
         XCTAssertTrue(secondField.exists, "Second field in correct position")
         XCTAssertTrue(resultField.exists, "Result field in correct position")
@@ -103,21 +106,18 @@ final class ParallelNavigationUITests: XCTestCase {
 
     func test11_FirstFieldTapResponse() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         XCTAssertTrue(firstField.exists, "Field should still exist after tap")
     }
 
     func test12_SecondFieldTapResponse() {
         Thread.sleep(forTimeInterval: 0.4)
-        let secondField = app.textFields.element(boundBy: 1)
         secondField.tap()
         XCTAssertTrue(secondField.exists, "Field should still exist after tap")
     }
 
     func test13_DoubleTapResponse() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("100")
         firstField.doubleTap()
@@ -126,8 +126,6 @@ final class ParallelNavigationUITests: XCTestCase {
 
     func test14_SequentialFieldTaps() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         XCTAssertTrue(firstField.exists, "First field tap successful")
@@ -138,8 +136,6 @@ final class ParallelNavigationUITests: XCTestCase {
 
     func test15_FocusSwitching() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
 
         firstField.tap()
         firstField.typeText("5")

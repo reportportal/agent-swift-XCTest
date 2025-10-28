@@ -14,6 +14,20 @@ final class ParallelStressUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
+    // MARK: - UI Element Helpers
+
+    private var firstField: XCUIElement {
+        return app.textFields.element(boundBy: 0)
+    }
+
+    private var secondField: XCUIElement {
+        return app.textFields.element(boundBy: 1)
+    }
+
+    private var resultField: XCUIElement {
+        return app.textFields.element(boundBy: 2)
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
@@ -25,10 +39,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test001_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.2)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("1")
         secondField.tap()
@@ -38,10 +48,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test002_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.21)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("2")
         secondField.tap()
@@ -51,10 +57,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test003_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.22)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("3")
         secondField.tap()
@@ -64,10 +66,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test004_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.23)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("4")
         secondField.tap()
@@ -77,10 +75,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test005_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.24)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("5")
         secondField.tap()
@@ -90,10 +84,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test006_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.25)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("6")
         secondField.tap()
@@ -103,10 +93,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test007_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.26)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("7")
         secondField.tap()
@@ -116,10 +102,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test008_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.27)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("8")
         secondField.tap()
@@ -129,10 +111,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test009_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.28)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("9")
         secondField.tap()
@@ -142,10 +120,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test010_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.29)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("10")
         secondField.tap()
@@ -155,10 +129,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test011_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("11")
         secondField.tap()
@@ -168,10 +138,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test012_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.31)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("12")
         secondField.tap()
@@ -181,10 +147,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test013_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.32)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("13")
         secondField.tap()
@@ -194,10 +156,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test014_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.33)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("14")
         secondField.tap()
@@ -207,10 +165,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test015_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.34)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("15")
         secondField.tap()
@@ -220,10 +174,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test016_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("16")
         secondField.tap()
@@ -233,10 +183,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test017_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.36)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("17")
         secondField.tap()
@@ -246,10 +192,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test018_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.37)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("18")
         secondField.tap()
@@ -259,10 +201,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test019_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.38)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("19")
         secondField.tap()
@@ -272,10 +210,6 @@ final class ParallelStressUITests: XCTestCase {
 
     func test020_StressCalculation() {
         Thread.sleep(forTimeInterval: 0.39)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("20")
         secondField.tap()
@@ -289,15 +223,25 @@ final class ParallelUITests_StressB: XCTestCase {
 
     private let app = XCUIApplication()
 
+    // MARK: - UI Element Helpers
+
+    private var firstField: XCUIElement {
+        return app.textFields.element(boundBy: 0)
+    }
+
+    private var secondField: XCUIElement {
+        return app.textFields.element(boundBy: 1)
+    }
+
+    private var resultField: XCUIElement {
+        return app.textFields.element(boundBy: 2)
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
         app.launch()
         Thread.sleep(forTimeInterval: 0.5)
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     // MARK: - Stress Test Series 2 (20 tests)
@@ -309,17 +253,17 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test022_FieldExistence() {
         Thread.sleep(forTimeInterval: 0.21)
-        XCTAssertTrue(app.textFields.element(boundBy: 0).exists, "Stress test 022")
+        XCTAssertTrue(firstField.exists, "Stress test 022")
     }
 
     func test023_FieldExistence() {
         Thread.sleep(forTimeInterval: 0.22)
-        XCTAssertTrue(app.textFields.element(boundBy: 1).exists, "Stress test 023")
+        XCTAssertTrue(secondField.exists, "Stress test 023")
     }
 
     func test024_FieldExistence() {
         Thread.sleep(forTimeInterval: 0.23)
-        XCTAssertTrue(app.textFields.element(boundBy: 2).exists, "Stress test 024")
+        XCTAssertTrue(resultField.exists, "Stress test 024")
     }
 
     func test025_AppState() {
@@ -339,12 +283,12 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test028_FieldAccessibility() {
         Thread.sleep(forTimeInterval: 0.27)
-        XCTAssertTrue(app.textFields.element(boundBy: 0).isHittable, "Stress test 028")
+        XCTAssertTrue(firstField.isHittable, "Stress test 028")
     }
 
     func test029_FieldEnabled() {
         Thread.sleep(forTimeInterval: 0.28)
-        XCTAssertTrue(app.textFields.element(boundBy: 0).isEnabled, "Stress test 029")
+        XCTAssertTrue(firstField.isEnabled, "Stress test 029")
     }
 
     func test030_MultipleFields() {
@@ -354,10 +298,6 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test031_SimpleCalculation() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("25")
         secondField.tap()
@@ -367,10 +307,6 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test032_SimpleCalculation() {
         Thread.sleep(forTimeInterval: 0.31)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("30")
         secondField.tap()
@@ -380,7 +316,6 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test033_SimpleCalculation() {
         Thread.sleep(forTimeInterval: 0.32)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("99")
         XCTAssertEqual(firstField.value as? String, "99", "Stress test 033")
@@ -388,7 +323,6 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test034_SimpleCalculation() {
         Thread.sleep(forTimeInterval: 0.33)
-        let secondField = app.textFields.element(boundBy: 1)
         secondField.tap()
         secondField.typeText("88")
         XCTAssertEqual(secondField.value as? String, "88", "Stress test 034")
@@ -396,20 +330,17 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test035_ResultCheck() {
         Thread.sleep(forTimeInterval: 0.34)
-        let resultField = app.textFields.element(boundBy: 2)
         XCTAssertTrue(resultField.exists, "Stress test 035")
     }
 
     func test036_TapResponse() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         XCTAssertTrue(firstField.exists, "Stress test 036")
     }
 
     func test037_TypeResponse() {
         Thread.sleep(forTimeInterval: 0.36)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("77")
         XCTAssertEqual(firstField.value as? String, "77", "Stress test 037")
@@ -417,8 +348,6 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test038_FieldFocus() {
         Thread.sleep(forTimeInterval: 0.37)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
         firstField.tap()
         secondField.tap()
         XCTAssertTrue(secondField.exists, "Stress test 038")
@@ -426,7 +355,6 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test039_QuickInteraction() {
         Thread.sleep(forTimeInterval: 0.38)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("1")
         XCTAssertTrue(firstField.exists, "Stress test 039")
@@ -434,9 +362,6 @@ final class ParallelUITests_StressB: XCTestCase {
 
     func test040_FinalStressTest() {
         Thread.sleep(forTimeInterval: 0.39)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
 
         XCTAssertTrue(firstField.exists && secondField.exists && resultField.exists, "Stress test 040 - All fields exist")
     }

@@ -15,6 +15,20 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
+    // MARK: - UI Element Helpers
+
+    private var firstField: XCUIElement {
+        app.textFields.element(boundBy: 0)
+    }
+
+    private var secondField: XCUIElement {
+        app.textFields.element(boundBy: 1)
+    }
+
+    private var resultField: XCUIElement {
+        app.textFields.element(boundBy: 2)
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
@@ -26,7 +40,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test01_MaximumInputLength() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("9999999999")
         XCTAssertTrue((firstField.value as? String)?.count ?? 0 > 0, "Handles maximum input length")
@@ -34,7 +47,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test02_MinimumValidInput() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("1")
         XCTAssertEqual(firstField.value as? String, "1", "Handles minimum valid input")
@@ -42,7 +54,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test03_RepeatedZeros() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("0000")
         XCTAssertTrue((firstField.value as? String)?.contains("0") ?? false, "Handles repeated zeros")
@@ -50,7 +61,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test04_SingleCharacterInput() {
         Thread.sleep(forTimeInterval: 0.3)
-        let secondField = app.textFields.element(boundBy: 1)
         secondField.tap()
         secondField.typeText("9")
         XCTAssertEqual(secondField.value as? String, "9", "Handles single character")
@@ -58,7 +68,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test05_LongNumberSequence() {
         Thread.sleep(forTimeInterval: 0.3)
-        let firstField = app.textFields.element(boundBy: 0)
         firstField.tap()
         firstField.typeText("123456789")
         XCTAssertTrue((firstField.value as? String)?.count ?? 0 >= 9, "Handles long sequences")
@@ -68,19 +77,16 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test06_FieldExistsCheck() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         XCTAssertTrue(firstField.exists, "Field exists check succeeds")
     }
 
     func test07_FieldIsEnabledCheck() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         XCTAssertTrue(firstField.isEnabled, "Field enabled check succeeds")
     }
 
     func test08_FieldIsHittableCheck() {
         Thread.sleep(forTimeInterval: 0.35)
-        let firstField = app.textFields.element(boundBy: 0)
         XCTAssertTrue(firstField.isHittable, "Field hittable check succeeds")
     }
 
@@ -99,10 +105,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test11_WrongExpectedValue_FAILS() {
         Thread.sleep(forTimeInterval: 0.4)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("10")
 
@@ -136,7 +138,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test15_NilValueAssertion_FAILS() {
         Thread.sleep(forTimeInterval: 0.4)
-        let resultField = app.textFields.element(boundBy: 2)
         // This will FAIL - result field has value "0", not nil
         XCTAssertNil(resultField.value, "❌ INTENTIONAL FAILURE: Expected nil, has value")
     }
@@ -145,7 +146,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test16_RapidSuccessiveTaps() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
 
         for _ in 1...5 {
             firstField.tap()
@@ -156,7 +156,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test17_TypeWithoutInitialTap() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
 
         // Tap and type immediately
         firstField.tap()
@@ -167,7 +166,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test18_FieldPersistenceCheck() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
 
         let exists1 = firstField.exists
 
@@ -181,10 +179,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test19_AllFieldsAfterHeavyInteraction() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
-        let secondField = app.textFields.element(boundBy: 1)
-        let resultField = app.textFields.element(boundBy: 2)
-
         firstField.tap()
         firstField.typeText("999")
 
@@ -196,7 +190,6 @@ final class ParallelEdgeCasesUITests: XCTestCase {
 
     func test20_StateConsistencyAfterErrors() {
         Thread.sleep(forTimeInterval: 0.45)
-        let firstField = app.textFields.element(boundBy: 0)
 
         // Perform valid operations
         firstField.tap()
