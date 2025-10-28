@@ -59,9 +59,6 @@ public final class ReportingService: Sendable {
 
         let result: FirstLaunch = try await httpClient.callEndPoint(endPoint)
 
-        // Store in LaunchManager
-        await launchManager.setLaunchID(result.id)
-
         Logger.shared.info("Launch created: \(result.id)")
         return result.id
     }
