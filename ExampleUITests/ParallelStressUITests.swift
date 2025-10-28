@@ -1,5 +1,5 @@
 //
-//  ParallelUITests_Stress.swift
+//  ParallelStressUITests.swift
 //  ExampleUITests
 //
 //  Created by Ruslan Popesku on 10/22/25.
@@ -10,7 +10,7 @@ import XCTest
 
 /// UI Test Suite F: Stress Testing and High Volume
 /// Tests system behavior under high concurrent load with many parallel tests
-final class ParallelUITests_Stress: XCTestCase {
+final class ParallelStressUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
@@ -19,10 +19,6 @@ final class ParallelUITests_Stress: XCTestCase {
         continueAfterFailure = false
         app.launch()
         Thread.sleep(forTimeInterval: 0.5)
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     // MARK: - Stress Test Series 1 (20 tests)

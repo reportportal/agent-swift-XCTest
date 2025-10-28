@@ -1,5 +1,5 @@
 //
-//  ParallelUITests_EdgeCases.swift
+//  ParallelEdgeCasesUITests.swift
 //  ExampleUITests
 //
 //  Created by Ruslan Popesku on 10/22/25.
@@ -11,7 +11,7 @@ import XCTest
 /// UI Test Suite E: Edge Cases and Error Scenarios
 /// Tests concurrent error handling, edge cases, and boundary conditions
 /// Includes intentionally failing tests to validate error reporting
-final class ParallelUITests_EdgeCases: XCTestCase {
+final class ParallelEdgeCasesUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
@@ -20,10 +20,6 @@ final class ParallelUITests_EdgeCases: XCTestCase {
         continueAfterFailure = false
         app.launch()
         Thread.sleep(forTimeInterval: 0.5)
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     // MARK: - Boundary Value Tests (Passing)

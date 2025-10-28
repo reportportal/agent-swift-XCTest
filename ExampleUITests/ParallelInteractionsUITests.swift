@@ -1,5 +1,5 @@
 //
-//  ParallelUITests_Interactions.swift
+//  ParallelInteractionsUITests.swift
 //  ExampleUITests
 //
 //  Created by Ruslan Popesku on 10/22/25.
@@ -10,7 +10,7 @@ import XCTest
 
 /// UI Test Suite D: Complex User Interactions
 /// Tests concurrent complex user interaction patterns and edge cases
-final class ParallelUITests_Interactions: XCTestCase {
+final class ParallelInteractionsUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
@@ -19,10 +19,6 @@ final class ParallelUITests_Interactions: XCTestCase {
         continueAfterFailure = false
         app.launch()
         Thread.sleep(forTimeInterval: 0.5)
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     // MARK: - Multi-Step Interaction Tests

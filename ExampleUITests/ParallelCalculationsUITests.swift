@@ -1,5 +1,5 @@
 //
-//  ParallelUITests_Calculations.swift
+//  ParallelCalculationsUITests.swift
 //  ExampleUITests
 //
 //  Created by Ruslan Popesku on 10/22/25.
@@ -10,7 +10,7 @@ import XCTest
 
 /// UI Test Suite C: Calculation Result Tests
 /// Tests concurrent calculation verification and result field updates
-final class ParallelUITests_Calculations: XCTestCase {
+final class ParallelCalculationsUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
@@ -19,10 +19,6 @@ final class ParallelUITests_Calculations: XCTestCase {
         continueAfterFailure = false
         app.launch()
         Thread.sleep(forTimeInterval: 0.5)
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     // MARK: - Basic Addition Tests

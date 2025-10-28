@@ -1,5 +1,5 @@
 //
-//  ParallelUITests_Navigation.swift
+//  ParallelNavigationUITests.swift
 //  ExampleUITests
 //
 //  Created by Ruslan Popesku on 10/22/25.
@@ -10,7 +10,7 @@ import XCTest
 
 /// UI Test Suite A: Navigation and UI Element Interaction Tests
 /// Tests concurrent UI navigation, element visibility, and interaction patterns
-final class ParallelUITests_Navigation: XCTestCase {
+final class ParallelNavigationUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
@@ -21,10 +21,6 @@ final class ParallelUITests_Navigation: XCTestCase {
 
         // Add small delay to ensure UI is ready
         Thread.sleep(forTimeInterval: 0.5)
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     // MARK: - Window and Container Tests

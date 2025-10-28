@@ -1,5 +1,5 @@
 //
-//  ParallelUITests_DataEntry.swift
+//  ParallelDataEntryUITests.swift
 //  ExampleUITests
 //
 //  Created by Ruslan Popesku on 10/22/25.
@@ -10,7 +10,7 @@ import XCTest
 
 /// UI Test Suite B: Data Entry and Input Validation Tests
 /// Tests concurrent text input, keyboard interaction, and field value updates
-final class ParallelUITests_DataEntry: XCTestCase {
+final class ParallelDataEntryUITests: XCTestCase {
 
     private let app = XCUIApplication()
 
@@ -19,10 +19,6 @@ final class ParallelUITests_DataEntry: XCTestCase {
         continueAfterFailure = false
         app.launch()
         Thread.sleep(forTimeInterval: 0.5)
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     // MARK: - Single Digit Entry Tests
