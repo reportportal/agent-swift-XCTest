@@ -94,13 +94,20 @@ final class HTTPClient: NSObject, URLSessionDelegate, Sendable {
     var url = baseURL.appendingPathComponent(endPoint.relativePath)
 
     if endPoint.encoding == .url {
-      var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+      guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+        Logger.shared.error("Failed to create URLComponents from URL: \(url)")
+        throw HTTPClientError.invalidURL
+      }
       let queryItems = endPoint.parameters.map {
         return URLQueryItem(name: "\($0)", value: "\($1)")
       }
 
       urlComponents.queryItems = queryItems
-      url = urlComponents.url!
+      guard let constructedURL = urlComponents.url else {
+        Logger.shared.error("Failed to construct URL from URLComponents with query items")
+        throw HTTPClientError.invalidURL
+      }
+      url = constructedURL
     }
 
     var request = URLRequest(url: url)
