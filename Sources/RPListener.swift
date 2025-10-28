@@ -101,41 +101,38 @@ open class RPListener: NSObject, XCTestObservation {
         // Subsequent method calls will wait for launch ID via actor isolation
         Task.detached(priority: .high) {
             await self.launchManager.incrementBundleCount()
-            
-            // Check if this is the first bundle - if so, create launch
-            if await self.launchManager.getLaunchID() == nil {
-                do {
-                    // Collect metadata attributes
-                    let attributes: [[String: String]]
-                    if let bundle = testBundle as Bundle? {
-                        attributes = MetadataCollector.collectAllAttributes(from: bundle, tags: configuration.tags)
-                    } else {
-                        attributes = MetadataCollector.collectDeviceAttributes()
-                    }
-                    
-                    // Get test plan name for launch name enhancement
-                    let testPlanName = MetadataCollector.getTestPlanName()
-                    let enhancedLaunchName = self.buildEnhancedLaunchName(
-                        baseLaunchName: configuration.launchName,
-                        testPlanName: testPlanName
-                    )
-                    
-                    let launchID = try await reportingService.startLaunch(
-                        name: enhancedLaunchName,
-                        tags: configuration.tags,
-                        attributes: attributes
-                    )
 
-                    // Save launch ID to LaunchManager so other operations can access it
-                    await self.launchManager.setLaunchID(launchID)
-
-                    Logger.shared.info("Launch created: \(launchID)")
-                } catch {
-                    Logger.shared.error("Failed to start launch: \(error.localizedDescription)")
+            // Create launch task (may or may not be used depending on race conditions)
+            let launchTask = Task<String, Error> {
+                // Collect metadata attributes
+                let attributes: [[String: String]]
+                if let bundle = testBundle as Bundle? {
+                    attributes = MetadataCollector.collectAllAttributes(from: bundle, tags: configuration.tags)
+                } else {
+                    attributes = MetadataCollector.collectDeviceAttributes()
                 }
-            } else {
-                let launchID = await self.launchManager.getLaunchID()
-                Logger.shared.info("Using existing launch: \(launchID ?? "unknown")")
+
+                // Get test plan name for launch name enhancement
+                let testPlanName = MetadataCollector.getTestPlanName()
+                let enhancedLaunchName = self.buildEnhancedLaunchName(
+                    baseLaunchName: configuration.launchName,
+                    testPlanName: testPlanName
+                )
+
+                // Create launch via ReportPortal API
+                return try await reportingService.startLaunch(
+                    name: enhancedLaunchName,
+                    tags: configuration.tags,
+                    attributes: attributes
+                )
+            }
+
+            do {
+                // Pass task to actor - it will decide whether to use it or await existing task
+                let launchID = try await self.launchManager.getOrAwaitLaunchID(launchTask: launchTask)
+                Logger.shared.info("Launch ready: \(launchID)")
+            } catch {
+                Logger.shared.error("Failed to get/create launch: \(error.localizedDescription)")
             }
         }
     }
