@@ -21,7 +21,6 @@ Starting with version 4.0.0, the ReportPortal agent for Swift XCTest supports pa
 If upgrading from agent 3.x.x, note these breaking changes:
 - Swift 5.5+ required (was 5.1+)
 - iOS 13+ / macOS 10.15+ required (was iOS 8+)
-- See [Migration Guide](../migration-guide.md) for details
 
 ## Installation
 
@@ -385,7 +384,6 @@ stage('Test') {
 
 ## Next Steps
 
-- [Migration Guide](../migration-guide.md) - Upgrade from 3.x to 4.0
 - [Architecture Overview](./data-model.md) - Understand internal design
 - [API Contracts](./contracts/) - Actor and async API documentation
 - [GitHub Issues](https://github.com/reportportal/agent-swift-XCTest/issues) - Report bugs or request features
