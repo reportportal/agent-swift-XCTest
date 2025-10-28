@@ -217,10 +217,9 @@ public final class ReportingService: Sendable {
             return
         }
 
-        // T022: Process attachments concurrently using TaskGroup
-        let fileAttachments: [FileAttachment] = []
+        var fileAttachments: [FileAttachment] = []
 
-        // Extract attachment data (non-blocking)
+        // Extract attachment data
         for (index, attachment) in attachments.enumerated() {
             // Generate safe filename from attachment name or use timestamp
             let timestamp = String(Int64(Date().timeIntervalSince1970 * 1000))
@@ -230,43 +229,51 @@ public final class ReportingService: Sendable {
             // Determine MIME type and extension based on uniformTypeIdentifier
             let uti = attachment.uniformTypeIdentifier
             let fileExtension: String
+            let mimeType: String
 
             // Common attachment types
             if uti.contains("image") || uti.contains("png") {
                 fileExtension = "png"
+                mimeType = "image/png"
             } else if uti.contains("jpeg") || uti.contains("jpg") {
                 fileExtension = "jpg"
+                mimeType = "image/jpeg"
             } else if uti.contains("text") {
                 fileExtension = "txt"
+                mimeType = "text/plain"
             } else if uti.contains("json") {
                 fileExtension = "json"
+                mimeType = "application/json"
             } else if uti.contains("xml") {
                 fileExtension = "xml"
+                mimeType = "application/xml"
             } else {
                 fileExtension = "bin"
+                mimeType = "application/octet-stream"
             }
 
             // Build filename with timestamp and extension
             let filename = "\(sanitizedName)_\(timestamp).\(fileExtension)"
 
-            // XCTAttachment may have URL-based storage or in-memory data
-            // For now, create placeholder for actual data extraction
-            // In production, you'd read from attachment.url or use attachment APIs
-            // This is a simplified implementation for the async framework
+            // Extract data from XCTAttachment
+            guard let fileWrapper = attachment.value(forKey: "fileWrapper") as? FileWrapper,
+                  let data = fileWrapper.regularFileContents else {
+                Logger.shared.warning("Could not extract data from attachment: \(attachment.name ?? "unknown")", correlationID: correlationID)
+                continue
+            }
 
-            // Skip attachments we can't process yet (placeholder implementation)
-            // TODO: Implement proper XCTAttachment data extraction based on attachment.url
-            Logger.shared.debug("Attachment '\(filename)' queued for upload (placeholder)", correlationID: correlationID)
+            // Create FileAttachment and add to array
+            let fileAttachment = FileAttachment(
+                data: data,
+                filename: filename,
+                mimeType: mimeType,
+                fieldName: "binary_part"
+            )
+            fileAttachments.append(fileAttachment)
         }
 
-        // NOTE: This is a placeholder implementation
-        // In production, you would:
-        // 1. Extract actual Data from XCTAttachment (may require reading from attachment.url)
-        // 2. Perform concurrent uploads using TaskGroup for multiple attachments
-        // 3. Handle compression for large images (similar to legacy implementation)
-
         guard !fileAttachments.isEmpty else {
-            Logger.shared.debug("No processable attachments (placeholder mode)", correlationID: correlationID)
+            Logger.shared.debug("No processable attachments after extraction", correlationID: correlationID)
             return
         }
 
