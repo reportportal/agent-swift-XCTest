@@ -89,12 +89,13 @@ public final class ReportingService: Sendable {
         let endPoint: StartItemEndPoint
 
         if let rootSuiteID = operation.rootSuiteID {
-            // This is a test suite (child of root suite)
+            // This is a test class suite (child of root suite)
+            // It should be .suite, not .test (test classes are suites, not individual tests)
             endPoint = StartItemEndPoint(
                 itemName: operation.suiteName,
                 parentID: rootSuiteID,
                 launchID: launchID,
-                type: .test
+                type: .suite  // Fixed: was .test, should be .suite
             )
         } else {
             // This is a root suite (bundle)
