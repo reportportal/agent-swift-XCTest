@@ -8,7 +8,7 @@
 
 ```swift
 actor OperationTracker {
-    static let shared: OperationTracker
+    static let shared = OperationTracker()
 }
 ```
 
