@@ -102,6 +102,56 @@ actor OperationTracker {
         suiteOperations.removeValue(forKey: identifier)
     }
 
+    /// Wait for suite to be registered AND have a valid suite ID from ReportPortal
+    /// This is needed because XCTest starts tests immediately but suite registration is async
+    /// - Parameters:
+    ///   - identifier: Suite identifier to wait for
+    ///   - timeout: Maximum wait time in seconds (default: 10)
+    /// - Returns: Suite operation when registered AND has valid suite ID
+    /// - Throws: OperationTrackerError.timeout if suite not registered within timeout
+    func waitForSuite(identifier: String, timeout: TimeInterval = 10) async throws -> SuiteOperation {
+        // Check if suite already exists AND has a valid suite ID
+        if let suite = suiteOperations[identifier], !suite.suiteID.isEmpty {
+            Logger.shared.info("✅ Suite '\(identifier)' already registered with ID")
+            return suite
+        }
+
+        // Wait for it using efficient polling (20ms intervals)
+        Logger.shared.info("⏳ Waiting for suite '\(identifier)' to be registered with suite ID...")
+
+        let startTime = Date()
+        let maxAttempts = Int(timeout / 0.02) // 20ms per attempt
+
+        for attempt in 0..<maxAttempts {
+            // Must check BOTH that suite exists AND has non-empty suite ID
+            // Suite is registered before API call, but we need to wait for API call to complete
+            if let suite = suiteOperations[identifier], !suite.suiteID.isEmpty {
+                let elapsedMs = Int(Date().timeIntervalSince(startTime) * 1000)
+                Logger.shared.info("✅ Suite '\(identifier)' found with ID '\(suite.suiteID)' after \(elapsedMs)ms (\(attempt) polls)")
+                return suite
+            }
+
+            try await Task.sleep(nanoseconds: 20_000_000) // 20ms
+
+            // Check for task cancellation
+            try Task.checkCancellation()
+        }
+
+        throw OperationTrackerError.suiteTimeout(identifier: identifier, seconds: timeout)
+    }
+
+    /// Errors that can occur during operation tracking
+    enum OperationTrackerError: LocalizedError {
+        case suiteTimeout(identifier: String, seconds: TimeInterval)
+
+        var errorDescription: String? {
+            switch self {
+            case .suiteTimeout(let identifier, let seconds):
+                return "Suite '\(identifier)' not registered after \(seconds) seconds timeout"
+            }
+        }
+    }
+
     // MARK: - Diagnostics
 
     /// Get count of currently active (registered) test operations
