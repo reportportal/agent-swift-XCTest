@@ -79,8 +79,19 @@ final class HTTPClient: NSObject, URLSessionDelegate, Sendable {
 
     guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
       let body = String(data: data, encoding: .utf8)
-      Logger.shared.error("HTTP error \(httpResponse.statusCode): \(body ?? "no body")")
+      // Truncate large response bodies to prevent log spam (max 1KB)
+      let truncatedBody = truncateForLog(body ?? "no body", maxLength: 1024)
+      Logger.shared.error("HTTP error \(httpResponse.statusCode): \(truncatedBody)")
       throw HTTPClientError.httpError(statusCode: httpResponse.statusCode, body: body)
+    }
+
+    // Handle 204 No Content or empty responses
+    if httpResponse.statusCode == 204 || data.isEmpty {
+      // For 204 or empty responses, we can't decode JSON
+      // Check if T is optional or has a default value
+      // For now, throw an error since ReportPortal API should always return data
+      Logger.shared.error("Received 204 No Content or empty response")
+      throw HTTPClientError.noResponse
     }
 
     do {
@@ -88,8 +99,10 @@ final class HTTPClient: NSObject, URLSessionDelegate, Sendable {
       return result
     } catch {
       let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
+      // Truncate large response bodies to prevent log spam (max 1KB)
+      let truncatedBody = truncateForLog(responseBody, maxLength: 1024)
       Logger.shared.error("JSON decode error: \(error.localizedDescription)")
-      Logger.shared.error("Raw response: \(responseBody)")
+      Logger.shared.error("Raw response: \(truncatedBody)")
       throw HTTPClientError.decodingError("Failed to decode response: \(error.localizedDescription)")
     }
   }
@@ -215,6 +228,21 @@ final class HTTPClient: NSObject, URLSessionDelegate, Sendable {
     append("--\(boundary)--\r\n")
 
     return body
+  }
+
+  // MARK: - Logging Helpers
+
+  /// Truncate string for logging to prevent console spam
+  /// - Parameters:
+  ///   - string: Original string
+  ///   - maxLength: Maximum length (default 1024 bytes)
+  /// - Returns: Truncated string with ellipsis if truncated
+  private func truncateForLog(_ string: String, maxLength: Int = 1024) -> String {
+    if string.count <= maxLength {
+      return string
+    }
+    let truncated = String(string.prefix(maxLength))
+    return "\(truncated)... (truncated, \(string.count) bytes total)"
   }
 }
 
