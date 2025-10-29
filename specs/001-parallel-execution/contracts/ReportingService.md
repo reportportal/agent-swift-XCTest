@@ -30,7 +30,7 @@ func startLaunch(name: String, tags: [String], attributes: [String: String]) asy
 - `attributes`: Metadata (device info, OS version, etc.)
 
 **Returns**: Launch ID (UUID string from ReportPortal)  
-**Throws**: `ReportPortalError` if API call fails  
+**Throws**: `ReportingServiceError` if API call fails  
 **Side Effects**: Sets launch ID in LaunchManager  
 **Network**: POST to `/launch` endpoint  
 **Async**: Non-blocking URLSession request
