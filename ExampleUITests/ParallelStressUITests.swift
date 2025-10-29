@@ -32,188 +32,229 @@ final class ParallelStressUITests: XCTestCase {
         super.setUp()
         continueAfterFailure = false
         app.launch()
-        Thread.sleep(forTimeInterval: 0.5)
+        waitForAppToBeReady(app, timeout: 5.0)
+        waitForElementToBeHittable(firstField, timeout: 5.0)
     }
 
     // MARK: - Stress Test Series 1 (20 tests)
 
     func test001_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.2)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("1")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("1")
+        waitForElementValue(resultField, toEqual: "2", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "2", "Stress test 001")
     }
 
     func test002_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.21)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("2")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("2")
+        waitForElementValue(resultField, toEqual: "4", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "4", "Stress test 002")
     }
 
     func test003_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.22)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("3")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("3")
+        waitForElementValue(resultField, toEqual: "6", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "6", "Stress test 003")
     }
 
     func test004_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.23)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("4")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("4")
+        waitForElementValue(resultField, toEqual: "8", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "8", "Stress test 004")
     }
 
     func test005_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.24)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("5")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("5")
+        waitForElementValue(resultField, toEqual: "10", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "10", "Stress test 005")
     }
 
     func test006_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.25)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("6")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("6")
+        waitForElementValue(resultField, toEqual: "12", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "12", "Stress test 006")
     }
 
     func test007_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.26)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("7")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("7")
+        waitForElementValue(resultField, toEqual: "14", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "14", "Stress test 007")
     }
 
     func test008_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.27)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("8")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("8")
+        waitForElementValue(resultField, toEqual: "16", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "16", "Stress test 008")
     }
 
     func test009_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.28)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("9")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("9")
+        waitForElementValue(resultField, toEqual: "18", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "18", "Stress test 009")
     }
 
     func test010_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.29)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("10")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("10")
+        waitForElementValue(resultField, toEqual: "20", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "20", "Stress test 010")
     }
 
     func test011_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("11")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("11")
+        waitForElementValue(resultField, toEqual: "22", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "22", "Stress test 011")
     }
 
     func test012_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.31)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("12")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("12")
+        waitForElementValue(resultField, toEqual: "24", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "24", "Stress test 012")
     }
 
     func test013_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.32)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("13")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("13")
+        waitForElementValue(resultField, toEqual: "26", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "26", "Stress test 013")
     }
 
     func test014_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.33)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("14")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("14")
+        waitForElementValue(resultField, toEqual: "28", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "28", "Stress test 014")
     }
 
     func test015_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.34)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("15")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("15")
+        waitForElementValue(resultField, toEqual: "30", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "30", "Stress test 015")
     }
 
     func test016_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("16")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("16")
+        waitForElementValue(resultField, toEqual: "32", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "32", "Stress test 016")
     }
 
     func test017_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.36)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("17")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("17")
+        waitForElementValue(resultField, toEqual: "34", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "34", "Stress test 017")
     }
 
     func test018_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.37)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("18")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("18")
+        waitForElementValue(resultField, toEqual: "36", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "36", "Stress test 018")
     }
 
     func test019_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.38)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("19")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("19")
+        waitForElementValue(resultField, toEqual: "38", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "38", "Stress test 019")
     }
 
     func test020_StressCalculation() {
-        Thread.sleep(forTimeInterval: 0.39)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("20")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("20")
+        waitForElementValue(resultField, toEqual: "40", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "40", "Stress test 020")
     }
 }
@@ -241,127 +282,138 @@ final class ParallelUITests_StressB: XCTestCase {
         super.setUp()
         continueAfterFailure = false
         app.launch()
-        Thread.sleep(forTimeInterval: 0.5)
+        waitForAppToBeReady(app, timeout: 5.0)
+        waitForElementToBeHittable(firstField, timeout: 5.0)
     }
 
     // MARK: - Stress Test Series 2 (20 tests)
 
     func test021_FieldExistence() {
-        Thread.sleep(forTimeInterval: 0.2)
+        waitForElementCount(app.textFields, toEqual: 3, timeout: 2.0)
         XCTAssertEqual(app.textFields.count, 3, "Stress test 021")
     }
 
     func test022_FieldExistence() {
-        Thread.sleep(forTimeInterval: 0.21)
+        waitForElement(firstField, timeout: 2.0)
         XCTAssertTrue(firstField.exists, "Stress test 022")
     }
 
     func test023_FieldExistence() {
-        Thread.sleep(forTimeInterval: 0.22)
+        waitForElement(secondField, timeout: 2.0)
         XCTAssertTrue(secondField.exists, "Stress test 023")
     }
 
     func test024_FieldExistence() {
-        Thread.sleep(forTimeInterval: 0.23)
+        waitForElement(resultField, timeout: 2.0)
         XCTAssertTrue(resultField.exists, "Stress test 024")
     }
 
     func test025_AppState() {
-        Thread.sleep(forTimeInterval: 0.24)
+        waitForAppToBeReady(app, timeout: 2.0)
         XCTAssertEqual(app.state, .runningForeground, "Stress test 025")
     }
 
     func test026_WindowCheck() {
-        Thread.sleep(forTimeInterval: 0.25)
+        waitForAppToBeReady(app, timeout: 2.0)
         XCTAssertGreaterThan(app.windows.count, 0, "Stress test 026")
     }
 
     func test027_ElementQuery() {
-        Thread.sleep(forTimeInterval: 0.26)
+        waitForElement(app, timeout: 2.0)
         XCTAssertTrue(app.exists, "Stress test 027")
     }
 
     func test028_FieldAccessibility() {
-        Thread.sleep(forTimeInterval: 0.27)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         XCTAssertTrue(firstField.isHittable, "Stress test 028")
     }
 
     func test029_FieldEnabled() {
-        Thread.sleep(forTimeInterval: 0.28)
+        waitForElement(firstField, timeout: 2.0)
         XCTAssertTrue(firstField.isEnabled, "Stress test 029")
     }
 
     func test030_MultipleFields() {
-        Thread.sleep(forTimeInterval: 0.29)
+        waitForElementCount(app.textFields, toEqual: 3, timeout: 2.0)
         XCTAssertEqual(app.textFields.count, 3, "Stress test 030")
     }
 
     func test031_SimpleCalculation() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("25")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("25")
+        waitForElementValue(resultField, toEqual: "50", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "50", "Stress test 031")
     }
 
     func test032_SimpleCalculation() {
-        Thread.sleep(forTimeInterval: 0.31)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("30")
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("12")
+        waitForElementValue(resultField, toEqual: "42", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "42", "Stress test 032")
     }
 
     func test033_SimpleCalculation() {
-        Thread.sleep(forTimeInterval: 0.32)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("99")
+        waitForElementValue(firstField, toEqual: "99", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "99", "Stress test 033")
     }
 
     func test034_SimpleCalculation() {
-        Thread.sleep(forTimeInterval: 0.33)
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("88")
+        waitForElementValue(secondField, toEqual: "88", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "88", "Stress test 034")
     }
 
     func test035_ResultCheck() {
-        Thread.sleep(forTimeInterval: 0.34)
+        waitForElement(resultField, timeout: 2.0)
         XCTAssertTrue(resultField.exists, "Stress test 035")
     }
 
     func test036_TapResponse() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         XCTAssertTrue(firstField.exists, "Stress test 036")
     }
 
     func test037_TypeResponse() {
-        Thread.sleep(forTimeInterval: 0.36)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("77")
+        waitForElementValue(firstField, toEqual: "77", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "77", "Stress test 037")
     }
 
     func test038_FieldFocus() {
-        Thread.sleep(forTimeInterval: 0.37)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         XCTAssertTrue(secondField.exists, "Stress test 038")
     }
 
     func test039_QuickInteraction() {
-        Thread.sleep(forTimeInterval: 0.38)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("1")
         XCTAssertTrue(firstField.exists, "Stress test 039")
     }
 
     func test040_FinalStressTest() {
-        Thread.sleep(forTimeInterval: 0.39)
+        waitForElement(firstField, timeout: 2.0)
+        waitForElement(secondField, timeout: 2.0)
+        waitForElement(resultField, timeout: 2.0)
 
         XCTAssertTrue(firstField.exists && secondField.exists && resultField.exists, "Stress test 040 - All fields exist")
     }

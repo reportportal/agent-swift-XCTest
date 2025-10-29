@@ -22,6 +22,7 @@
 		85529CEA2EA90BD20080536D /* TestOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CD52EA909650080536D /* TestOperation.swift */; };
 		85529CEB2EA90BD20080536D /* FinishLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CDB2EA909990080536D /* FinishLaunch.swift */; };
 		85529CEC2EA90BD20080536D /* NameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CDF2EA909DA0080536D /* NameRules.swift */; };
+		85B50B652EB1FF54003A22C5 /* XCTestCase+Expectations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85B50B642EB1FF54003A22C5 /* XCTestCase+Expectations.swift */; };
 		85DBACE52E44D5DA00297994 /* DeviceHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85DBACE42E44D5DA00297994 /* DeviceHelper.swift */; };
 		85E0F85E2EA957F7006255D3 /* ReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85E0F85D2EA957F7006255D3 /* ReportingService.swift */; };
 		85E8FC652EB0D14200D94838 /* ParallelInteractionsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85E8FC622EB0D14200D94838 /* ParallelInteractionsUITests.swift */; };
@@ -108,6 +109,7 @@
 		85529CDB2EA909990080536D /* FinishLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinishLaunch.swift; sourceTree = "<group>"; };
 		85529CDF2EA909DA0080536D /* NameRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameRules.swift; sourceTree = "<group>"; };
 		85529CE12EA90A060080536D /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		85B50B642EB1FF54003A22C5 /* XCTestCase+Expectations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Expectations.swift"; sourceTree = "<group>"; };
 		85DBACE42E44D5DA00297994 /* DeviceHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHelper.swift; sourceTree = "<group>"; };
 		85E0F85D2EA957F7006255D3 /* ReportingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingService.swift; sourceTree = "<group>"; };
 		85E8FC5F2EB0D14200D94838 /* ParallelCalculationsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParallelCalculationsUITests.swift; sourceTree = "<group>"; };
@@ -272,6 +274,7 @@
 				85E8FC632EB0D14200D94838 /* ParallelNavigationUITests.swift */,
 				85E8FC642EB0D14200D94838 /* ParallelStressUITests.swift */,
 				9203A3AE2135C20E00BFAF82 /* SummatorControllerTests.swift */,
+				85B50B642EB1FF54003A22C5 /* XCTestCase+Expectations.swift */,
 				9203A3B02135C20E00BFAF82 /* Info.plist */,
 			);
 			path = ExampleUITests;
@@ -564,6 +567,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9203A3AF2135C20E00BFAF82 /* SummatorControllerTests.swift in Sources */,
+				85B50B652EB1FF54003A22C5 /* XCTestCase+Expectations.swift in Sources */,
 				85E8FC652EB0D14200D94838 /* ParallelInteractionsUITests.swift in Sources */,
 				85E8FC662EB0D14200D94838 /* ParallelStressUITests.swift in Sources */,
 				85E8FC672EB0D14200D94838 /* ParallelDataEntryUITests.swift in Sources */,

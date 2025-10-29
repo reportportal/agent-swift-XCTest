@@ -33,41 +33,44 @@ final class ParallelEdgeCasesUITests: XCTestCase {
         super.setUp()
         continueAfterFailure = false
         app.launch()
-        Thread.sleep(forTimeInterval: 0.5)
+        waitForAppToBeReady(app, timeout: 5.0)
+        waitForElementToBeHittable(firstField, timeout: 5.0)
     }
 
     // MARK: - Boundary Value Tests (Passing)
 
     func test01_MaximumInputLength() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("9999999999")
         XCTAssertTrue((firstField.value as? String)?.count ?? 0 > 0, "Handles maximum input length")
     }
 
     func test02_MinimumValidInput() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("1")
+        waitForElementValue(firstField, toEqual: "1", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "1", "Handles minimum valid input")
     }
 
     func test03_RepeatedZeros() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("0000")
         XCTAssertTrue((firstField.value as? String)?.contains("0") ?? false, "Handles repeated zeros")
     }
 
     func test04_SingleCharacterInput() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("9")
+        waitForElementValue(secondField, toEqual: "9", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "9", "Handles single character")
     }
 
     func test05_LongNumberSequence() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("123456789")
         XCTAssertTrue((firstField.value as? String)?.count ?? 0 >= 9, "Handles long sequences")
@@ -76,38 +79,39 @@ final class ParallelEdgeCasesUITests: XCTestCase {
     // MARK: - Element Query Edge Cases (Passing)
 
     func test06_FieldExistsCheck() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElement(firstField, timeout: 2.0)
         XCTAssertTrue(firstField.exists, "Field exists check succeeds")
     }
 
     func test07_FieldIsEnabledCheck() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElement(firstField, timeout: 2.0)
         XCTAssertTrue(firstField.isEnabled, "Field enabled check succeeds")
     }
 
     func test08_FieldIsHittableCheck() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         XCTAssertTrue(firstField.isHittable, "Field hittable check succeeds")
     }
 
     func test09_MultipleFieldsExistCheck() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElement(firstField, timeout: 2.0)
         let count = app.textFields.count
         XCTAssertGreaterThanOrEqual(count, 3, "Multiple fields exist")
     }
 
     func test10_AppIsRunningCheck() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForAppToBeReady(app, timeout: 2.0)
         XCTAssertEqual(app.state, .runningForeground, "App is running in foreground")
     }
 
     // MARK: - Intentionally Failing Tests (For Error Reporting Validation)
 
     func test11_WrongExpectedValue_FAILS() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("10")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("5")
 
@@ -116,28 +120,28 @@ final class ParallelEdgeCasesUITests: XCTestCase {
     }
 
     func test12_NonExistentElement_FAILS() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForAppToBeReady(app, timeout: 2.0)
         // This will FAIL - looking for non-existent button
         let nonExistentButton = app.buttons["CalculateButton"]
         XCTAssertTrue(nonExistentButton.exists, "❌ INTENTIONAL FAILURE: Button doesn't exist")
     }
 
     func test13_WrongFieldIndex_FAILS() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElement(firstField, timeout: 2.0)
         // This will FAIL - trying to access field at index 10
         let nonExistentField = app.textFields.element(boundBy: 10)
         XCTAssertTrue(nonExistentField.exists, "❌ INTENTIONAL FAILURE: Index out of bounds")
     }
 
     func test14_WrongAccessibilityIdentifier_FAILS() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForAppToBeReady(app, timeout: 2.0)
         // This will FAIL - wrong identifier with timeout
         let field = app.textFields["NonExistentIdentifier"]
         XCTAssertTrue(field.waitForExistence(timeout: 1), "❌ INTENTIONAL FAILURE: Wrong accessibility ID")
     }
 
     func test15_NilValueAssertion_FAILS() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElement(resultField, timeout: 2.0)
         // This will FAIL - result field has value "0", not nil
         XCTAssertNil(resultField.value, "❌ INTENTIONAL FAILURE: Expected nil, has value")
     }
@@ -145,7 +149,7 @@ final class ParallelEdgeCasesUITests: XCTestCase {
     // MARK: - Complex Edge Cases (Passing)
 
     func test16_RapidSuccessiveTaps() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         for _ in 1...5 {
             firstField.tap()
@@ -155,20 +159,22 @@ final class ParallelEdgeCasesUITests: XCTestCase {
     }
 
     func test17_TypeWithoutInitialTap() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         // Tap and type immediately
         firstField.tap()
         firstField.typeText("42")
 
+        waitForElementValue(firstField, toEqual: "42", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "42", "Typing works after tap")
     }
 
     func test18_FieldPersistenceCheck() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElement(firstField, timeout: 2.0)
 
         let exists1 = firstField.exists
 
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("100")
 
@@ -178,10 +184,11 @@ final class ParallelEdgeCasesUITests: XCTestCase {
     }
 
     func test19_AllFieldsAfterHeavyInteraction() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("999")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("888")
 
@@ -189,7 +196,7 @@ final class ParallelEdgeCasesUITests: XCTestCase {
     }
 
     func test20_StateConsistencyAfterErrors() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         // Perform valid operations
         firstField.tap()

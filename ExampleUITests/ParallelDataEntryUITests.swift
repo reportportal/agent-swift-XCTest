@@ -32,83 +32,93 @@ final class ParallelDataEntryUITests: XCTestCase {
         super.setUp()
         continueAfterFailure = false
         app.launch()
-        Thread.sleep(forTimeInterval: 0.5)
+        waitForAppToBeReady(app, timeout: 5.0)
+        waitForElementToBeHittable(firstField, timeout: 5.0)
     }
 
     // MARK: - Single Digit Entry Tests
 
     func test01_EnterSingleDigitInFirstField() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("7")
+        waitForElementValue(firstField, toEqual: "7", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "7", "Should display single digit")
     }
 
     func test02_EnterSingleDigitInSecondField() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(secondField, timeout: 2.0)
 
         secondField.tap()
         secondField.typeText("9")
+        waitForElementValue(secondField, toEqual: "9", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "9", "Should display single digit")
     }
 
     func test03_EnterZero() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("0")
+        waitForElementValue(firstField, toEqual: "0", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "0", "Should handle zero input")
     }
 
     func test04_EnterNine() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("9")
+        waitForElementValue(firstField, toEqual: "9", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "9", "Should handle nine input")
     }
 
     func test05_EnterFive() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(secondField, timeout: 2.0)
 
         secondField.tap()
         secondField.typeText("5")
+        waitForElementValue(secondField, toEqual: "5", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "5", "Should handle five input")
     }
 
     // MARK: - Multi-Digit Entry Tests
 
     func test06_EnterTwoDigits() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("42")
+        waitForElementValue(firstField, toEqual: "42", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "42", "Should display two digits")
     }
 
     func test07_EnterThreeDigits() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("123")
+        waitForElementValue(firstField, toEqual: "123", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "123", "Should display three digits")
     }
 
     func test08_EnterFourDigits() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("9876")
+        waitForElementValue(secondField, toEqual: "9876", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "9876", "Should display four digits")
     }
 
     func test09_EnterLargeNumber() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("12345")
+        waitForElementValue(firstField, toEqual: "12345", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "12345", "Should handle large numbers")
     }
 
     func test10_EnterSequentialNumbers() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("1234567890")
         XCTAssertTrue((firstField.value as? String)?.count ?? 0 > 0, "Should accept sequential input")
@@ -117,55 +127,65 @@ final class ParallelDataEntryUITests: XCTestCase {
     // MARK: - Rapid Entry Tests
 
     func test11_RapidTyping() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("111")
+        waitForElementValue(firstField, toEqual: "111", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "111", "Should handle rapid typing")
     }
 
     func test12_AlternatingFields() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("1")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("2")
 
+        waitForElementValue(firstField, toEqual: "1", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "1", "First field retains value")
+        waitForElementValue(secondField, toEqual: "2", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "2", "Second field has value")
     }
 
     func test13_BackAndForthEntry() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("10")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("20")
 
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("5")
 
+        waitForElementValue(firstField, toEqual: "105", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "105", "Should append to first field")
     }
 
     func test14_MultipleFieldUpdates() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("7")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("3")
 
+        waitForElementValue(firstField, toEqual: "7", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "7", "First field value correct")
+        waitForElementValue(secondField, toEqual: "3", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "3", "Second field value correct")
     }
 
     func test15_ClearAndReenter() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("99")
@@ -178,35 +198,39 @@ final class ParallelDataEntryUITests: XCTestCase {
     // MARK: - Special Number Tests
 
     func test16_EnterRepeatingDigits() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("777")
+        waitForElementValue(firstField, toEqual: "777", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "777", "Should handle repeating digits")
     }
 
     func test17_EnterSequentialDigits() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("123")
+        waitForElementValue(secondField, toEqual: "123", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "123", "Should handle sequential digits")
     }
 
     func test18_EnterReverseSequence() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("321")
+        waitForElementValue(firstField, toEqual: "321", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "321", "Should handle reverse sequence")
     }
 
     func test19_EnterAlternatingDigits() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("101")
+        waitForElementValue(secondField, toEqual: "101", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "101", "Should handle alternating digits")
     }
 
     func test20_EnterAllZeros() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("000")
         XCTAssertTrue((firstField.value as? String)?.contains("0") ?? false, "Should handle multiple zeros")

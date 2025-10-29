@@ -32,59 +32,68 @@ final class ParallelInteractionsUITests: XCTestCase {
         super.setUp()
         continueAfterFailure = false
         app.launch()
-        Thread.sleep(forTimeInterval: 0.5)
+        waitForAppToBeReady(app, timeout: 5.0)
+        waitForElementToBeHittable(firstField, timeout: 5.0)
     }
 
     // MARK: - Multi-Step Interaction Tests
 
     func test01_TapTypeCheckSequence() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         XCTAssertTrue(firstField.exists, "Field exists after tap")
 
         firstField.typeText("42")
+        waitForElementValue(firstField, toEqual: "42", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "42", "Value correct after typing")
 
         XCTAssertTrue(firstField.isHittable, "Field still accessible after interaction")
     }
 
     func test02_CompleteAdditionWorkflow() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("15")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("27")
 
+        waitForElementValue(resultField, toEqual: "42", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "42", "Complete workflow successful")
     }
 
     func test03_MultipleFieldInteractionCycle() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         for i in 1...3 {
+            waitForElementToBeHittable(firstField, timeout: 2.0)
             firstField.tap()
             XCTAssertTrue(firstField.exists, "Field accessible in cycle \(i)")
 
+            waitForElementToBeHittable(secondField, timeout: 2.0)
             secondField.tap()
             XCTAssertTrue(secondField.exists, "Second field accessible in cycle \(i)")
         }
     }
 
     func test04_RapidFieldSwitching() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
 
         XCTAssertTrue(secondField.exists, "Fields handle rapid switching")
     }
 
     func test05_TypeClearTypeWorkflow() {
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("999")
@@ -99,7 +108,7 @@ final class ParallelInteractionsUITests: XCTestCase {
     // MARK: - Field State Verification Tests
 
     func test06_FieldStatesAfterInteraction() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         let initialExists = firstField.exists
         let initialEnabled = firstField.isEnabled
@@ -114,7 +123,7 @@ final class ParallelInteractionsUITests: XCTestCase {
     }
 
     func test07_AllFieldsRemainAccessible() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("10")
 
@@ -123,7 +132,7 @@ final class ParallelInteractionsUITests: XCTestCase {
     }
 
     func test08_FieldCountConsistency() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         let initialCount = app.textFields.count
 
         firstField.tap()
@@ -135,29 +144,33 @@ final class ParallelInteractionsUITests: XCTestCase {
     }
 
     func test09_FieldOrderPreservation() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("1")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("2")
 
         let checkFirst = app.textFields.element(boundBy: 0)
         let checkSecond = app.textFields.element(boundBy: 1)
 
+        waitForElementValue(checkFirst, toEqual: "1", timeout: 2.0)
         XCTAssertEqual(checkFirst.value as? String, "1", "First field order preserved")
+        waitForElementValue(checkSecond, toEqual: "2", timeout: 2.0)
         XCTAssertEqual(checkSecond.value as? String, "2", "Second field order preserved")
     }
 
     func test10_StateAfterMultipleInteractions() {
-        Thread.sleep(forTimeInterval: 0.35)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("5")
 
         firstField.doubleTap()
 
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("3")
 
@@ -168,19 +181,23 @@ final class ParallelInteractionsUITests: XCTestCase {
     // MARK: - Parallel Interaction Tests
 
     func test11_SimultaneousFieldAccess() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElement(firstField, timeout: 2.0)
+        waitForElement(secondField, timeout: 2.0)
+        waitForElement(resultField, timeout: 2.0)
 
         XCTAssertTrue(firstField.exists && secondField.exists && resultField.exists, "All fields accessible simultaneously")
     }
 
     func test12_CrossFieldValueCheck() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("7")
 
+        waitForElementValue(firstField, toEqual: "7", timeout: 2.0)
         let firstValue = firstField.value as? String
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("3")
 
@@ -188,37 +205,44 @@ final class ParallelInteractionsUITests: XCTestCase {
     }
 
     func test13_IndependentFieldUpdates() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("100")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("200")
 
+        waitForElementValue(firstField, toEqual: "100", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "100", "First field independent")
+        waitForElementValue(secondField, toEqual: "200", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "200", "Second field independent")
     }
 
     func test14_ResultReflectsAllInputs() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("12")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("13")
 
+        waitForElementValue(resultField, toEqual: "25", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "25", "Result reflects both inputs")
     }
 
     func test15_ConsecutiveCalculations() {
-        Thread.sleep(forTimeInterval: 0.4)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
         firstField.tap()
         firstField.typeText("5")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("5")
 
+        waitForElementValue(resultField, toEqual: "10", timeout: 2.0)
         let firstResult = resultField.value as? String
         XCTAssertEqual(firstResult, "10", "First calculation correct")
     }
@@ -226,7 +250,7 @@ final class ParallelInteractionsUITests: XCTestCase {
     // MARK: - Edge Case Interactions
 
     func test16_EmptyFieldInteraction() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         // Don't type anything
@@ -235,7 +259,7 @@ final class ParallelInteractionsUITests: XCTestCase {
     }
 
     func test17_DoubleFieldEntry() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("1")
@@ -245,24 +269,23 @@ final class ParallelInteractionsUITests: XCTestCase {
     }
 
     func test18_FieldExistsAfterLongInteraction() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("1")
-        Thread.sleep(forTimeInterval: 0.1)
         firstField.typeText("2")
-        Thread.sleep(forTimeInterval: 0.1)
         firstField.typeText("3")
 
         XCTAssertTrue(firstField.exists, "Field exists after long interaction")
     }
 
     func test19_MultipleFieldsAccessibleAfterWork() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         firstField.tap()
         firstField.typeText("50")
 
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("25")
 
@@ -271,7 +294,7 @@ final class ParallelInteractionsUITests: XCTestCase {
     }
 
     func test20_CompleteUserJourney() {
-        Thread.sleep(forTimeInterval: 0.45)
+        waitForElementToBeHittable(firstField, timeout: 2.0)
 
         // Step 1: Check initial state
         XCTAssertTrue(firstField.exists, "Step 1: First field exists")
@@ -279,14 +302,18 @@ final class ParallelInteractionsUITests: XCTestCase {
         // Step 2: Enter first number
         firstField.tap()
         firstField.typeText("20")
+        waitForElementValue(firstField, toEqual: "20", timeout: 2.0)
         XCTAssertEqual(firstField.value as? String, "20", "Step 2: First value entered")
 
         // Step 3: Enter second number
+        waitForElementToBeHittable(secondField, timeout: 2.0)
         secondField.tap()
         secondField.typeText("22")
+        waitForElementValue(secondField, toEqual: "22", timeout: 2.0)
         XCTAssertEqual(secondField.value as? String, "22", "Step 3: Second value entered")
 
         // Step 4: Verify result
+        waitForElementValue(resultField, toEqual: "42", timeout: 2.0)
         XCTAssertEqual(resultField.value as? String, "42", "Step 4: Result correct")
 
         // Step 5: All fields still accessible
