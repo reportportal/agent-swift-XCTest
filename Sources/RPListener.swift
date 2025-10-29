@@ -101,7 +101,8 @@ open class RPListener: NSObject, XCTestObservation {
         
         let shouldReport: Bool
         if let pushTestDataString = bundleProperties["PushTestDataToReportPortal"] as? String {
-            shouldReport = Bool(pushTestDataString.lowercased()) ?? false
+            let normalized = pushTestDataString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            shouldReport = ["true", "yes", "1"].contains(normalized)
         } else if let pushTestDataBool = bundleProperties["PushTestDataToReportPortal"] as? Bool {
             shouldReport = pushTestDataBool
         } else {
@@ -528,12 +529,16 @@ open class RPListener: NSObject, XCTestObservation {
         
         // T022: Async attachment upload for concurrent execution
         Task {
-            guard let launchID = await launchManager.getLaunchID() else {
+            // Wait for launch ID (don't drop early failures)
+            let launchID: String
+            do {
+                launchID = try await waitForLaunchID()
+            } catch {
                 let testName = extractTestName(from: testCase)
                 let className = String(describing: type(of: testCase))
                 Logger.shared.warning("""
                     ⚠️ Cannot report test issue to ReportPortal: '\(className).\(testName)'
-                    Reason: Launch ID not found (launch may not have been created)
+                    Reason: Launch ID not available - \(error.localizedDescription)
                     Impact: Test failure will not be visible in ReportPortal
                     """)
                 return
@@ -604,12 +609,16 @@ open class RPListener: NSObject, XCTestObservation {
         
         // T022: Async attachment upload for concurrent execution
         Task {
-            guard let launchID = await launchManager.getLaunchID() else {
+            // Wait for launch ID (don't drop early failures)
+            let launchID: String
+            do {
+                launchID = try await waitForLaunchID()
+            } catch {
                 let testName = extractTestName(from: testCase)
                 let className = String(describing: type(of: testCase))
                 Logger.shared.warning("""
                     ⚠️ Cannot report test failure to ReportPortal: '\(className).\(testName)'
-                    Reason: Launch ID not found (launch may not have been created)
+                    Reason: Launch ID not available - \(error.localizedDescription)
                     Impact: Test failure will not be visible in ReportPortal
                     """)
                 return
