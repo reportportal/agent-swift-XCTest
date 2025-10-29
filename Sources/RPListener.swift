@@ -299,7 +299,7 @@ open class RPListener: NSObject, XCTestObservation {
                     } catch {
                         rootSuiteID = nil
                         Logger.shared.error("""
-                            ❌ ROOT SUITE TIMEOUT:
+                            [RACE] ❌ ROOT SUITE TIMEOUT:
                             - Test class suite: '\(testSuite.name)'
                             - Error: \(error.localizedDescription)
                             - Waited 30 seconds for root suite to be created
