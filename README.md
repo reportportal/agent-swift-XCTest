@@ -238,10 +238,6 @@ Or via command line:
 xcodebuild test -scheme YourScheme -parallel-testing-enabled NO
 ```
 
-### Migration from v3.x
-
-For detailed migration instructions, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md).
-
 ---
 
 ## 📚 Documentation
@@ -252,7 +248,6 @@ This README serves as the central hub for all documentation. Below are links to 
 
 | Document | Description |
 |----------|-------------|
-| **[MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)** | Step-by-step guide for upgrading from v3.x to v4.0 with breaking changes, CI/CD examples, and troubleshooting |
 | **[CHANGELOG.md](./CHANGELOG.md)** | Release history, version notes, and change log |
 
 ### For Developers & Contributors
