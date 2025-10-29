@@ -260,7 +260,7 @@ final class ParallelStressUITests: XCTestCase {
 }
 
 /// Second stress test suite to increase concurrent load
-final class ParallelUITests_StressB: XCTestCase {
+final class ParallelUITestsStressB: XCTestCase {
 
     private let app = XCUIApplication()
 
