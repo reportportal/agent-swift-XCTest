@@ -289,9 +289,10 @@ open class RPListener: NSObject, XCTestObservation {
                 // For test class suites, wait for root suite ID to be available
                 let rootSuiteID: String?
                 if !isRootSuite {
-                    // Wait for root suite to be created (event-driven, no polling)
+                    // Wait for root suite to be created (increased timeout for slow networks)
+                    Logger.shared.info("⏳ Waiting for root suite to be created...", correlationID: correlationID)
                     do {
-                        let id = try await rootSuiteIDManager.waitForRootSuiteID(timeout: 10)
+                        let id = try await rootSuiteIDManager.waitForRootSuiteID(timeout: 30)
                         rootSuiteID = id
                         Logger.shared.info("✅ Root suite ID found: \(id)", correlationID: correlationID)
                     } catch {
@@ -300,11 +301,14 @@ open class RPListener: NSObject, XCTestObservation {
                             ❌ ROOT SUITE TIMEOUT:
                             - Test class suite: '\(testSuite.name)'
                             - Error: \(error.localizedDescription)
+                            - Waited 30 seconds for root suite to be created
                             - This will cause incorrect hierarchy (suite at root level)
+                            - Check ReportPortal connectivity and performance
                             """, correlationID: correlationID)
                     }
                 } else {
                     rootSuiteID = nil
+                    Logger.shared.info("📦 Creating ROOT SUITE...", correlationID: correlationID)
                 }
 
                 // Create suite operation
@@ -323,20 +327,25 @@ open class RPListener: NSObject, XCTestObservation {
                 await operationTracker.registerSuite(operation, identifier: identifier)
 
                 Logger.shared.info("✅ Suite registered: '\(identifier)' → ID: pending", correlationID: correlationID)
-                
+
                 // Start suite in ReportPortal
+                let apiStartTime = Date()
+                Logger.shared.info("📡 Calling ReportPortal API to create suite...", correlationID: correlationID)
                 let suiteID = try await asyncService.startSuite(operation: operation, launchID: launchID)
-                
+                let apiDuration = Date().timeIntervalSince(apiStartTime)
+                Logger.shared.info("📡 API call completed in \(Int(apiDuration * 1000))ms", correlationID: correlationID)
+
                 // Update operation with suite ID
                 operation.suiteID = suiteID
                 await operationTracker.updateSuite(operation, identifier: identifier)
-                
+
                 // Store root suite ID if this is root
                 if isRootSuite {
                     await rootSuiteIDManager.setRootSuiteID(suiteID)
+                    Logger.shared.info("🎯 Root suite ID stored: \(suiteID)", correlationID: correlationID)
                 }
-                
-                Logger.shared.info("Suite started: \(suiteID)", correlationID: correlationID)
+
+                Logger.shared.info("✅ Suite started: \(suiteID)", correlationID: correlationID)
             } catch {
                 Logger.shared.error("Failed to start suite '\(testSuite.name)': \(error.localizedDescription)")
             }
@@ -535,7 +544,7 @@ open class RPListener: NSObject, XCTestObservation {
             let className = String(describing: type(of: testCase))
             let identifier = "\(className).\(testName)"
 
-            guard let operation = await operationTracker.getTest(identifier: identifier) else {
+            guard var operation = await operationTracker.getTest(identifier: identifier) else {
                 Logger.shared.warning("""
                     ⚠️ Cannot report test issue: Test operation not found for '\(identifier)'
                     Reason: Test may not have been registered successfully
@@ -543,13 +552,13 @@ open class RPListener: NSObject, XCTestObservation {
                     """)
                 return
             }
-            
+
             do {
                 let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
                 ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
                 : ""
                 let errorMessage = "Test '\(String(describing: issue.description))' failed\(lineNumberString), \(issue.description)"
-                
+
                 // Post error log with async API (non-blocking)
                 try await asyncService.postLog(
                     message: errorMessage,
@@ -558,18 +567,28 @@ open class RPListener: NSObject, XCTestObservation {
                     launchID: launchID,
                     correlationID: operation.correlationID
                 )
-                
-                // Upload attachments concurrently if available from operation
-                if !operation.attachments.isEmpty {
-                    try await asyncService.postAttachments(
-                        attachments: operation.attachments,
+
+                // Capture and upload screenshot directly (v3.x approach)
+                #if canImport(UIKit)
+                do {
+                    let screenshot = XCUIScreen.main.screenshot()
+                    let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+                    let filename = "failure_screenshot_\(timestamp).png"
+
+                    try await asyncService.postScreenshot(
+                        screenshotData: screenshot.pngRepresentation,
+                        filename: filename,
                         itemID: operation.testID,
                         launchID: launchID,
                         correlationID: operation.correlationID
                     )
+                    Logger.shared.info("📸 Screenshot uploaded successfully", correlationID: operation.correlationID)
+                } catch {
+                    Logger.shared.warning("Failed to upload screenshot: \(error.localizedDescription)", correlationID: operation.correlationID)
                 }
-                
-                Logger.shared.info("TEST FAIL reported with attachments", correlationID: operation.correlationID)
+                #endif
+
+                Logger.shared.info("TEST FAIL reported", correlationID: operation.correlationID)
             } catch {
                 Logger.shared.error("Failed to report TEST FAIL: \(error.localizedDescription)", correlationID: operation.correlationID)
             }
@@ -601,7 +620,7 @@ open class RPListener: NSObject, XCTestObservation {
             let className = String(describing: type(of: testCase))
             let identifier = "\(className).\(testName)"
 
-            guard let operation = await operationTracker.getTest(identifier: identifier) else {
+            guard var operation = await operationTracker.getTest(identifier: identifier) else {
                 Logger.shared.warning("""
                     ⚠️ Cannot report test failure: Test operation not found for '\(identifier)'
                     Reason: Test may not have been registered successfully
@@ -609,11 +628,11 @@ open class RPListener: NSObject, XCTestObservation {
                     """)
                 return
             }
-            
+
             do {
                 let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
                 let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
-                
+
                 // Post error log with async API (non-blocking)
                 try await asyncService.postLog(
                     message: errorMessage,
@@ -622,18 +641,28 @@ open class RPListener: NSObject, XCTestObservation {
                     launchID: launchID,
                     correlationID: operation.correlationID
                 )
-                
-                // Upload attachments concurrently if available from operation
-                if !operation.attachments.isEmpty {
-                    try await asyncService.postAttachments(
-                        attachments: operation.attachments,
+
+                // Capture and upload screenshot directly (v3.x approach, works on iOS 17+)
+                #if canImport(UIKit)
+                do {
+                    let screenshot = XCUIScreen.main.screenshot()
+                    let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+                    let filename = "failure_screenshot_\(timestamp).png"
+
+                    try await asyncService.postScreenshot(
+                        screenshotData: screenshot.pngRepresentation,
+                        filename: filename,
                         itemID: operation.testID,
                         launchID: launchID,
                         correlationID: operation.correlationID
                     )
+                    Logger.shared.info("📸 Screenshot uploaded successfully", correlationID: operation.correlationID)
+                } catch {
+                    Logger.shared.warning("Failed to upload screenshot: \(error.localizedDescription)", correlationID: operation.correlationID)
                 }
-                
-                Logger.shared.info("Failure reported with attachments", correlationID: operation.correlationID)
+                #endif
+
+                Logger.shared.info("Failure reported", correlationID: operation.correlationID)
             } catch {
                 Logger.shared.error("Failed to report failure: \(error.localizedDescription)", correlationID: operation.correlationID)
             }
@@ -658,21 +687,22 @@ open class RPListener: NSObject, XCTestObservation {
                 Logger.shared.error("Test operation not found in tracker: \(identifier)")
                 return
             }
-            
+
             do {
                 // Update status based on test result
                 let hasSucceeded = testCase.testRun?.hasSucceeded ?? false
                 operation.status = hasSucceeded ? .passed : .failed
-                
+
                 // Finish test in ReportPortal
+                // Note: Screenshots are uploaded directly in failure methods, not here
                 try await asyncService.finishTest(operation: operation)
-                
+
                 // Update aggregated launch status
                 await launchManager.updateStatus(operation.status)
-                
+
                 // Unregister test from tracker (cleanup)
                 await operationTracker.unregisterTest(identifier: identifier)
-                
+
                 Logger.shared.info("Test finished: \(operation.testID) with status: \(operation.status.rawValue)", correlationID: operation.correlationID)
             } catch {
                 Logger.shared.error("Failed to finish test '\(testCase.name)': \(error.localizedDescription)", correlationID: operation.correlationID)
