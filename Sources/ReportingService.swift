@@ -207,6 +207,34 @@ public final class ReportingService: Sendable {
     ///   - itemID: Test item ID to attach to
     ///   - launchID: Launch ID
     ///   - correlationID: Optional correlation ID for tracing
+    /// Post screenshot directly to ReportPortal (simpler than postAttachments)
+    func postScreenshot(
+        screenshotData: Data,
+        filename: String,
+        itemID: String,
+        launchID: String,
+        correlationID: UUID? = nil
+    ) async throws {
+        let fileAttachment = FileAttachment(
+            data: screenshotData,
+            filename: filename,
+            mimeType: "image/png",
+            fieldName: "binary_part"
+        )
+
+        let endPoint = PostLogEndPoint(
+            itemUuid: itemID,
+            launchUuid: launchID,
+            level: "info",
+            message: "Failure screenshot",
+            attachments: [fileAttachment]
+        )
+
+        let _: LogResponse = try await httpClient.callEndPoint(endPoint)
+
+        Logger.shared.debug("Posted screenshot: \(filename)", correlationID: correlationID)
+    }
+
     func postAttachments(
         attachments: [XCTAttachment],
         itemID: String,
@@ -257,15 +285,36 @@ public final class ReportingService: Sendable {
             let filename = "\(sanitizedName)_\(timestamp).\(fileExtension)"
 
             // Extract data from XCTAttachment
-            guard let fileWrapper = attachment.value(forKey: "fileWrapper") as? FileWrapper,
-                  let data = fileWrapper.regularFileContents else {
-                Logger.shared.warning("Could not extract data from attachment: \(attachment.name ?? "unknown")", correlationID: correlationID)
+            // For screenshots created with XCTAttachment(screenshot:), extract PNG data
+            var data: Data? = nil
+
+            // Try to get screenshot data if available
+            if uti.contains("image") {
+                // For screenshot attachments, try getting the XCUIScreenshot directly
+                if let screenshot = attachment.value(forKey: "screenshot") as? XCUIScreenshot {
+                    data = screenshot.pngRepresentation
+                } else if let image = attachment.value(forKey: "image") as? XCUIScreenshot {
+                    data = image.pngRepresentation
+                }
+            }
+
+            // Fallback: try to get attachment contents using lifetime accessor
+            if data == nil {
+                // Try userInfo which might contain the data
+                if let userInfo = attachment.value(forKey: "userInfo") as? [String: Any],
+                   let payloadData = userInfo["data"] as? Data {
+                    data = payloadData
+                }
+            }
+
+            guard let attachmentData = data else {
+                Logger.shared.warning("Could not extract data from attachment: \(attachment.name ?? "unknown"), UTI: \(uti)", correlationID: correlationID)
                 continue
             }
 
             // Create FileAttachment and add to array
             let fileAttachment = FileAttachment(
-                data: data,
+                data: attachmentData,
                 filename: filename,
                 mimeType: mimeType,
                 fieldName: "binary_part"
