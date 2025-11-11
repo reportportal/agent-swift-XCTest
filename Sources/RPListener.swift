@@ -100,66 +100,39 @@ open class RPListener: NSObject, XCTestObservation {
         let reportingService = ReportingService(configuration: configuration)
         self.reportingService = reportingService
         
-        // T013: Create launch for this test bundle using custom UUID (no API call needed)
-        // This simplifies synchronization - no waiting for API response
-        Task.detached(priority: .high) {
-            // Generate custom UUID for launch (no API call, immediate availability)
-            let customLaunchUUID = UUID().uuidString
-            Logger.shared.info("📦 Generated custom launch UUID: \(customLaunchUUID)")
-            
-            // Create dummy task that returns the UUID immediately
-            let launchTask = Task<String, Error> {
-                return customLaunchUUID
-            }
-            
-            // Store launch ID in LaunchManager immediately
+        // Get launch UUID (lazy initialization on first access)
+        let launchUUID = LaunchManager.shared.launchID
+        
+        // Create launch in ReportPortal asynchronously (fire and forget)
+        Task {
             do {
-                let launchID = try await LaunchManager.shared.createLaunch(launchTask: launchTask)
-                Logger.shared.info("✅ Launch ready with custom UUID: \(launchID)")
-                
-                // Now start the actual launch in ReportPortal asynchronously (fire and forget)
-                Task {
-                    do {
-                        // Collect metadata attributes
-                        let attributes: [[String: String]]
-                        if let bundle = testBundle as Bundle? {
-                            attributes = MetadataCollector.collectAllAttributes(from: bundle, tags: configuration.tags)
-                        } else {
-                            attributes = MetadataCollector.collectDeviceAttributes()
-                        }
-
-                        // Get test plan name for launch name enhancement
-                        let testPlanName = MetadataCollector.getTestPlanName()
-                        let enhancedLaunchName = self.buildEnhancedLaunchName(
-                            baseLaunchName: configuration.launchName,
-                            testPlanName: testPlanName
-                        )
-
-                        // Create launch via ReportPortal API with custom UUID
-                        let reportedLaunchID = try await reportingService.startLaunch(
-                            name: enhancedLaunchName,
-                            tags: configuration.tags,
-                            attributes: attributes,
-                            uuid: customLaunchUUID
-                        )
-                        Logger.shared.info("📡 Launch created in ReportPortal: \(reportedLaunchID)")
-                    } catch {
-                        Logger.shared.error("Failed to create launch in ReportPortal: \(error.localizedDescription)")
-                    }
+                // Collect metadata attributes
+                let attributes: [[String: String]]
+                if let bundle = testBundle as Bundle? {
+                    attributes = MetadataCollector.collectAllAttributes(from: bundle, tags: configuration.tags)
+                } else {
+                    attributes = MetadataCollector.collectDeviceAttributes()
                 }
+
+                // Get test plan name for launch name enhancement
+                let testPlanName = MetadataCollector.getTestPlanName()
+                let enhancedLaunchName = self.buildEnhancedLaunchName(
+                    baseLaunchName: configuration.launchName,
+                    testPlanName: testPlanName
+                )
+
+                // Create launch via ReportPortal API with custom UUID
+                let reportedLaunchID = try await reportingService.startLaunch(
+                    name: enhancedLaunchName,
+                    tags: configuration.tags,
+                    attributes: attributes,
+                    uuid: launchUUID
+                )
+                Logger.shared.info("📡 Launch created in ReportPortal: \(reportedLaunchID)")
             } catch {
-                Logger.shared.error("Failed to store launch UUID: \(error.localizedDescription)")
+                Logger.shared.error("Failed to create launch in ReportPortal: \(error.localizedDescription)")
             }
         }
-    }
-    
-    /// Wait for launch ID to become available
-    /// With custom UUID approach, launch ID is available immediately
-    /// - Returns: Launch ID (custom UUID)
-    /// - Throws: LaunchManagerError.launchNotStarted if launch not initiated (shouldn't happen)
-    private func waitForLaunchID() async throws -> String {
-        // With custom UUID, this returns immediately (no timeout needed)
-        return try await launchManager.waitForLaunchID()
     }
     
     private func buildEnhancedLaunchName(baseLaunchName: String, testPlanName: String?) -> String {
@@ -206,21 +179,10 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
-        // T015: Register suite with OperationTracker for parallel execution
+        // Register suite with OperationTracker for parallel execution
         Task {
-            // Wait for launch ID (properly awaits task, no polling)
-            let launchID: String
-            do {
-                launchID = try await waitForLaunchID()
-            } catch {
-                Logger.shared.error("""
-                    ❌ SUITE REGISTRATION FAILED: '\(testSuite.name)'
-                    Reason: \(error.localizedDescription)
-                    Impact: This suite will NOT be reported to ReportPortal
-                    Action: Check launch creation logs and ReportPortal connectivity
-                    """)
-                return
-            }
+            // Get launch ID (lazy initialization on first access)
+            let launchID = launchManager.launchID
             
             do {
                 let correlationID = UUID()
@@ -321,23 +283,10 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
-        // T019: Register test case with OperationTracker for parallel execution
+        // Register test case with OperationTracker for parallel execution
         Task {
-            // Wait for launch ID (properly awaits task, no polling)
-            let launchID: String
-            do {
-                launchID = try await waitForLaunchID()
-            } catch {
-                let testName = extractTestName(from: testCase)
-                let className = String(describing: type(of: testCase))
-                Logger.shared.error("""
-                    ❌ TEST REGISTRATION FAILED: '\(className).\(testName)'
-                    Reason: \(error.localizedDescription)
-                    Impact: This test will NOT be reported to ReportPortal (but will still execute locally)
-                    Action: Check launch creation logs and ReportPortal connectivity
-                    """)
-                return
-            }
+            // Get launch ID (lazy initialization on first access)
+            let launchID = launchManager.launchID
             
             do {
                 let correlationID = UUID()
@@ -486,22 +435,10 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
-        // T022: Async attachment upload for concurrent execution
+        // Async attachment upload for concurrent execution
         Task {
-            // Wait for launch ID (don't drop early failures)
-            let launchID: String
-            do {
-                launchID = try await waitForLaunchID()
-            } catch {
-                let testName = extractTestName(from: testCase)
-                let className = String(describing: type(of: testCase))
-                Logger.shared.warning("""
-                    ⚠️ Cannot report test issue to ReportPortal: '\(className).\(testName)'
-                    Reason: Launch ID not available - \(error.localizedDescription)
-                    Impact: Test failure will not be visible in ReportPortal
-                    """)
-                return
-            }
+            // Get launch ID (lazy initialization on first access)
+            let launchID = launchManager.launchID
 
             // Build identifier to get test operation
             let testName = extractTestName(from: testCase)
@@ -566,22 +503,10 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
-        // T022: Async attachment upload for concurrent execution
+        // Async attachment upload for concurrent execution
         Task {
-            // Wait for launch ID (don't drop early failures)
-            let launchID: String
-            do {
-                launchID = try await waitForLaunchID()
-            } catch {
-                let testName = extractTestName(from: testCase)
-                let className = String(describing: type(of: testCase))
-                Logger.shared.warning("""
-                    ⚠️ Cannot report test failure to ReportPortal: '\(className).\(testName)'
-                    Reason: Launch ID not available - \(error.localizedDescription)
-                    Impact: Test failure will not be visible in ReportPortal
-                    """)
-                return
-            }
+            // Get launch ID (lazy initialization on first access)
+            let launchID = launchManager.launchID
 
             // Build identifier to get test operation
             let testName = extractTestName(from: testCase)
@@ -643,7 +568,7 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
-        // T020: Finalize test with status update and cleanup
+        // Finalize test with status update and cleanup
         Task {
             // Build identifier
             let testName = extractTestName(from: testCase)
@@ -664,11 +589,6 @@ open class RPListener: NSObject, XCTestObservation {
                 // Finish test in ReportPortal
                 // Note: Screenshots are uploaded directly in failure methods, not here
                 try await asyncService.finishTest(operation: operation)
-
-                // Update aggregated launch status
-                if let status = operation.status {
-                    await launchManager.updateStatus(status)
-                }
 
                 // Unregister test from tracker (cleanup)
                 await operationTracker.unregisterTest(identifier: identifier)
@@ -694,7 +614,7 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
-        // T016: Finalize suite with OperationTracker
+        // Finalize suite with OperationTracker
         Task {
             let identifier = testSuite.name
             Logger.shared.info("🏁 testSuiteDidFinish called - Suite: '\(identifier)'")
@@ -732,42 +652,21 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
-        // Read configuration to check if we should finalize
-        let configuration = readConfiguration(from: testBundle)
-        
         Task {
-            Logger.shared.info("📦 Bundle finished. shouldFinishLaunch=\(configuration.shouldFinishLaunch)")
+            Logger.shared.info("📦 Bundle finished - finalizing launch")
             
-            // Check if this bundle should finalize the launch
-            guard configuration.shouldFinishLaunch else {
-                Logger.shared.info("⏭️ Skipping launch finalization (shouldFinishLaunch=false)")
-                return
-            }
-            
-            let isFinalized = await launchManager.isLaunchFinalized()
-            Logger.shared.info("🔍 Launch finalized status: \(isFinalized)")
+            let launchID = launchManager.launchID
 
-            if !isFinalized {
-                // Finalize the launch
-                guard let launchID = await launchManager.getLaunchID() else {
-                    Logger.shared.error("❌ Cannot finalize launch: launch ID not found")
-                    return
+            // ReportPortal will calculate the final status from all test results
+            Logger.shared.info("📊 Finalizing launch \(launchID)")
+
+            do {
+                if let asyncService = reportingService {
+                    try await asyncService.finalizeLaunch(launchID: launchID, status: .passed)
+                    Logger.shared.info("✅ Launch finalized successfully: \(launchID)")
                 }
-
-                let status = await launchManager.getAggregatedStatus()
-                Logger.shared.info("📊 Finalizing launch \(launchID) with status: \(status.rawValue)")
-
-                do {
-                    if let asyncService = reportingService {
-                        try await asyncService.finalizeLaunch(launchID: launchID, status: status)
-                        await launchManager.markFinalized()
-                        Logger.shared.info("✅ Launch finalized successfully: \(launchID) with status: \(status.rawValue)")
-                    }
-                } catch {
-                    Logger.shared.error("❌ Failed to finalize launch: \(error.localizedDescription)")
-                }
-            } else {
-                Logger.shared.info("ℹ️ Bundle finished, launch already finalized")
+            } catch {
+                Logger.shared.error("❌ Failed to finalize launch: \(error.localizedDescription)")
             }
         }
     }

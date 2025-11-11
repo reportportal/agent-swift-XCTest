@@ -43,7 +43,7 @@ actor OperationTracker {
     func registerTest(_ operation: TestOperation, identifier: String) {
         testOperations[identifier] = operation
 
-        // T024: Check concurrency limit and log warning
+        // Check concurrency limit and log warning
         checkConcurrencyLimit()
     }
 
@@ -77,7 +77,7 @@ actor OperationTracker {
     func registerSuite(_ operation: SuiteOperation, identifier: String) {
         suiteOperations[identifier] = operation
 
-        // T024: Check concurrency limit and log warning
+        // Check concurrency limit and log warning
         checkConcurrencyLimit()
     }
 

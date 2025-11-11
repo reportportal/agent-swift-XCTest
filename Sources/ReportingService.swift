@@ -17,7 +17,6 @@ public final class ReportingService: Sendable {
 
     private let httpClient: HTTPClient
     private let configuration: AgentConfiguration
-    private let launchManager: LaunchManager
     private let operationTracker: OperationTracker
 
     // MARK: - Initialization
@@ -25,11 +24,9 @@ public final class ReportingService: Sendable {
     init(
         configuration: AgentConfiguration,
         httpClient: HTTPClient? = nil,
-        launchManager: LaunchManager = LaunchManager.shared,
         operationTracker: OperationTracker = OperationTracker.shared
     ) {
         self.configuration = configuration
-        self.launchManager = launchManager
         self.operationTracker = operationTracker
 
         if let client = httpClient {
@@ -68,14 +65,11 @@ public final class ReportingService: Sendable {
     /// Finish launch in ReportPortal
     /// - Parameters:
     ///   - launchID: Launch ID from LaunchManager
-    ///   - status: Aggregated status from LaunchManager
+    ///   - status: Status to send (ReportPortal will calculate actual status from tests)
     func finalizeLaunch(launchID: String, status: TestStatus) async throws {
         let endPoint = FinishLaunchEndPoint(launchID: launchID, status: status)
 
         let _: LaunchFinish = try await httpClient.callEndPoint(endPoint)
-
-        // Mark as finalized in LaunchManager
-        await launchManager.markFinalized()
 
         Logger.shared.info("Launch finalized: \(launchID) with status: \(status.rawValue)")
     }
@@ -117,9 +111,7 @@ public final class ReportingService: Sendable {
     /// Finish suite item in ReportPortal
     /// - Parameter operation: SuiteOperation with suite ID and final status
     func finishSuite(operation: SuiteOperation) async throws {
-        guard let launchID = await launchManager.getLaunchID() else {
-            throw ReportingServiceError.launchIdNotFound
-        }
+        let launchID = LaunchManager.shared.launchID
 
         // Use suite status if available, otherwise default to passed
         let status = operation.status ?? .passed
@@ -163,9 +155,7 @@ public final class ReportingService: Sendable {
             preconditionFailure("Test status should not be nil when finishing test")
         }
         
-        guard let launchID = await launchManager.getLaunchID() else {
-            throw ReportingServiceError.launchIdNotFound
-        }
+        let launchID = LaunchManager.shared.launchID
 
         let endPoint = try FinishItemEndPoint(
             itemID: operation.testID,
@@ -174,9 +164,6 @@ public final class ReportingService: Sendable {
         )
 
         let _: Finish = try await httpClient.callEndPoint(endPoint)
-
-        // Update aggregated status in LaunchManager
-        await launchManager.updateStatus(status)
 
         Logger.shared.info("Test finished: \(operation.testID) with status: \(status.rawValue)", correlationID: operation.correlationID)
     }

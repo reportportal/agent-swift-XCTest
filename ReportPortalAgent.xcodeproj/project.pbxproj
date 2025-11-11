@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		368751BD1F5867200021B74D /* RPListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368751B61F5867200021B74D /* RPListener.swift */; };
-		851D90F92EB14A3B0026437F /* LaunchManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 851D90F72EB14A3B0026437F /* LaunchManagerTests.swift */; };
 		851D90FA2EB14A3B0026437F /* OperationTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 851D90F82EB14A3B0026437F /* OperationTrackerTests.swift */; };
 		85529CD22EA9094F0080536D /* OperationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CD12EA9094F0080536D /* OperationTracker.swift */; };
 		85529CE22EA90A060080536D /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85529CE12EA90A060080536D /* Logger.swift */; };
@@ -98,7 +97,6 @@
 		368751E01F5964AA0021B74D /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		368751E21F596BC70021B74D /* ReportPortal.podspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ReportPortal.podspec; sourceTree = "<group>"; };
 		368751E41F596E990021B74D /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
-		851D90F72EB14A3B0026437F /* LaunchManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchManagerTests.swift; sourceTree = "<group>"; };
 		851D90F82EB14A3B0026437F /* OperationTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTrackerTests.swift; sourceTree = "<group>"; };
 		85529CCF2EA9092D0080536D /* LaunchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchManager.swift; sourceTree = "<group>"; };
 		85529CD12EA9094F0080536D /* OperationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTracker.swift; sourceTree = "<group>"; };
@@ -257,7 +255,6 @@
 			isa = PBXGroup;
 			children = (
 				9203A3A32135C20E00BFAF82 /* SummatorTests.swift */,
-				851D90F72EB14A3B0026437F /* LaunchManagerTests.swift */,
 				851D90F82EB14A3B0026437F /* OperationTrackerTests.swift */,
 				9203A3A52135C20E00BFAF82 /* Info.plist */,
 			);
@@ -449,10 +446,9 @@
 			};
 			buildConfigurationList = 3687519F1F5866CA0021B74D /* Build configuration list for PBXProject "ReportPortalAgent" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
 				Base,
 			);
@@ -556,7 +552,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				851D90F92EB14A3B0026437F /* LaunchManagerTests.swift in Sources */,
 				851D90FA2EB14A3B0026437F /* OperationTrackerTests.swift in Sources */,
 				9203A3A42135C20E00BFAF82 /* SummatorTests.swift in Sources */,
 			);

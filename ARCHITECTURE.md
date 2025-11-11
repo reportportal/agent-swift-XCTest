@@ -32,15 +32,15 @@ The ReportPortal Swift XCTest Agent v4.0 is a **parallel-execution-first** test 
 
 ## Architectural Principles
 
-### 1. Actor Isolation for Shared State
+### 1. Minimal State Management
 
-**Principle**: All shared mutable state is protected by Swift Actors, providing compile-time thread safety guarantees.
+**Principle**: Keep state management as simple as possible - only store what's absolutely necessary.
 
 **Implementation**:
-- `LaunchManager` (Actor) - Launch-level state coordination
-- `OperationTracker` (Actor) - Active test/suite operation registry
+- `LaunchManager` (Singleton) - Simple UUID storage with lazy initialization
+- `OperationTracker` (Actor) - Active test/suite operation registry for correlation
 
-**Rationale**: Actors eliminate data races at compile time, replacing manual locks/semaphores with language-level guarantees.
+**Rationale**: Single bundle execution doesn't need complex state tracking. LaunchManager reduced from ~180 lines to 26 lines by removing unnecessary features (bundle counting, status aggregation, finalization flags).
 
 ### 2. Value Semantics for Operations
 
@@ -63,16 +63,17 @@ The ReportPortal Swift XCTest Agent v4.0 is a **parallel-execution-first** test 
 
 **Rationale**: Blocking operations cause priority inversion and thread pool exhaustion in parallel execution.
 
-### 4. Reference Counting for Coordination
+### 4. Custom UUID Strategy
 
-**Principle**: Launch finalization uses reference counting instead of "final bundle" flags.
+**Principle**: Generate launch UUID immediately client-side instead of waiting for ReportPortal API response.
 
 **Implementation**:
-- Each bundle increments counter on start
-- Each bundle decrements counter on finish
-- Finalization triggers when counter reaches zero
+- LaunchManager generates UUID on first access (lazy var)
+- UUID available synchronously - no async waiting needed
+- ReportPortal launch creation happens asynchronously in background
+- Pass custom UUID to ReportPortal API via optional `uuid` parameter
 
-**Rationale**: Reference counting is order-independent, handling out-of-order bundle completion gracefully.
+**Rationale**: Eliminates complex synchronization logic, race conditions, and timeout handling. Launch ID is immediately available for all test operations.
 
 ### 5. Structured Concurrency
 
@@ -191,37 +192,39 @@ flowchart LR
 **Type**: `class` (must conform to NSObject for XCTestObservation)
 
 **Key Methods**:
-- `testBundleWillStart(_:)` - Increments bundle count, creates/awaits launch
+- `testBundleWillStart(_:)` - Generates custom launch UUID, creates launch in ReportPortal asynchronously
 - `testSuiteWillStart(_:)` - Registers suite operation, starts suite in RP
 - `testCaseWillStart(_:)` - Registers test operation, starts test in RP
-- `testCaseDidFinish(_:)` - Updates test status, finishes test in RP
+- `testCaseDidFinish(_:)` - Finishes test in RP
 - `testSuiteDidFinish(_:)` - Finishes suite in RP
-- `testBundleDidFinish(_:)` - Decrements bundle count, finalizes launch if zero
+- `testBundleDidFinish(_:)` - Finalizes launch (called once per bundle)
 
-**Concurrency**: Spawns detached Tasks for async operations (XCTest callbacks are synchronous)
+**Concurrency**: Spawns Tasks for async operations (XCTest callbacks are synchronous)
 
-#### 2. LaunchManager (Actor)
+#### 2. LaunchManager (Singleton Class)
 
-**Responsibility**: Thread-safe launch-level state coordination.
+**Responsibility**: Minimal UUID storage for launch identification.
 
-**Type**: `actor` (singleton)
+**Type**: `final class` (singleton)
 
 **State**:
 ```swift
-private var launchID: String?
-private var launchCreationTask: Task<String, Error>?
-private var activeBundleCount: Int = 0
-private var aggregatedStatus: TestStatus = .passed
-private var isFinalized: Bool = false
+private(set) lazy var launchID: String = {
+    let uuid = UUID().uuidString
+    Logger.shared.info("📦 Launch initialized with UUID: \(uuid)")
+    return uuid
+}()
 ```
 
-**Key Methods**:
-- `getOrAwaitLaunchID(launchTask:)` - Atomic launch creation coordination
-- `incrementBundleCount()` - Thread-safe reference counting
-- `decrementBundleCount() -> Bool` - Returns true when count reaches zero
-- `updateStatus(_:)` - Aggregate worst status across all tests
+**Key Features**:
+- **No methods needed** - Direct property access: `LaunchManager.shared.launchID`
+- **Lazy initialization** - UUID generated on first access
+- **Thread-safe** - Swift guarantees lazy var initialization happens once
+- **Immutable** - Once set, never changes
 
-**Concurrency**: Actor isolation ensures all methods are serialized
+**Design Evolution**: Reduced from ~180 lines (with actor isolation, bundle counting, status aggregation) to 26 lines by removing unnecessary features for single-bundle execution.
+
+**Concurrency**: No actor isolation needed - property is read-only after initialization
 
 #### 3. OperationTracker (Actor)
 
@@ -358,58 +361,43 @@ stateDiagram-v2
 
 ## Sequence Diagrams
 
-### 1. Launch Creation (Race Condition Handling)
+### 1. Launch Creation (Custom UUID Strategy)
 
 ```mermaid
 sequenceDiagram
-    participant B1 as Bundle 1
-    participant B2 as Bundle 2
-    participant LM as LaunchManager Actor
+    participant B1 as Test Bundle
+    participant LM as LaunchManager
     participant RS as ReportingService
     participant RP as ReportPortal API
 
-    Note over B1,B2: Both bundles start simultaneously
+    Note over B1: testBundleWillStart called
 
-    B1->>LM: incrementBundleCount()
+    B1->>LM: launchID (first access)
     activate LM
-    LM-->>B1: ✓ count=1
+    Note over LM: Lazy var initialization
+    LM->>LM: Generate UUID()
+    LM->>LM: Store UUID in launchID
+    LM-->>B1: Custom UUID
     deactivate LM
+    Note over B1: UUID available immediately<br/>(synchronous, no waiting)
 
-    B2->>LM: incrementBundleCount()
-    activate LM
-    LM-->>B2: ✓ count=2
-    deactivate LM
+    Note over B1: Launch ReportPortal API call<br/>(async, fire-and-forget)
+    B1->>RS: startLaunch(uuid: customUUID)
+    activate RS
+    RS->>RP: POST /launch {uuid: customUUID}
+    Note over RP: ReportPortal creates launch<br/>with client-provided UUID
+    RP-->>RS: { "id": "customUUID" }
+    deactivate RS
+    Note over RS: Background task completes<br/>(no blocking)
 
-    Note over B1: Creates launch task
-    B1->>B1: Task { startLaunch(...) }
-
-    Note over B2: Creates launch task
-    B2->>B2: Task { startLaunch(...) }
-
-    B1->>LM: getOrAwaitLaunchID(task1)
-    activate LM
-    Note over LM: No existing launch<br/>No existing task
-    LM->>LM: Store task1
-    LM->>RS: await task1.value
-    deactivate LM
-
-    B2->>LM: getOrAwaitLaunchID(task2)
-    activate LM
-    Note over LM: task1 exists!
-    LM->>B2: Cancel task2
-    LM->>LM: await task1.value
-    deactivate LM
-
-    RS->>RP: POST /launch
-    RP-->>RS: { "id": "abc123" }
-    RS-->>LM: "abc123"
-
-    LM->>LM: launchID = "abc123"
-    LM-->>B1: "abc123" ✓
-    LM-->>B2: "abc123" ✓
-
-    Note over B1,B2: Both bundles get same launch ID<br/>Only ONE API call made
+    Note over B1: Tests can start immediately<br/>using custom UUID
 ```
+
+**Key Benefits**:
+- **No race conditions** - UUID generated once, thread-safe by Swift
+- **No waiting** - UUID available synchronously
+- **No coordination** - No task management or timeout logic
+- **Simple** - LaunchManager reduced from 180 lines to 26 lines
 
 ### 2. Parallel Test Execution Flow
 
@@ -491,60 +479,42 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant B1 as Bundle 1
-    participant B2 as Bundle 2
-    participant B3 as Bundle 3
-    participant LM as LaunchManager Actor
+    participant B1 as Test Bundle
+    participant LM as LaunchManager
     participant RS as ReportingService
     participant RP as ReportPortal API
 
-    Note over B1,B2,B3: All bundles start
-    B1->>LM: incrementBundleCount()
-    LM->>LM: count = 1
-
-    B2->>LM: incrementBundleCount()
-    LM->>LM: count = 2
-
-    B3->>LM: incrementBundleCount()
-    LM->>LM: count = 3
-
-    Note over B1,B2,B3: Tests execute...<br/>(order-independent)
-
-    Note over B2: Bundle 2 finishes first
-    B2->>LM: decrementBundleCount()
+    Note over B1: Bundle starts
+    B1->>LM: Access launchID (first time)
     activate LM
-    LM->>LM: count = 2
-    LM-->>B2: false (not zero)
-    deactivate LM
-    Note over B2: No finalization
-
-    Note over B3: Bundle 3 finishes second
-    B3->>LM: decrementBundleCount()
-    activate LM
-    LM->>LM: count = 1
-    LM-->>B3: false (not zero)
-    deactivate LM
-    Note over B3: No finalization
-
-    Note over B1: Bundle 1 finishes last
-    B1->>LM: decrementBundleCount()
-    activate LM
-    LM->>LM: count = 0
-    LM-->>B1: true (finalize!)
+    LM->>LM: Generate UUID()<br/>lazy initialization
+    LM-->>B1: UUID string
     deactivate LM
 
-    B1->>LM: getAggregatedStatus()
-    LM-->>B1: .failed
+    B1->>RS: startLaunch(uuid: launchID)
+    RS->>RP: POST /launch (with custom UUID)
+    Note over RS: Fire and forget<br/>(async background task)
 
-    B1->>LM: markFinalized()
+    Note over B1: Tests execute...
 
-    B1->>RS: finalizeLaunch(status: .failed)
-    RS->>RP: PUT /launch/abc123 (finish)
+    Note over B1: Bundle finishes
+    B1->>LM: Get launchID
+    LM-->>B1: UUID string
+
+    B1->>RS: finalizeLaunch(launchID, status: .passed)
+    Note over RS: ReportPortal calculates<br/>actual status from tests
+    RS->>RP: PUT /launch/uuid/finish
     RP-->>RS: ✓ Finished
     RS-->>B1: ✓
 
-    Note over B1: Launch finalized<br/>exactly once!
+    Note over B1: Launch finalized<br/>(single bundle execution)
 ```
+
+**Key Simplifications**:
+- **No bundle counting** - Single bundle only
+- **No status aggregation** - ReportPortal server calculates
+- **No finalization flags** - testBundleDidFinish called exactly once
+- **Custom UUID** - Generated immediately, no waiting for API
 
 ### 4. Error Handling Flow
 

@@ -1,103 +1,82 @@
-# LaunchManager Actor Contract
+# LaunchManager Contract
 
-**Entity**: LaunchManager (Actor)  
-**Purpose**: Thread-safe launch-level state management with reference counting  
+**Entity**: LaunchManager (Singleton Class)  
+**Purpose**: Minimal launch UUID storage for single bundle execution  
 **Feature**: 001-parallel-execution
 
-## Actor Declaration
+## Class Declaration
 
 ```swift
-actor LaunchManager {
+final class LaunchManager {
     static let shared: LaunchManager
+    private init()
 }
 ```
+
+**Note**: Changed from Actor to simple class because no async coordination is needed. The launch ID is set once and then only read.
 
 ## State Properties
 
 ```swift
-private var launchID: String?
-private var activeBundleCount: Int
-private var aggregatedStatus: TestStatus
-private var isFinalized: Bool
-private var launchStartTime: Date?
+private(set) lazy var launchID: String
 ```
 
-## Public API Methods
+**Implementation**:
+```swift
+private(set) lazy var launchID: String = {
+    let uuid = UUID().uuidString
+    Logger.shared.info("📦 Launch initialized with UUID: \(uuid)")
+    return uuid
+}()
+```
 
-### Bundle Lifecycle
+**Characteristics**:
+- **Lazy initialization**: UUID generated on first access
+- **Thread-safe**: Swift guarantees lazy vars are initialized only once
+- **Read-only externally**: `private(set)` prevents external modification
+- **Immutable after init**: Once set, never changes
+
+## Public API
+
+### Property Access
 
 ```swift
-func incrementBundleCount()
+LaunchManager.shared.launchID  // String (not optional!)
 ```
-**Purpose**: Increment active bundle counter when test bundle starts  
-**Called From**: `RPListener.testBundleWillStart(_:)`  
-**Thread Safety**: Actor-isolated, safe to call concurrently  
-**Side Effects**: Increases `activeBundleCount` by 1
 
----
+**Purpose**: Get launch UUID (custom client-generated UUID)  
+**Returns**: Launch ID (auto-generated UUID on first access)  
+**Thread Safety**: Thread-safe via Swift's lazy initialization guarantee  
+**When to use**: Anytime you need the launch ID - it's always available
 
-```swift
-func decrementBundleCount() -> Bool
-```
-**Purpose**: Decrement active bundle counter when test bundle finishes  
-**Returns**: `true` if count reached zero (should finalize launch), `false` otherwise  
-**Called From**: `RPListener.testBundleDidFinish(_:)`  
-**Thread Safety**: Actor-isolated, atomic decrement  
-**Side Effects**: Decreases `activeBundleCount` by 1  
-**Invariant**: `activeBundleCount >= 0` always
+## Design Rationale
 
----
+### Why So Simple?
 
-```swift
-func getActiveBundleCount() -> Int
-```
-**Purpose**: Get current active bundle count (for diagnostics)  
-**Returns**: Current value of `activeBundleCount`  
-**Thread Safety**: Actor-isolated read
+1. **Single Bundle Execution**: Agent only supports one test bundle per run
+2. **No Status Tracking**: ReportPortal server calculates final status from test results
+3. **No Finalization Flags**: `testBundleDidFinish` called exactly once - no need to prevent duplicates
+4. **No Bundle Counting**: Only one bundle = no need to count or coordinate multiple bundles
+5. **Custom UUID Strategy**: Generate UUID immediately instead of waiting for API response
 
-### Launch Management
+### What Was Removed?
 
-```swift
-func setLaunchID(_ id: String)
-```
-**Purpose**: Store ReportPortal launch ID after launch creation  
-**Parameters**: `id` - Launch ID from StartLaunch API response  
-**Called From**: `ReportingService` after successful launch start  
-**Precondition**: `id` must be non-empty  
-**Side Effects**: Sets `launchID` property
+| Feature | Why Removed |
+|---------|-------------|
+| `activeBundleCount` | Single bundle only - no counting needed |
+| `aggregatedStatus` | ReportPortal calculates status - redundant tracking |
+| `isFinalized` | Bundle finish called once - no duplicate prevention needed |
+| `updateStatus()` | Status aggregation removed |
+| `getAggregatedStatus()` | Status aggregation removed |
+| `markFinalized()` | Finalization tracking removed |
+| `isLaunchFinalized()` | Finalization tracking removed |
+| `incrementBundleCount()` | Bundle counting removed |
+| `decrementBundleCount()` | Bundle counting removed |
+| `setLaunchID()` | Lazy var generates internally |
+| `getLaunchID()` | Direct property access instead |
+| Actor isolation | No concurrent access to mutable state |
 
----
-
-```swift
-func getLaunchID() -> String?
-```
-**Purpose**: Retrieve current launch ID  
-**Returns**: Launch ID if set, `nil` if launch not yet started  
-**Called From**: `ReportingService` when starting items  
-**Thread Safety**: Actor-isolated read
-
-### Status Aggregation
-
-```swift
-func updateStatus(_ newStatus: TestStatus)
-```
-**Purpose**: Update aggregated launch status (worst status wins)  
-**Parameters**: `newStatus` - Status from completed test  
-**Logic**: If `newStatus` is worse than current, update to worse status  
-**Status Priority**: `.failed` > `.skipped` > `.passed`  
-**Called From**: `RPListener.testCaseDidFinish(_:)` after each test  
-**Thread Safety**: Actor-isolated update  
-**Monotonic**: Status can only worsen, never improve
-
----
-
-```swift
-func getAggregatedStatus() -> TestStatus
-```
-**Purpose**: Get current aggregated launch status  
-**Returns**: Worst status seen across all completed tests  
-**Called From**: `ReportingService` when finalizing launch  
-**Default**: `.passed` if no tests failed or skipped
+### Evolution: 180 lines → 26 lines (85% reduction)
 
 ### Finalization
 

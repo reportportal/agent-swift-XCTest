@@ -253,7 +253,7 @@ This README serves as the central hub for all documentation. Below are links to 
 
 | Document | Description |
 |----------|-------------|
-| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Deep dive into system architecture, concurrency model, actor design, sequence diagrams, and design rationale |
+| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Deep dive into system architecture, concurrency model, custom UUID strategy, sequence diagrams, and design rationale |
 | **[specs/001-parallel-execution/spec.md](./specs/001-parallel-execution/spec.md)** | Feature specification: requirements, user stories, acceptance criteria, and success metrics |
 | **[specs/001-parallel-execution/plan.md](./specs/001-parallel-execution/plan.md)** | Implementation plan: technical context, phase breakdown, and constitution compliance check |
 | **[specs/001-parallel-execution/tasks.md](./specs/001-parallel-execution/tasks.md)** | Task breakdown: 31 implementation tasks with dependencies, acceptance criteria, and parallel execution opportunities |
@@ -265,7 +265,7 @@ This README serves as the central hub for all documentation. Below are links to 
 
 | Document | Description |
 |----------|-------------|
-| **[specs/001-parallel-execution/contracts/LaunchManager.md](./specs/001-parallel-execution/contracts/LaunchManager.md)** | LaunchManager Actor API: methods, state management, and concurrency guarantees |
+| **[specs/001-parallel-execution/contracts/LaunchManager.md](./specs/001-parallel-execution/contracts/LaunchManager.md)** | LaunchManager API: minimal UUID storage with lazy initialization |
 | **[specs/001-parallel-execution/contracts/OperationTracker.md](./specs/001-parallel-execution/contracts/OperationTracker.md)** | OperationTracker Actor API: operation registry, lifecycle management |
 | **[specs/001-parallel-execution/contracts/ReportingService.md](./specs/001-parallel-execution/contracts/ReportingService.md)** | ReportingService async API: ReportPortal communication layer |
 

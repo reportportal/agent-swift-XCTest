@@ -12,16 +12,11 @@ This document defines the data entities and their relationships for parallel tes
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│           LaunchManager (Actor)                     │
-│  - launchID: String?                                │
-│  - activeBundleCount: Int                           │
-│  - aggregatedStatus: TestStatus                     │
-│  - timeout: TimeInterval (30 min)                   │
+│       LaunchManager (Singleton Class)               │
+│  - launchID: String (lazy var)                      │
 │                                                     │
-│  + incrementBundleCount()                           │
-│  + decrementBundleCount() async -> Bool             │
-│  + updateStatus(_ status: TestStatus) async         │
-│  + getLaunchID() async -> String?                   │
+│  No methods - direct property access:               │
+│    LaunchManager.shared.launchID                    │
 └─────────────────────────────────────────────────────┘
                         ▲
                         │ shared singleton
@@ -152,67 +147,37 @@ struct SuiteOperation: Sendable {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `launchID` | `String?` | ReportPortal launch ID (shared across all bundles) |
-| `activeBundleCount` | `Int` | Number of active test bundles (for reference counting) |
-| `aggregatedStatus` | `TestStatus` | Overall launch status (worst of all tests) |
-| `finalizationTimeout` | `TimeInterval` | Max time before forced finalization (default 1800s / 30 min) |
-| `launchStartTime` | `Date?` | Launch start timestamp |
-| `isFinalized` | `Bool` | Whether launch has been finalized |
+| `launchID` | `String` (lazy) | Custom UUID generated on first access |
 
-**Methods**:
+**Implementation**:
 
 ```swift
-actor LaunchManager {
+final class LaunchManager {
     static let shared = LaunchManager()
+    private init() {}
     
-    private var launchID: String?
-    private var activeBundleCount: Int = 0
-    private var aggregatedStatus: TestStatus = .passed
-    private var isFinalized: Bool = false
-    
-    // Bundle lifecycle
-    func incrementBundleCount() {
-        activeBundleCount += 1
-    }
-    
-    func decrementBundleCount() -> Bool {
-        activeBundleCount -= 1
-        return activeBundleCount == 0
-    }
-    
-    func getActiveBundleCount() -> Int {
-        return activeBundleCount
-    }
-    
-    // Launch management
-    func setLaunchID(_ id: String) {
-        self.launchID = id
-    }
-    
-    func getLaunchID() -> String? {
-        return launchID
-    }
-    
-    // Status aggregation (worst status wins)
-    func updateStatus(_ newStatus: TestStatus) {
-        if newStatus.severity > aggregatedStatus.severity {
-            aggregatedStatus = newStatus
-        }
-    }
-    
-    func getAggregatedStatus() -> TestStatus {
-        return aggregatedStatus
-    }
-    
-    // Finalization
-    func markFinalized() {
-        isFinalized = true
-    }
-    
-    func isLaunchFinalized() -> Bool {
-        return isFinalized
-    }
+    // Launch UUID (lazy initialization - thread-safe by Swift guarantee)
+    private(set) lazy var launchID: String = {
+        let uuid = UUID().uuidString
+        Logger.shared.info("📦 Launch initialized with UUID: \(uuid)")
+        return uuid
+    }()
 }
+
+**Thread Safety**:
+- Lazy var initialization is thread-safe (Swift guarantee)
+- Property is read-only after initialization (private(set))
+- No actor isolation needed since no mutable state after init
+
+**Singleton Pattern**:
+- `static let shared` provides global access point
+- `private init()` ensures single instance
+
+**Design Philosophy**:
+- **Minimal**: Only stores launch UUID - nothing else
+- **Simple**: No status tracking, no finalization flags, no bundle counting
+- **Immediate**: UUID available synchronously on first access
+- **Immutable**: Once initialized, never changes
 ```
 
 **Thread Safety**:
