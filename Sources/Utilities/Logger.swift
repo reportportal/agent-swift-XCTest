@@ -34,39 +34,7 @@ struct Logger {
     /// Shared singleton instance
     static let shared = Logger()
 
-    /// Whether logging is enabled (from environment variable or default)
-    let enabled: Bool
-
-    /// Minimum log level to output
-    let minLevel: LogLevel
-
-    private init() {
-        // Check environment variable RP_LOG_ENABLED
-        if let envValue = ProcessInfo.processInfo.environment["RP_LOG_ENABLED"],
-           envValue.lowercased() == "true" || envValue == "1" {
-            self.enabled = true
-        } else {
-            self.enabled = false
-        }
-
-        // Check environment variable RP_LOG_LEVEL
-        if let envLevel = ProcessInfo.processInfo.environment["RP_LOG_LEVEL"] {
-            switch envLevel.uppercased() {
-            case "DEBUG":
-                self.minLevel = .debug
-            case "INFO":
-                self.minLevel = .info
-            case "WARNING", "WARN":
-                self.minLevel = .warning
-            case "ERROR":
-                self.minLevel = .error
-            default:
-                self.minLevel = .info
-            }
-        } else {
-            self.minLevel = .info
-        }
-    }
+    private init() {}
 
     /// Log a message with specified level and optional correlation ID
     /// - Parameters:
@@ -82,9 +50,6 @@ struct Logger {
         file: String = #file,
         line: Int = #line
     ) {
-        guard enabled else { return }
-        guard level >= minLevel else { return }
-
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let thread = Thread.current.name ?? Thread.current.description
         let fileName = (file as NSString).lastPathComponent

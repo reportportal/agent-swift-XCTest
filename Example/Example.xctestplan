@@ -22,14 +22,6 @@
       {
         "key" : "TEST_PLAN_NAME",
         "value" : "Example Test Plan"
-      },
-      {
-        "key" : "RP_LOG_ENABLED",
-        "value" : "true"
-      },
-      {
-        "key" : "RP_LOG_LEVEL",
-        "value" : "INFO"
       }
     ],
     "maximumParallelTestExecutionWorkers" : 4,
