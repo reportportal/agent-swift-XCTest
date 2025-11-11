@@ -318,7 +318,7 @@ open class RPListener: NSObject, XCTestObservation {
                     suiteID: "", // Will be set after API call
                     rootSuiteID: rootSuiteID,
                     suiteName: testSuite.name,
-                    status: .passed,
+                    status: .inProgress,
                     startTime: Date(),
                     childTestIDs: [],
                     metadata: [:]
@@ -420,7 +420,7 @@ open class RPListener: NSObject, XCTestObservation {
                     suiteID: suiteID,
                     testName: testName,
                     className: className,
-                    status: .passed,
+                    status: .inProgress,
                     startTime: Date(),
                     metadata: metadata,
                     attachments: []

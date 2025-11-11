@@ -40,7 +40,7 @@ struct SuiteOperation: Sendable {
         suiteID: String,
         rootSuiteID: String? = nil,
         suiteName: String,
-        status: TestStatus = .passed,
+        status: TestStatus = .inProgress,
         startTime: Date = Date(),
         childTestIDs: [String] = [],
         metadata: [String: String] = [:]

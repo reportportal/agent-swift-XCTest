@@ -108,7 +108,7 @@ struct TestOperation: Sendable {
         suiteID: String,
         testName: String,
         className: String,
-        status: TestStatus = .passed,
+        status: TestStatus = .inProgress,
         startTime: Date = Date(),
         metadata: [String: String] = [:],
         attachments: [AttachmentPayload] = []

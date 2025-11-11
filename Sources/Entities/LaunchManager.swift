@@ -26,8 +26,8 @@ enum LaunchManagerError: LocalizedError {
     }
 }
 
-/// Thread-safe launch-level state management with reference counting.
-/// Manages launch lifecycle across multiple concurrent test bundles.
+/// Thread-safe launch-level state management.
+/// Manages launch lifecycle for single test bundle execution.
 actor LaunchManager {
     /// Shared singleton instance
     static let shared = LaunchManager()
@@ -40,11 +40,8 @@ actor LaunchManager {
     /// ReportPortal launch ID (shared across all bundles)
     private var launchID: String?
 
-    /// Shared Task for launch creation (allows multiple bundles to await same operation)
+    /// Shared Task for launch creation
     private var launchCreationTask: Task<String, Error>?
-
-    /// Number of active test bundles (for reference counting)
-    private var activeBundleCount: Int = 0
 
     /// Overall launch status (worst of all tests)
     private var aggregatedStatus: TestStatus = .passed
@@ -169,7 +166,7 @@ actor LaunchManager {
 
     /// Update aggregated launch status (worst status wins)
     /// - Parameter newStatus: Status from completed test
-    /// Status priority: .failed > .skipped > .passed
+    /// Status priority: .failed > .stopped/.cancelled > .skipped > .passed/.reseted/.inProgress
     func updateStatus(_ newStatus: TestStatus) {
         // Convert status to severity for comparison
         let currentSeverity = statusSeverity(aggregatedStatus)
@@ -222,7 +219,7 @@ actor LaunchManager {
             return 2
         case .skipped:
             return 1
-        case .passed, .reseted:
+        case .passed, .reseted, .inProgress:
             return 0
         }
     }
