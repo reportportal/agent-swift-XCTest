@@ -14,8 +14,8 @@ struct StartLaunchEndPoint: EndPoint {
   let relativePath: String = "launch"
   let parameters: [String : Any]
 
-  init(launchName: String, tags: [String], mode: LaunchMode, attributes: [[String: String]] = []) {
-    parameters = [
+  init(launchName: String, tags: [String], mode: LaunchMode, attributes: [[String: String]] = [], uuid: String? = nil) {
+    var params: [String: Any] = [
       "description": "",
       "mode": mode.rawValue,
       "name": launchName,
@@ -23,6 +23,13 @@ struct StartLaunchEndPoint: EndPoint {
       "tags": TagHelper.defaultTags + tags,
       "attributes": attributes
     ]
+    
+    // Add custom UUID if provided (for parallel execution synchronization)
+    if let uuid = uuid {
+      params["uuid"] = uuid
+    }
+    
+    parameters = params
   }
 
 }
