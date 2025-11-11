@@ -549,7 +549,7 @@ open class RPListener: NSObject, XCTestObservation {
             let className = String(describing: type(of: testCase))
             let identifier = "\(className).\(testName)"
 
-            guard var operation = await operationTracker.getTest(identifier: identifier) else {
+            guard let operation = await operationTracker.getTest(identifier: identifier) else {
                 Logger.shared.warning("""
                     ⚠️ Cannot report test issue: Test operation not found for '\(identifier)'
                     Reason: Test may not have been registered successfully
@@ -576,12 +576,12 @@ open class RPListener: NSObject, XCTestObservation {
                 // Capture and upload screenshot directly (v3.x approach)
                 #if canImport(UIKit)
                 do {
-                    let screenshot = XCUIScreen.main.screenshot()
+                    let screenshot = await XCUIScreen.main.screenshot()
                     let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
                     let filename = "failure_screenshot_\(timestamp).png"
 
                     try await asyncService.postScreenshot(
-                        screenshotData: screenshot.pngRepresentation,
+                        screenshotData: await screenshot.pngRepresentation,
                         filename: filename,
                         itemID: operation.testID,
                         launchID: launchID,
@@ -629,7 +629,7 @@ open class RPListener: NSObject, XCTestObservation {
             let className = String(describing: type(of: testCase))
             let identifier = "\(className).\(testName)"
 
-            guard var operation = await operationTracker.getTest(identifier: identifier) else {
+            guard let operation = await operationTracker.getTest(identifier: identifier) else {
                 Logger.shared.warning("""
                     ⚠️ Cannot report test failure: Test operation not found for '\(identifier)'
                     Reason: Test may not have been registered successfully
@@ -654,12 +654,12 @@ open class RPListener: NSObject, XCTestObservation {
                 // Capture and upload screenshot directly (v3.x approach, works on iOS 17+)
                 #if canImport(UIKit)
                 do {
-                    let screenshot = XCUIScreen.main.screenshot()
+                    let screenshot = await XCUIScreen.main.screenshot()
                     let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
                     let filename = "failure_screenshot_\(timestamp).png"
 
                     try await asyncService.postScreenshot(
-                        screenshotData: screenshot.pngRepresentation,
+                        screenshotData: await screenshot.pngRepresentation,
                         filename: filename,
                         itemID: operation.testID,
                         launchID: launchID,

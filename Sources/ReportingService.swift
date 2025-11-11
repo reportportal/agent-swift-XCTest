@@ -291,11 +291,13 @@ public final class ReportingService: Sendable {
             // Try to get screenshot data if available
             if uti.contains("image") {
                 // For screenshot attachments, try getting the XCUIScreenshot directly
+                #if canImport(UIKit)
                 if let screenshot = attachment.value(forKey: "screenshot") as? XCUIScreenshot {
-                    data = screenshot.pngRepresentation
+                    data = await screenshot.pngRepresentation
                 } else if let image = attachment.value(forKey: "image") as? XCUIScreenshot {
-                    data = image.pngRepresentation
+                    data = await image.pngRepresentation
                 }
+                #endif
             }
 
             // Fallback: try to get attachment contents using lifetime accessor
