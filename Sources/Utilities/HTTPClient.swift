@@ -16,34 +16,33 @@ enum HTTPClientError: Error {
   case networkError(Error)
 }
 
-final class HTTPClient: NSObject, URLSessionDelegate, Sendable {
+final class HTTPClient: NSObject, URLSessionDelegate, @unchecked Sendable {
 
   private let baseURL: URL
   private let requestTimeout: TimeInterval = 120
   private let plugins: [HTTPClientPlugin]
-  private let urlSession: URLSession
-
-  init(baseURL: URL, plugins: [HTTPClientPlugin] = []) {
-    self.baseURL = baseURL
-    self.plugins = plugins
-    
+  
+  // Lazy var allows us to use 'self' as delegate after initialization
+  private lazy var urlSession: URLSession = {
     let configuration = URLSessionConfiguration.default
     configuration.timeoutIntervalForRequest = 120
     configuration.timeoutIntervalForResource = 300
     configuration.httpMaximumConnectionsPerHost = 6
-
+    
     #if DEBUG
-    // DEVELOPMENT ONLY: Allow proxy certificates for testing
-    // Initialize with delegate for SSL bypass
-    let session = URLSession(configuration: configuration)
-    self.urlSession = session
-    super.init()
-    // Note: For proper delegate support, we'd need to use a wrapper class
-    // For now, DEBUG builds won't have SSL bypass - acceptable tradeoff for clean Sendable
+    // DEVELOPMENT ONLY: Initialize with delegate for SSL bypass (proxy testing)
+    // Note: @unchecked Sendable because URLSession is not Sendable on all SDK versions
+    return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     #else
-    self.urlSession = URLSession(configuration: configuration)
-    super.init()
+    // RELEASE: No delegate needed
+    return URLSession(configuration: configuration)
     #endif
+  }()
+
+  init(baseURL: URL, plugins: [HTTPClientPlugin] = []) {
+    self.baseURL = baseURL
+    self.plugins = plugins
+    super.init()
   }
 
   // DEVELOPMENT ONLY: Bypass SSL validation for proxy testing
