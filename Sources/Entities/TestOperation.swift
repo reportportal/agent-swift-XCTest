@@ -89,8 +89,8 @@ struct TestOperation: Sendable {
     /// XCTest class name (e.g., "MyTestCase")
     let className: String
 
-    /// Current status (.passed, .failed, .skipped, etc.)
-    var status: TestStatus
+    /// Current status (.passed, .failed, .skipped, etc.) - nil if test hasn't started
+    var status: TestStatus?
 
     /// Test start timestamp
     let startTime: Date
@@ -108,7 +108,7 @@ struct TestOperation: Sendable {
         suiteID: String,
         testName: String,
         className: String,
-        status: TestStatus = .inProgress,
+        status: TestStatus? = nil,
         startTime: Date = Date(),
         metadata: [String: String] = [:],
         attachments: [AttachmentPayload] = []

@@ -15,5 +15,4 @@ enum TestStatus: String {
   case skipped = "SKIPPED"
   case reseted = "RESETED"
   case cancelled = "CANCELLED"
-  case inProgress = "IN_PROGRESS"
 }

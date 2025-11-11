@@ -22,8 +22,8 @@ struct SuiteOperation: Sendable {
     /// XCTest suite name (e.g., "MyTestCase")
     let suiteName: String
 
-    /// Aggregated status from child tests
-    var status: TestStatus
+    /// Aggregated status from child tests - nil if suite hasn't started
+    var status: TestStatus?
 
     /// Suite start timestamp
     let startTime: Date
@@ -40,7 +40,7 @@ struct SuiteOperation: Sendable {
         suiteID: String,
         rootSuiteID: String? = nil,
         suiteName: String,
-        status: TestStatus = .inProgress,
+        status: TestStatus? = nil,
         startTime: Date = Date(),
         childTestIDs: [String] = [],
         metadata: [String: String] = [:]

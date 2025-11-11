@@ -200,7 +200,6 @@ actor LaunchManager {
     func reset() {
         launchID = nil
         launchCreationTask = nil
-        activeBundleCount = 0
         aggregatedStatus = .passed
         isFinalized = false
         launchStartTime = nil
