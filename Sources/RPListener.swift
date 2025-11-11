@@ -9,68 +9,6 @@
 import Foundation
 import XCTest
 
-/// Thread-safe storage for root suite ID across parallel test bundles
-/// Uses efficient polling with short delays for waiting
-private actor RootSuiteIDManager {
-    private var rootSuiteID: String?
-
-    func setRootSuiteID(_ id: String) {
-        rootSuiteID = id
-    }
-
-    func getRootSuiteID() -> String? {
-        return rootSuiteID
-    }
-
-    /// Wait for root suite ID to become available (efficient polling with short delays)
-    /// - Parameter timeout: Maximum wait time in seconds
-    /// - Returns: Root suite ID when available
-    /// - Throws: RootSuiteIDError.timeout if ID not set within timeout
-    func waitForRootSuiteID(timeout: TimeInterval = 10) async throws -> String {
-        // Check if already available
-        if let id = rootSuiteID {
-            Logger.shared.info("✅ Root suite ID already available")
-            return id
-        }
-
-        // Wait for it using efficient polling (20ms intervals)
-        Logger.shared.info("⏳ Waiting for root suite ID...")
-
-        let startTime = Date()
-        let maxAttempts = Int(timeout / 0.02) // 20ms per attempt
-
-        for attempt in 0..<maxAttempts {
-            if let id = rootSuiteID {
-                let elapsedMs = Int(Date().timeIntervalSince(startTime) * 1000)
-                Logger.shared.info("✅ Root suite ID found after \(elapsedMs)ms (\(attempt) polls)")
-                return id
-            }
-
-            try await Task.sleep(nanoseconds: 20_000_000) // 20ms
-
-            // Check for task cancellation
-            try Task.checkCancellation()
-        }
-
-        throw RootSuiteIDError.timeout(seconds: timeout)
-    }
-
-    func reset() {
-        rootSuiteID = nil
-    }
-
-    enum RootSuiteIDError: LocalizedError {
-        case timeout(seconds: TimeInterval)
-
-        var errorDescription: String? {
-            switch self {
-            case .timeout(let seconds):
-                return "Root suite ID not set after \(seconds) seconds timeout"
-            }
-        }
-    }
-}
-
 open class RPListener: NSObject, XCTestObservation {
 
     private var reportingService: ReportingService?
@@ -78,7 +16,12 @@ open class RPListener: NSObject, XCTestObservation {
     // Shared actors for parallel execution
     private let launchManager = LaunchManager.shared
     private let operationTracker = OperationTracker.shared
-    private let rootSuiteIDManager = RootSuiteIDManager()
+
+    // Root suite ID stored directly (no coordination needed for single bundle)
+    private var rootSuiteID: String?
+    
+    // Task for root suite creation (to synchronize child suites)
+    private var rootSuiteCreationTask: Task<String, Error>?
     
     public override init() {
         super.init()
@@ -93,7 +36,6 @@ open class RPListener: NSObject, XCTestObservation {
             let portalURL = URL(string: portalPath),
             let projectName = bundleProperties["ReportPortalProjectName"] as? String,
             let token = bundleProperties["ReportPortalToken"] as? String,
-            let shouldFinishLaunch = bundleProperties["IsFinalTestBundle"] as? Bool,
             let launchName = bundleProperties["ReportPortalLaunchName"] as? String else
         {
             fatalError("Configure properties for report portal in the Info.plist")
@@ -141,7 +83,6 @@ open class RPListener: NSObject, XCTestObservation {
             shouldSendReport: shouldReport,
             portalToken: token,
             tags: tags,
-            shouldFinishLaunch: shouldFinishLaunch,
             launchMode: launchMode,
             testNameRules: testNameRules
         )
@@ -159,75 +100,66 @@ open class RPListener: NSObject, XCTestObservation {
         let reportingService = ReportingService(configuration: configuration)
         self.reportingService = reportingService
         
-        // T013: Increment bundle count and create launch if needed
-        // Use Task.detached with high priority to ensure launch creation happens immediately
-        // Note: XCTest observation methods are synchronous, so we can't await here
-        // Subsequent method calls will wait for launch ID via actor isolation
+        // T013: Create launch for this test bundle using custom UUID (no API call needed)
+        // This simplifies synchronization - no waiting for API response
         Task.detached(priority: .high) {
-            await self.launchManager.incrementBundleCount()
-
-            // Create launch task (may or may not be used depending on race conditions)
+            // Generate custom UUID for launch (no API call, immediate availability)
+            let customLaunchUUID = UUID().uuidString
+            Logger.shared.info("📦 Generated custom launch UUID: \(customLaunchUUID)")
+            
+            // Create dummy task that returns the UUID immediately
             let launchTask = Task<String, Error> {
-                // Collect metadata attributes
-                let attributes: [[String: String]]
-                if let bundle = testBundle as Bundle? {
-                    attributes = MetadataCollector.collectAllAttributes(from: bundle, tags: configuration.tags)
-                } else {
-                    attributes = MetadataCollector.collectDeviceAttributes()
-                }
-
-                // Get test plan name for launch name enhancement
-                let testPlanName = MetadataCollector.getTestPlanName()
-                let enhancedLaunchName = self.buildEnhancedLaunchName(
-                    baseLaunchName: configuration.launchName,
-                    testPlanName: testPlanName
-                )
-
-                // Create launch via ReportPortal API
-                return try await reportingService.startLaunch(
-                    name: enhancedLaunchName,
-                    tags: configuration.tags,
-                    attributes: attributes
-                )
+                return customLaunchUUID
             }
-
+            
+            // Store launch ID in LaunchManager immediately
             do {
-                // Pass task to actor - it will decide whether to use it or await existing task
-                let launchID = try await self.launchManager.getOrAwaitLaunchID(launchTask: launchTask)
-                Logger.shared.info("Launch ready: \(launchID)")
+                let launchID = try await LaunchManager.shared.createLaunch(launchTask: launchTask)
+                Logger.shared.info("✅ Launch ready with custom UUID: \(launchID)")
+                
+                // Now start the actual launch in ReportPortal asynchronously (fire and forget)
+                Task {
+                    do {
+                        // Collect metadata attributes
+                        let attributes: [[String: String]]
+                        if let bundle = testBundle as Bundle? {
+                            attributes = MetadataCollector.collectAllAttributes(from: bundle, tags: configuration.tags)
+                        } else {
+                            attributes = MetadataCollector.collectDeviceAttributes()
+                        }
+
+                        // Get test plan name for launch name enhancement
+                        let testPlanName = MetadataCollector.getTestPlanName()
+                        let enhancedLaunchName = self.buildEnhancedLaunchName(
+                            baseLaunchName: configuration.launchName,
+                            testPlanName: testPlanName
+                        )
+
+                        // Create launch via ReportPortal API with custom UUID
+                        let reportedLaunchID = try await reportingService.startLaunch(
+                            name: enhancedLaunchName,
+                            tags: configuration.tags,
+                            attributes: attributes,
+                            uuid: customLaunchUUID
+                        )
+                        Logger.shared.info("📡 Launch created in ReportPortal: \(reportedLaunchID)")
+                    } catch {
+                        Logger.shared.error("Failed to create launch in ReportPortal: \(error.localizedDescription)")
+                    }
+                }
             } catch {
-                Logger.shared.error("Failed to get/create launch: \(error.localizedDescription)")
+                Logger.shared.error("Failed to store launch UUID: \(error.localizedDescription)")
             }
         }
     }
     
-    /// Wait for launch ID to become available (Swift async/await approach)
-    /// This properly awaits the launch creation task instead of polling
-    /// - Returns: Launch ID if available
-    /// - Throws: Error if launch creation fails or times out
+    /// Wait for launch ID to become available
+    /// With custom UUID approach, launch ID is available immediately
+    /// - Returns: Launch ID (custom UUID)
+    /// - Throws: LaunchManagerError.launchNotStarted if launch not initiated (shouldn't happen)
     private func waitForLaunchID() async throws -> String {
-        do {
-            // Use LaunchManager's proper async waiting (30 second timeout)
-            return try await launchManager.waitForLaunchID(timeout: 30)
-        } catch let error as LaunchManagerError {
-            // Convert LaunchManager errors to detailed logging
-            switch error {
-            case .timeout(let seconds):
-                Logger.shared.error("""
-                    Launch ID timeout after \(seconds) seconds.
-                    Possible causes:
-                    - Launch creation failed (check logs for startLaunch errors)
-                    - ReportPortal API is unreachable or slow
-                    - Network connectivity issues
-                    Tests may fail to report to ReportPortal.
-                    """)
-            case .launchNotStarted:
-                Logger.shared.error("Launch creation has not been initiated. This is a programming error.")
-            case .taskCancelled:
-                Logger.shared.error("Launch creation task was cancelled unexpectedly.")
-            }
-            throw error
-        }
+        // With custom UUID, this returns immediately (no timeout needed)
+        return try await launchManager.waitForLaunchID()
     }
     
     private func buildEnhancedLaunchName(baseLaunchName: String, testPlanName: String?) -> String {
@@ -236,6 +168,29 @@ open class RPListener: NSObject, XCTestObservation {
             return "\(baseLaunchName): \(sanitizedTestPlan)"
         }
         return baseLaunchName
+    }
+    
+    /// Wait for root suite ID to become available
+    /// Awaits the root suite creation task to avoid race conditions
+    /// - Returns: Root suite ID if available
+    /// - Throws: Error if root suite creation fails or hasn't been initiated
+    private func waitForRootSuiteID() async throws -> String {
+        // Fast path: root suite already created
+        if let id = rootSuiteID {
+            return id
+        }
+        
+        // If no task exists, root suite hasn't been initiated yet
+        guard let task = rootSuiteCreationTask else {
+            throw NSError(
+                domain: "RPListener",
+                code: 1001,
+                userInfo: [NSLocalizedDescriptionKey: "Root suite creation has not been initiated yet"]
+            )
+        }
+        
+        // Wait for task to complete (no timeout needed - suite creation is fast)
+        return try await task.value
     }
     
     public func testSuiteWillStart(_ testSuite: XCTestSuite) {
@@ -258,11 +213,9 @@ open class RPListener: NSObject, XCTestObservation {
             do {
                 launchID = try await waitForLaunchID()
             } catch {
-                let bundleCount = await launchManager.getActiveBundleCount()
                 Logger.shared.error("""
                     ❌ SUITE REGISTRATION FAILED: '\(testSuite.name)'
                     Reason: \(error.localizedDescription)
-                    Active bundles: \(bundleCount)
                     Impact: This suite will NOT be reported to ReportPortal
                     Action: Check launch creation logs and ReportPortal connectivity
                     """)
@@ -287,28 +240,23 @@ open class RPListener: NSObject, XCTestObservation {
                     - testCount: \(testSuite.testCaseCount)
                     """, correlationID: correlationID)
 
-                // For test class suites, wait for root suite ID to be available
-                let rootSuiteID: String?
+                // For test class suites, wait for parent root suite ID
+                let parentSuiteID: String?
                 if !isRootSuite {
-                    // Wait for root suite to be created (increased timeout for slow networks)
-                    Logger.shared.info("⏳ Waiting for root suite to be created...", correlationID: correlationID)
+                    // Wait for root suite ID to be created (synchronization point)
                     do {
-                        let id = try await rootSuiteIDManager.waitForRootSuiteID(timeout: 30)
-                        rootSuiteID = id
-                        Logger.shared.info("✅ Root suite ID found: \(id)", correlationID: correlationID)
+                        Logger.shared.info("⏳ Waiting for root suite ID...", correlationID: correlationID)
+                        parentSuiteID = try await waitForRootSuiteID()
+                        Logger.shared.info("✅ Using root suite ID: \(parentSuiteID!)", correlationID: correlationID)
                     } catch {
-                        rootSuiteID = nil
-                        Logger.shared.error("""
-                            [RACE] ❌ ROOT SUITE TIMEOUT:
-                            - Test class suite: '\(testSuite.name)'
-                            - Error: \(error.localizedDescription)
-                            - Waited 30 seconds for root suite to be created
-                            - This will cause incorrect hierarchy (suite at root level)
-                            - Check ReportPortal connectivity and performance
+                        Logger.shared.warning("""
+                            ⚠️ Failed to get root suite ID for '\(testSuite.name)': \(error.localizedDescription)
+                            Suite will be created at root level as fallback.
                             """, correlationID: correlationID)
+                        parentSuiteID = nil
                     }
                 } else {
-                    rootSuiteID = nil
+                    parentSuiteID = nil
                     Logger.shared.info("📦 Creating ROOT SUITE...", correlationID: correlationID)
                 }
 
@@ -316,9 +264,9 @@ open class RPListener: NSObject, XCTestObservation {
                 var operation = SuiteOperation(
                     correlationID: correlationID,
                     suiteID: "", // Will be set after API call
-                    rootSuiteID: rootSuiteID,
+                    rootSuiteID: parentSuiteID,
                     suiteName: testSuite.name,
-                    status: .inProgress,
+                    status: nil,
                     startTime: Date(),
                     childTestIDs: [],
                     metadata: [:]
@@ -329,12 +277,25 @@ open class RPListener: NSObject, XCTestObservation {
 
                 Logger.shared.info("✅ Suite registered: '\(identifier)' → ID: pending", correlationID: correlationID)
 
-                // Start suite in ReportPortal
-                let apiStartTime = Date()
-                Logger.shared.info("📡 Calling ReportPortal API to create suite...", correlationID: correlationID)
-                let suiteID = try await asyncService.startSuite(operation: operation, launchID: launchID)
-                let apiDuration = Date().timeIntervalSince(apiStartTime)
-                Logger.shared.info("📡 API call completed in \(Int(apiDuration * 1000))ms", correlationID: correlationID)
+                // Create task for suite creation
+                let suiteCreationTask = Task<String, Error> {
+                    // Start suite in ReportPortal
+                    let apiStartTime = Date()
+                    Logger.shared.info("📡 Calling ReportPortal API to create suite...", correlationID: correlationID)
+                    let suiteID = try await asyncService.startSuite(operation: operation, launchID: launchID)
+                    let apiDuration = Date().timeIntervalSince(apiStartTime)
+                    Logger.shared.info("📡 API call completed in \(Int(apiDuration * 1000))ms", correlationID: correlationID)
+                    return suiteID
+                }
+                
+                // Store task for root suite (so child suites can await it)
+                if isRootSuite {
+                    self.rootSuiteCreationTask = suiteCreationTask
+                    Logger.shared.info("📌 Root suite creation task stored", correlationID: correlationID)
+                }
+                
+                // Execute the task and get suite ID
+                let suiteID = try await suiteCreationTask.value
 
                 // Update operation with suite ID
                 operation.suiteID = suiteID
@@ -342,7 +303,7 @@ open class RPListener: NSObject, XCTestObservation {
 
                 // Store root suite ID if this is root
                 if isRootSuite {
-                    await rootSuiteIDManager.setRootSuiteID(suiteID)
+                    self.rootSuiteID = suiteID
                     Logger.shared.info("🎯 Root suite ID stored: \(suiteID)", correlationID: correlationID)
                 }
 
@@ -367,13 +328,11 @@ open class RPListener: NSObject, XCTestObservation {
             do {
                 launchID = try await waitForLaunchID()
             } catch {
-                let bundleCount = await launchManager.getActiveBundleCount()
                 let testName = extractTestName(from: testCase)
                 let className = String(describing: type(of: testCase))
                 Logger.shared.error("""
                     ❌ TEST REGISTRATION FAILED: '\(className).\(testName)'
                     Reason: \(error.localizedDescription)
-                    Active bundles: \(bundleCount)
                     Impact: This test will NOT be reported to ReportPortal (but will still execute locally)
                     Action: Check launch creation logs and ReportPortal connectivity
                     """)
@@ -420,7 +379,7 @@ open class RPListener: NSObject, XCTestObservation {
                     suiteID: suiteID,
                     testName: testName,
                     className: className,
-                    status: .inProgress,
+                    status: nil,
                     startTime: Date(),
                     metadata: metadata,
                     attachments: []
@@ -485,7 +444,7 @@ open class RPListener: NSObject, XCTestObservation {
 
         // Last resort: use root suite ID if available
         // This happens when test class suite failed to start but root suite exists
-        if let rootSuiteID = await rootSuiteIDManager.getRootSuiteID() {
+        if let rootID = self.rootSuiteID {
             Logger.shared.error("""
                 ❌ SUITE LOOKUP FAILED - USING FALLBACK:
                 - Searching for: '\(className)'
@@ -495,7 +454,7 @@ open class RPListener: NSObject, XCTestObservation {
                 - Likely cause: testSuite.name != className (identifier mismatch)
                 - Action: Check logs above to see suite registration names vs test class names
                 """)
-            return rootSuiteID
+            return rootID
         }
 
         Logger.shared.error("""
@@ -707,12 +666,15 @@ open class RPListener: NSObject, XCTestObservation {
                 try await asyncService.finishTest(operation: operation)
 
                 // Update aggregated launch status
-                await launchManager.updateStatus(operation.status)
+                if let status = operation.status {
+                    await launchManager.updateStatus(status)
+                }
 
                 // Unregister test from tracker (cleanup)
                 await operationTracker.unregisterTest(identifier: identifier)
 
-                Logger.shared.info("Test finished: \(operation.testID) with status: \(operation.status.rawValue)", correlationID: operation.correlationID)
+                let statusString = operation.status?.rawValue ?? "UNKNOWN"
+                Logger.shared.info("Test finished: \(operation.testID) with status: \(statusString)", correlationID: operation.correlationID)
             } catch {
                 Logger.shared.error("Failed to finish test '\(testCase.name)': \(error.localizedDescription)", correlationID: operation.correlationID)
             }
@@ -735,10 +697,11 @@ open class RPListener: NSObject, XCTestObservation {
         // T016: Finalize suite with OperationTracker
         Task {
             let identifier = testSuite.name
+            Logger.shared.info("🏁 testSuiteDidFinish called - Suite: '\(identifier)'")
             
             // Retrieve suite operation from tracker
             guard let operation = await operationTracker.getSuite(identifier: identifier) else {
-                Logger.shared.error("Suite operation not found in tracker: \(identifier)")
+                Logger.shared.error("❌ Suite operation not found in tracker: \(identifier)")
                 return
             }
             
@@ -746,50 +709,65 @@ open class RPListener: NSObject, XCTestObservation {
                 // Determine final status (would be updated from child tests in production)
                 // For now, keep as-is - in full implementation, aggregate from child tests
                 
+                Logger.shared.info("📡 Finishing suite '\(identifier)' in ReportPortal...", correlationID: operation.correlationID)
+                
                 // Finish suite in ReportPortal
                 try await asyncService.finishSuite(operation: operation)
                 
                 // Unregister suite from tracker (cleanup)
                 await operationTracker.unregisterSuite(identifier: identifier)
                 
-                Logger.shared.info("Suite finished: \(operation.suiteID)", correlationID: operation.correlationID)
+                Logger.shared.info("✅ Suite finished: \(operation.suiteID)", correlationID: operation.correlationID)
             } catch {
-                Logger.shared.error("Failed to finish suite '\(testSuite.name)': \(error.localizedDescription)", correlationID: operation.correlationID)
+                Logger.shared.error("❌ Failed to finish suite '\(testSuite.name)': \(error.localizedDescription)", correlationID: operation.correlationID)
             }
         }
     }
     
     public func testBundleDidFinish(_ testBundle: Bundle) {
+        Logger.shared.info("🏁 testBundleDidFinish called - Bundle: \(testBundle.bundleIdentifier ?? "unknown")")
+        
         guard reportingService != nil else {
             print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test bundle completion will not be reported to ReportPortal.")
             return
         }
         
-        // T014: Decrement bundle count and finalize if this is the last bundle
+        // Read configuration to check if we should finalize
+        let configuration = readConfiguration(from: testBundle)
+        
         Task {
-            let shouldFinalize = await launchManager.decrementBundleCount()
-            let isFinalized = await launchManager.isLaunchFinalized()
+            Logger.shared.info("📦 Bundle finished. shouldFinishLaunch=\(configuration.shouldFinishLaunch)")
             
-            if shouldFinalize && !isFinalized {
-                // This is the last bundle - finalize the launch
+            // Check if this bundle should finalize the launch
+            guard configuration.shouldFinishLaunch else {
+                Logger.shared.info("⏭️ Skipping launch finalization (shouldFinishLaunch=false)")
+                return
+            }
+            
+            let isFinalized = await launchManager.isLaunchFinalized()
+            Logger.shared.info("🔍 Launch finalized status: \(isFinalized)")
+
+            if !isFinalized {
+                // Finalize the launch
                 guard let launchID = await launchManager.getLaunchID() else {
-                    Logger.shared.error("Cannot finalize launch: launch ID not found")
+                    Logger.shared.error("❌ Cannot finalize launch: launch ID not found")
                     return
                 }
-                
+
                 let status = await launchManager.getAggregatedStatus()
-                
+                Logger.shared.info("📊 Finalizing launch \(launchID) with status: \(status.rawValue)")
+
                 do {
                     if let asyncService = reportingService {
                         try await asyncService.finalizeLaunch(launchID: launchID, status: status)
-                        Logger.shared.info("Launch finalized: \(launchID) with status: \(status.rawValue)")
+                        await launchManager.markFinalized()
+                        Logger.shared.info("✅ Launch finalized successfully: \(launchID) with status: \(status.rawValue)")
                     }
                 } catch {
-                    Logger.shared.error("Failed to finalize launch: \(error.localizedDescription)")
+                    Logger.shared.error("❌ Failed to finalize launch: \(error.localizedDescription)")
                 }
             } else {
-                let activeCount = await launchManager.getActiveBundleCount()
-                Logger.shared.info("Bundle finished, \(activeCount) bundles still active")
+                Logger.shared.info("ℹ️ Bundle finished, launch already finalized")
             }
         }
     }

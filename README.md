@@ -41,7 +41,6 @@ Now, you can specify the Report Portal properties:
 * PushTestDataToReportPortal - can be used to switch off/on reporting
 * ReportPortalProjectName - project name from Report Portal
 * ReportPortalTags(optional) - can be used to specify tags, separated by comma.
-* IsFinalTestBundle - use to mark last test target as YES, and all others as NO to allow single launch for them
 
 Example:
 ![Alt text](./Example.png)

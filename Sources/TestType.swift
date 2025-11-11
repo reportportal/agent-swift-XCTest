@@ -8,8 +8,10 @@
 
 import Foundation
 
+/// ReportPortal item types for XCTest hierarchy
+/// - suite: Test bundle or test class container
+/// - test: Individual test method
 enum TestType: String {
   case suite = "SUITE"
   case test = "TEST"
-  case step = "STEP"
 }

@@ -10,18 +10,12 @@ import Foundation
 
 /// Errors that can occur during launch management
 enum LaunchManagerError: LocalizedError {
-    case timeout(seconds: TimeInterval)
     case launchNotStarted
-    case taskCancelled
 
     var errorDescription: String? {
         switch self {
-        case .timeout(let seconds):
-            return "Launch ID not available after \(seconds) seconds timeout"
         case .launchNotStarted:
-            return "Launch creation has not been initiated yet"
-        case .taskCancelled:
-            return "Launch creation task was cancelled"
+            return "Launch creation has not been initiated yet (custom UUID not generated)"
         }
     }
 }
@@ -87,43 +81,16 @@ actor LaunchManager {
         return launchID
     }
 
-    /// Wait for launch ID to become available (Swift-like async/await approach)
-    /// Instead of polling, this properly awaits the launch creation task
-    /// - Parameter timeout: Maximum time to wait in seconds (default: 30)
-    /// - Returns: Launch ID when available
-    /// - Throws: LaunchManagerError if launch creation fails or times out
-    func waitForLaunchID(timeout: TimeInterval = 30) async throws -> String {
-        // Fast path: launch already created
-        if let id = launchID {
-            return id
-        }
-
-        // If launch creation is in progress, await it with timeout
-        guard let task = launchCreationTask else {
+    /// Wait for launch ID to become available
+    /// With custom UUID approach, this returns immediately since UUID is set before async launch creation
+    /// - Returns: Launch ID (custom UUID)
+    /// - Throws: LaunchManagerError.launchNotStarted if launch not initiated
+    func waitForLaunchID() async throws -> String {
+        // With custom UUID, launch ID is always immediately available
+        guard let id = launchID else {
             throw LaunchManagerError.launchNotStarted
         }
-
-        // Race the launch creation against a timeout
-        return try await withThrowingTaskGroup(of: String.self) { group in
-            // Task 1: Await the actual launch creation
-            group.addTask {
-                try await task.value
-            }
-
-            // Task 2: Timeout task
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                throw LaunchManagerError.timeout(seconds: timeout)
-            }
-
-            // Return first result (either launch ID or timeout error)
-            guard let result = try await group.next() else {
-                throw LaunchManagerError.taskCancelled
-            }
-
-            group.cancelAll() // Cancel timeout if launch succeeds, or vice versa
-            return result
-        }
+        return id
     }
 
     // MARK: - Status Aggregation

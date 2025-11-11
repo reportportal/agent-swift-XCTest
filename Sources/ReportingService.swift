@@ -48,13 +48,15 @@ public final class ReportingService: Sendable {
     ///   - name: Launch name (may include test plan name)
     ///   - tags: Tags from configuration
     ///   - attributes: Metadata (device info, OS version, etc.)
-    /// - Returns: Launch ID (UUID string from ReportPortal)
-    func startLaunch(name: String, tags: [String], attributes: [[String: String]]) async throws -> String {
+    ///   - uuid: Optional custom UUID for launch (for parallel execution synchronization)
+    /// - Returns: Launch ID (UUID string from ReportPortal or custom UUID)
+    func startLaunch(name: String, tags: [String], attributes: [[String: String]], uuid: String? = nil) async throws -> String {
         let endPoint = StartLaunchEndPoint(
             launchName: name,
             tags: tags,
             mode: configuration.launchMode,
-            attributes: attributes
+            attributes: attributes,
+            uuid: uuid
         )
 
         let result: FirstLaunch = try await httpClient.callEndPoint(endPoint)
@@ -119,9 +121,12 @@ public final class ReportingService: Sendable {
             throw ReportingServiceError.launchIdNotFound
         }
 
+        // Use suite status if available, otherwise default to passed
+        let status = operation.status ?? .passed
+
         let endPoint = try FinishItemEndPoint(
             itemID: operation.suiteID,
-            status: operation.status,
+            status: status,
             launchID: launchID
         )
 
@@ -142,7 +147,7 @@ public final class ReportingService: Sendable {
             itemName: operation.testName,
             parentID: operation.suiteID,
             launchID: launchID,
-            type: .step
+            type: .test
         )
 
         let result: Item = try await httpClient.callEndPoint(endPoint)
@@ -154,22 +159,26 @@ public final class ReportingService: Sendable {
     /// Finish test item in ReportPortal
     /// - Parameter operation: TestOperation with test ID and final status
     func finishTest(operation: TestOperation) async throws {
+        guard let status = operation.status else {
+            preconditionFailure("Test status should not be nil when finishing test")
+        }
+        
         guard let launchID = await launchManager.getLaunchID() else {
             throw ReportingServiceError.launchIdNotFound
         }
 
         let endPoint = try FinishItemEndPoint(
             itemID: operation.testID,
-            status: operation.status,
+            status: status,
             launchID: launchID
         )
 
         let _: Finish = try await httpClient.callEndPoint(endPoint)
 
         // Update aggregated status in LaunchManager
-        await launchManager.updateStatus(operation.status)
+        await launchManager.updateStatus(status)
 
-        Logger.shared.info("Test finished: \(operation.testID) with status: \(operation.status.rawValue)", correlationID: operation.correlationID)
+        Logger.shared.info("Test finished: \(operation.testID) with status: \(status.rawValue)", correlationID: operation.correlationID)
     }
 
     // MARK: - Logging & Attachments
