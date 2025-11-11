@@ -65,6 +65,12 @@ actor LaunchManager {
     /// Decrement active bundle counter when test bundle finishes
     /// - Returns: `true` if count reached zero (should finalize launch), `false` otherwise
     func decrementBundleCount() -> Bool {
+        // Guard against underflow (should not happen, but defensive programming)
+        guard activeBundleCount > 0 else {
+            Logger.shared.error("⚠️ Bundle counter underflow prevented! Current count: \(activeBundleCount)")
+            return false
+        }
+        
         activeBundleCount -= 1
         return activeBundleCount == 0
     }
