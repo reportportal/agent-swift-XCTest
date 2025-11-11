@@ -190,13 +190,14 @@ In ReportPortal, all test results will appear under a **single launch** with pro
 
 ### Performance Impact
 
-**Example: 1000 UI tests @ 3 seconds each**
+**Example: ExampleUITests**
 
 | Configuration | Execution Time | Improvement |
 |--------------|----------------|-------------|
-| Sequential (v3.x) | ~50 minutes | Baseline |
-| Parallel - 2 workers | ~25 minutes | **50% faster** |
-| Parallel - 4 workers | ~15 minutes | **70% faster** |
+| Sequential (v3.x) | ~40 minutes | Baseline |
+| Sequential (v4.x) | ~30 minutes | **25% faster** |
+| Parallel - 2 workers | ~15 minutes | **160% faster** |
+| Parallel - 3 workers | ~10 minutes | **300% faster** |
 
 ### Troubleshooting
 

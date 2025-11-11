@@ -23,6 +23,9 @@ open class RPListener: NSObject, XCTestObservation {
     // Task for root suite creation (to synchronize child suites)
     private var rootSuiteCreationTask: Task<String, Error>?
     
+    // Flag to ensure launch is created only once (testBundleWillStart can be called multiple times)
+    private var isLaunchCreated = false
+    
     public override init() {
         super.init()
         XCTestObservationCenter.shared.addTestObserver(self)
@@ -95,6 +98,13 @@ open class RPListener: NSObject, XCTestObservation {
             print("Set 'YES' for 'PushTestDataToReportPortal' property in Info.plist if you want to put data to report portal")
             return
         }
+        
+        // Prevent duplicate launch creation (testBundleWillStart can be called multiple times)
+        guard !isLaunchCreated else {
+            Logger.shared.info("⏭️ Bundle started but launch already created - skipping")
+            return
+        }
+        isLaunchCreated = true
         
         // Create service for v4.0.0 async/await parallel execution
         let reportingService = ReportingService(configuration: configuration)
