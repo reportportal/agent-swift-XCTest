@@ -236,7 +236,7 @@ public final class ReportingService: Sendable {
     }
 
     func postAttachments(
-        attachments: [XCTAttachment],
+        attachments: [AttachmentPayload],
         itemID: String,
         launchID: String,
         correlationID: UUID? = nil
@@ -248,8 +248,14 @@ public final class ReportingService: Sendable {
 
         var fileAttachments: [FileAttachment] = []
 
-        // Extract attachment data
+        // Convert AttachmentPayload to FileAttachment
         for (index, attachment) in attachments.enumerated() {
+            // Skip attachments without data
+            guard let attachmentData = attachment.data else {
+                Logger.shared.warning("Attachment has no data: \(attachment.name ?? "unknown"), UTI: \(attachment.uniformTypeIdentifier)", correlationID: correlationID)
+                continue
+            }
+            
             // Generate safe filename from attachment name or use timestamp
             let timestamp = String(Int64(Date().timeIntervalSince1970 * 1000))
             let baseName = attachment.name ?? "attachment_\(index)"
@@ -283,36 +289,6 @@ public final class ReportingService: Sendable {
 
             // Build filename with timestamp and extension
             let filename = "\(sanitizedName)_\(timestamp).\(fileExtension)"
-
-            // Extract data from XCTAttachment
-            // For screenshots created with XCTAttachment(screenshot:), extract PNG data
-            var data: Data? = nil
-
-            // Try to get screenshot data if available
-            if uti.contains("image") {
-                // For screenshot attachments, try getting the XCUIScreenshot directly
-                #if canImport(UIKit)
-                if let screenshot = attachment.value(forKey: "screenshot") as? XCUIScreenshot {
-                    data = await screenshot.pngRepresentation
-                } else if let image = attachment.value(forKey: "image") as? XCUIScreenshot {
-                    data = await image.pngRepresentation
-                }
-                #endif
-            }
-
-            // Fallback: try to get attachment contents using lifetime accessor
-            if data == nil {
-                // Try userInfo which might contain the data
-                if let userInfo = attachment.value(forKey: "userInfo") as? [String: Any],
-                   let payloadData = userInfo["data"] as? Data {
-                    data = payloadData
-                }
-            }
-
-            guard let attachmentData = data else {
-                Logger.shared.warning("Could not extract data from attachment: \(attachment.name ?? "unknown"), UTI: \(uti)", correlationID: correlationID)
-                continue
-            }
 
             // Create FileAttachment and add to array
             let fileAttachment = FileAttachment(
