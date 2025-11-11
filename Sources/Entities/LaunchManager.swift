@@ -52,57 +52,22 @@ actor LaunchManager {
     /// Launch start timestamp
     private var launchStartTime: Date?
 
-    // MARK: - Bundle Lifecycle
-
-    /// Increment active bundle counter when test bundle starts
-    func incrementBundleCount() {
-        activeBundleCount += 1
-    }
-
-    /// Decrement active bundle counter when test bundle finishes
-    /// - Returns: `true` if count reached zero (should finalize launch), `false` otherwise
-    func decrementBundleCount() -> Bool {
-        // Guard against underflow (should not happen, but defensive programming)
-        guard activeBundleCount > 0 else {
-            Logger.shared.error("⚠️ Bundle counter underflow prevented! Current count: \(activeBundleCount)")
-            return false
-        }
-        
-        activeBundleCount -= 1
-        return activeBundleCount == 0
-    }
-
-    /// Get current active bundle count (for diagnostics)
-    /// - Returns: Current value of activeBundleCount
-    func getActiveBundleCount() -> Int {
-        return activeBundleCount
-    }
-
     // MARK: - Launch Management
 
-    /// Get or await launch ID
-    /// Multiple bundles calling this will await the same launch creation
+    /// Create and store launch ID
     /// - Parameter launchTask: Task that creates the launch (passed from caller)
-    /// - Returns: Launch ID (either existing or from task)
-    func getOrAwaitLaunchID(launchTask: Task<String, Error>) async throws -> String {
+    /// - Returns: Launch ID from task execution
+    func createLaunch(launchTask: Task<String, Error>) async throws -> String {
         // If launch already exists, return it immediately
         if let existingID = launchID {
-            // Cancel the new task since we don't need it
             launchTask.cancel()
             return existingID
         }
 
-        // If launch creation is in progress, await the existing task
-        if let existingTask = launchCreationTask {
-            // Cancel the new task since we already have one
-            launchTask.cancel()
-            return try await existingTask.value
-        }
-
-        // Store the task so other bundles can await it
+        // Store the task for reference
         launchCreationTask = launchTask
 
-        // Await the result
+        // Execute the task and store result
         do {
             let id = try await launchTask.value
             self.launchID = id
@@ -111,7 +76,6 @@ actor LaunchManager {
             }
             return id
         } catch {
-            // Clear task on failure so another bundle can retry
             launchCreationTask = nil
             throw error
         }
@@ -166,7 +130,7 @@ actor LaunchManager {
 
     /// Update aggregated launch status (worst status wins)
     /// - Parameter newStatus: Status from completed test
-    /// Status priority: .failed > .stopped/.cancelled > .skipped > .passed/.reseted/.inProgress
+    /// Status priority: .failed > .stopped/.cancelled > .skipped > .passed/.reseted
     func updateStatus(_ newStatus: TestStatus) {
         // Convert status to severity for comparison
         let currentSeverity = statusSeverity(aggregatedStatus)
@@ -218,7 +182,7 @@ actor LaunchManager {
             return 2
         case .skipped:
             return 1
-        case .passed, .reseted, .inProgress:
+        case .passed, .reseted:
             return 0
         }
     }
