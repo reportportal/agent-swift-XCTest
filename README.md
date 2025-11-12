@@ -162,6 +162,91 @@ xcodebuild test \
       - xcpretty_test_options: --parallel-testing-enabled --maximum-parallel-testing-workers 3
 ```
 
+### CI/CD: Single Shared Launch (Recommended)
+
+By default, parallel execution creates **separate launches per worker** (e.g., 4 workers = 4 launches in ReportPortal). In local development, this is acceptable (you can manually merge launches in ReportPortal UI).
+
+For CI/CD pipelines, you can configure **all workers to report to a single shared launch** using the `RP_LAUNCH_UUID` environment variable:
+
+```yaml
+# GitHub Actions
+- name: Run Tests in Parallel (Single Launch)
+  env:
+    RP_LAUNCH_UUID: ${{ github.run_id }}-${{ github.run_attempt }}
+  run: |
+    xcodebuild test \
+      -scheme MyApp \
+      -testPlan MyTestPlan \
+      -destination 'platform=iOS Simulator,name=iPhone 16' \
+      -parallel-testing-enabled YES \
+      -maximum-parallel-testing-workers 4
+```
+
+```yaml
+# GitLab CI
+test:
+  variables:
+    RP_LAUNCH_UUID: "${CI_PIPELINE_ID}-${CI_JOB_ID}"
+  script:
+    - xcodebuild test -scheme MyApp -parallel-testing-enabled YES
+```
+
+```bash
+# Jenkins
+export RP_LAUNCH_UUID="${BUILD_ID}-${BUILD_NUMBER}"
+xcodebuild test -scheme MyApp -parallel-testing-enabled YES
+```
+
+**How it works:**
+1. CI sets `RP_LAUNCH_UUID` environment variable **before** running tests
+2. All parallel workers read the **same UUID** from environment
+3. First worker creates the launch in ReportPortal
+4. Other workers join the existing launch (409 Conflict handled automatically)
+5. Result: **Single launch** in ReportPortal containing all test results
+
+**Why NOT use build phase scripts for UUID generation:**
+
+Build phase scripts only run when **source files change** (Xcode incremental build). If you re-run tests without code changes, the UUID stays stale and workers join the **previous test run's launch**, causing data corruption.
+
+```bash
+# ❌ DON'T DO THIS - Build phases don't run on every test execution!
+# Build Phase → Run Script:
+UUID=$(uuidgen)
+/usr/libexec/PlistBuddy -c "Set :RP_LAUNCH_UUID $UUID" Info.plist
+```
+
+**Timeline showing the problem:**
+```
+10:00 - Run tests → Build runs → UUID-AAA generated → Launch created ✅
+10:05 - Re-run tests → NO BUILD → Still UUID-AAA → Joins old launch ❌
+10:10 - Re-run tests → NO BUILD → Still UUID-AAA → ERROR: Launch already finalized ❌
+10:15 - Change code → Build runs → UUID-BBB generated → New launch ✅
+```
+
+**Solution:** Use environment variables set by CI/CD pipeline (always fresh, always unique per test run).
+
+### Local Development: Multiple Launches
+
+In local development (Xcode IDE), each parallel worker creates a **separate launch**:
+
+```
+ReportPortal Dashboard:
+├── MyApp Tests - iPhone 16 Clone 1 (Worker 1)
+├── MyApp Tests - iPhone 16 Clone 2 (Worker 2)
+├── MyApp Tests - iPhone 16 Clone 3 (Worker 3)
+└── MyApp Tests - iPhone 16 Clone 4 (Worker 4)
+```
+
+**To merge launches manually:**
+1. Go to ReportPortal → Launches
+2. Select the 4 launches
+3. Click "Merge" → Enter merged launch name
+4. All test results combined into single launch
+
+**Why not use shared UUID in local development?**
+
+Environment variables from Xcode pre-actions **don't propagate to parallel workers** (they run in isolated processes). File-based coordination is possible but only works for simulators (not real devices) and adds complexity. For local dev, separate launches with manual merge is simpler and more reliable.
+
 ### Worker Count Recommendations
 
 Choose worker count based on your CI/CD environment:

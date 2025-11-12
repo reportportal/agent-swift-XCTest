@@ -111,6 +111,8 @@ open class RPListener: NSObject, XCTestObservation {
         self.reportingService = reportingService
         
         // Get launch UUID (lazy initialization on first access)
+        // CI/CD Mode: All workers get same UUID from RP_LAUNCH_UUID env var
+        // Local Mode: Each worker generates unique UUID
         let launchUUID = LaunchManager.shared.launchID
         
         // Create launch in ReportPortal asynchronously (fire and forget)
@@ -132,6 +134,7 @@ open class RPListener: NSObject, XCTestObservation {
                 )
 
                 // Create launch via ReportPortal API with custom UUID
+                // In CI/CD mode with shared UUID, first worker creates launch, others get 409 Conflict
                 let reportedLaunchID = try await reportingService.startLaunch(
                     name: enhancedLaunchName,
                     tags: configuration.tags,
@@ -139,6 +142,15 @@ open class RPListener: NSObject, XCTestObservation {
                     uuid: launchUUID
                 )
                 Logger.shared.info("📡 Launch created in ReportPortal: \(reportedLaunchID)")
+            } catch let error as HTTPClientError {
+                // Handle 409 Conflict - expected in CI/CD when multiple workers use same UUID
+                if case .httpError(let statusCode, _) = error, statusCode == 409 {
+                    Logger.shared.info("ℹ️  Launch already exists (409 Conflict) - joining existing launch: \(launchUUID)")
+                    Logger.shared.info("✅ This is EXPECTED in CI/CD mode with shared RP_LAUNCH_UUID")
+                    // Don't throw - this is success! Other worker already created the launch
+                } else {
+                    Logger.shared.error("Failed to create launch in ReportPortal: \(error.localizedDescription)")
+                }
             } catch {
                 Logger.shared.error("Failed to create launch in ReportPortal: \(error.localizedDescription)")
             }
