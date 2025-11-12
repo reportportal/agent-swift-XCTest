@@ -26,6 +26,10 @@ open class RPListener: NSObject, XCTestObservation {
     // Flag to ensure launch is created only once (testBundleWillStart can be called multiple times)
     private var isLaunchCreated = false
     
+    // CRITICAL: Task for launch creation to prevent race condition
+    // Suites/tests MUST wait for this to complete before reporting
+    private var launchCreationTask: Task<Void, Never>?
+    
     public override init() {
         super.init()
         XCTestObservationCenter.shared.addTestObserver(self)
@@ -114,6 +118,7 @@ open class RPListener: NSObject, XCTestObservation {
         // CI/CD Mode: All workers get same UUID from RP_LAUNCH_UUID env var
         // Local Mode: Each worker generates unique UUID
         let launchUUID = LaunchManager.shared.launchID
+        Logger.shared.info("📦 Launch UUID generated (no API call): \(launchUUID)")
         
         // Create launch in ReportPortal asynchronously (fire and forget)
         Task {
@@ -224,24 +229,17 @@ open class RPListener: NSObject, XCTestObservation {
                     - testCount: \(testSuite.testCaseCount)
                     """, correlationID: correlationID)
 
-                // For test class suites, wait for parent root suite ID
-                let parentSuiteID: String?
-                if !isRootSuite {
-                    // Wait for root suite ID to be created (synchronization point)
-                    do {
-                        Logger.shared.info("⏳ Waiting for root suite ID...", correlationID: correlationID)
-                        parentSuiteID = try await waitForRootSuiteID()
-                        Logger.shared.info("✅ Using root suite ID: \(parentSuiteID!)", correlationID: correlationID)
-                    } catch {
-                        Logger.shared.warning("""
-                            ⚠️ Failed to get root suite ID for '\(testSuite.name)': \(error.localizedDescription)
-                            Suite will be created at root level as fallback.
-                            """, correlationID: correlationID)
-                        parentSuiteID = nil
-                    }
+                // SIMPLIFIED HIERARCHY: All test class suites at root level
+                // Root .xctest bundle suite is often skipped by test plans/CLI execution
+                // Creating flat structure: Launch → Test Class Suites → Tests
+                let parentSuiteID: String? = nil
+                
+                if isRootSuite {
+                    Logger.shared.info("📦 ROOT BUNDLE SUITE DETECTED: \(testSuite.name) (will be skipped - using flat hierarchy)", correlationID: correlationID)
+                    // Don't create the root bundle suite - it's redundant
+                    return
                 } else {
-                    parentSuiteID = nil
-                    Logger.shared.info("📦 Creating ROOT SUITE...", correlationID: correlationID)
+                    Logger.shared.info("📦 Creating TEST CLASS SUITE at root level", correlationID: correlationID)
                 }
 
                 // Create suite operation
@@ -690,6 +688,11 @@ open class RPListener: NSObject, XCTestObservation {
             } catch {
                 Logger.shared.error("❌ Failed to finalize launch: \(error.localizedDescription)")
             }
+            
+            // CRITICAL FIX: Remove test observer to prevent XCTest from restarting all tests
+            // Without this, XCTest sees the observer still active and restarts the entire suite
+            XCTestObservationCenter.shared.removeTestObserver(self)
+            Logger.shared.info("🛑 Test observer removed - execution complete")
         }
     }
 }
