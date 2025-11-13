@@ -63,7 +63,8 @@ struct Logger {
         logMessage += " [\(fileName):\(line)]"
         logMessage += " \(message)"
 
-        // Use NSLog instead of print() so logs appear in xcodebuild output
+        // Use NSLog to write to unified logging system (viewable via Console.app or `log stream`)
+        // These logs do NOT appear in xcodebuild stdout - use `xcrun simctl spawn booted log stream` to capture them
         NSLog("%@", logMessage)
     }
 

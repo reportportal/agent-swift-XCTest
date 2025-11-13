@@ -282,9 +282,8 @@ This README serves as the central hub for all documentation. Below are links to 
 
 | Document | Description |
 |----------|-------------|
-| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | System architecture, concurrency model, V2 API structure, sequence diagrams, and design rationale |
+| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | System architecture, concurrency model, V2 API structure, sequence diagrams, design rationale, and future enhancements |
 | **[.github/copilot-instructions.md](./.github/copilot-instructions.md)** | Development guidelines, Swift Concurrency best practices, recent changes, and coding standards |
-| **[docs/NEXT_STEPS_LAUNCH_SYNCHRONIZATION.md](./docs/NEXT_STEPS_LAUNCH_SYNCHRONIZATION.md)** | Future enhancements for launch coordination (branch 002 analysis) |
 
 ### Quick Links
 
