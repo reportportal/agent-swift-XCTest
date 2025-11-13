@@ -107,24 +107,24 @@ actor LaunchManager {
             
             do {
                 try await startLaunch()
-                await self.markLaunchReady()
+                self.markLaunchReady()
                 Logger.shared.info("✅ Launch successfully started and ready for reporting")
             } catch let error as HTTPClientError {
                 // Handle 409 Conflict - expected in CI/CD when multiple workers use same UUID
                 if case .httpError(let statusCode, _) = error, statusCode == 409 {
-                    await self.markLaunchReady()
+                    self.markLaunchReady()
                     Logger.shared.info("✅ Launch already exists (409 Conflict) - this is EXPECTED in CI/CD mode")
                     Logger.shared.info("✅ Launch ready for reporting")
                 } else {
                     Logger.shared.error("❌ Launch creation failed: \(error.localizedDescription)")
                     Logger.shared.error("⚠️  Reporting will be disabled for this worker")
-                    await self.resetLaunchCreationTask()
+                    self.resetLaunchCreationTask()
                     // Don't mark as ready - this worker won't report
                 }
             } catch {
                 Logger.shared.error("❌ Launch creation failed: \(error.localizedDescription)")
                 Logger.shared.error("⚠️  Reporting will be disabled for this worker")
-                await self.resetLaunchCreationTask()
+                self.resetLaunchCreationTask()
                 // Don't mark as ready - this worker won't report
             }
         }
