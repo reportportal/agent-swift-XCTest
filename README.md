@@ -81,9 +81,6 @@ Starting with v4.0, the agent fully supports **parallel test execution**, allowi
 - **Xcode 13+**
 
 ### Configuration
-
-#### 1. Enable Parallel Execution in Test Plan
-
 Edit your `.xctestplan` file to enable parallelization:
 
 ```json
@@ -145,7 +142,6 @@ xcodebuild test \
     xcodebuild test \
       -scheme MyApp \
       -testPlan MyTestPlan \
-      -destination 'platform=iOS Simulator,name=iPhone 16' \
       -parallel-testing-enabled YES \
       -maximum-parallel-testing-workers 2 \
       -resultBundlePath TestResults.xcresult
@@ -159,7 +155,6 @@ xcodebuild test \
       - scheme: MyApp
       - test_plan: MyTestPlan
       - simulator_device: iPhone 16
-      - xcpretty_test_options: --parallel-testing-enabled --maximum-parallel-testing-workers 3
 ```
 
 ### CI/CD: Single Shared Launch (Recommended)
@@ -175,7 +170,6 @@ For CI/CD pipelines, you can configure **all workers to report to a single share
     RP_LAUNCH_UUID: ${{ github.run_id }}-${{ github.run_attempt }}
   run: |
     xcodebuild test \
-      -scheme MyApp \
       -testPlan MyTestPlan \
       -destination 'platform=iOS Simulator,name=iPhone 16' \
       -parallel-testing-enabled YES \
@@ -294,9 +288,6 @@ Check that:
 - Command line includes `-parallel-testing-enabled YES`
 
 **Issue: Only 1 simulator visible**
-
-The agent supports parallel execution, but simulator visibility depends on xcodebuild. Verify with:
-```bash
 instruments -s devices  # Should show cloned simulators during test run
 ```
 
@@ -307,9 +298,6 @@ instruments -s devices  # Should show cloned simulators during test run
 - Use proper waits instead of hard-coded delays (`XCTAssertTrue(element.waitForExistence(timeout: 5))`)
 
 ### Sequential Execution (Backward Compatible)
-
-To run tests sequentially (v3.x behavior):
-
 ```json
 {
   "defaultOptions": {
