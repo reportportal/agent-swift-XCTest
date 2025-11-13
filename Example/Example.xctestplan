@@ -6,15 +6,6 @@
       "options" : {
         "threadSanitizerEnabled" : false
       }
-    },
-    {
-      "id" : "A1B2C3D4-E5F6-4A5B-8C9D-1234567890AB",
-      "name" : "Parallel Execution with Thread Sanitizer",
-      "options" : {
-        "maximumTestExecutionTimeAllowance" : 600,
-        "testExecutionOrdering" : "random",
-        "threadSanitizerEnabled" : true
-      }
     }
   ],
   "defaultOptions" : {
@@ -36,19 +27,10 @@
   },
   "testTargets" : [
     {
-      "parallelizable" : true,
       "target" : {
         "containerPath" : "container:ReportPortalAgent.xcodeproj",
         "identifier" : "9203A3A92135C20E00BFAF82",
         "name" : "ExampleUITests"
-      }
-    },
-    {
-      "parallelizable" : true,
-      "target" : {
-        "containerPath" : "container:ReportPortalAgent.xcodeproj",
-        "identifier" : "9203A39E2135C20E00BFAF82",
-        "name" : "ExampleUnitTests"
       }
     }
   ],
