@@ -96,20 +96,20 @@ public final class ReportingService: Sendable {
         let endPoint: StartItemEndPoint
 
         if let rootSuiteID = operation.rootSuiteID {
-            // This is a test class suite (child of root suite)
-            // It should be .suite, not .test (test classes are suites, not individual tests)
+            // This is a child suite (test class) - parent is root suite
+            // Use .test for test classes (not .suite)
             endPoint = StartItemEndPoint(
                 itemName: operation.suiteName,
                 parentID: rootSuiteID,
                 launchID: launchID,
-                type: .suite  // Fixed: was .test, should be .suite
+                type: .test  // Test class = type .test
             )
         } else {
             // This is a root suite (bundle)
             endPoint = StartItemEndPoint(
                 itemName: operation.suiteName,
                 launchID: launchID,
-                type: .suite
+                type: .suite  // Bundle = type .suite
             )
         }
 
@@ -150,7 +150,7 @@ public final class ReportingService: Sendable {
             itemName: operation.testName,
             parentID: operation.suiteID,
             launchID: launchID,
-            type: .test
+            type: .step  // Individual test method = type .step
         )
 
         let result: Item = try await httpClient.callEndPoint(endPoint)
