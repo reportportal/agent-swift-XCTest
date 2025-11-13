@@ -55,7 +55,7 @@ env RP_LAUNCH_UUID="$RP_LAUNCH_UUID" xcodebuild test \
   -scheme Example \
   -destination 'platform=iOS Simulator,name=iPhone 16e' \
   -parallel-testing-enabled YES \
-  -maximum-parallel-testing-workers 2 \
+  -maximum-parallel-testing-workers 3 \
   -only-testing:ExampleUITests \
   2>&1 | tee /tmp/rp_ci_test.log
 
