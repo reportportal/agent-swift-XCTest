@@ -28,11 +28,17 @@ public final class ReportingService: Sendable {
     ) {
         self.configuration = configuration
         self.operationTracker = operationTracker
+        
+        // Build V2 API base URL: https://reportportal.epam.com/api/v2/{project}
+        // User provides: https://reportportal.epam.com
+        let baseURL = configuration.reportPortalURL
+            .appendingPathComponent("api")
+            .appendingPathComponent("v2")
+            .appendingPathComponent(configuration.projectName)
 
         if let client = httpClient {
             self.httpClient = client
         } else {
-            let baseURL = configuration.reportPortalURL.appendingPathComponent(configuration.projectName)
             let authPlugin = AuthorizationPlugin(token: configuration.portalToken)
             self.httpClient = HTTPClient(baseURL: baseURL, plugins: [authPlugin])
         }
@@ -40,14 +46,19 @@ public final class ReportingService: Sendable {
 
     // MARK: - Launch Management
 
-    /// Create new launch in ReportPortal
+    /// Create new launch in ReportPortal using V2 API with mandatory UUID
     /// - Parameters:
     ///   - name: Launch name (may include test plan name)
     ///   - tags: Tags from configuration
     ///   - attributes: Metadata (device info, OS version, etc.)
-    ///   - uuid: Optional custom UUID for launch (for parallel execution synchronization)
-    /// - Returns: Launch ID (UUID string from ReportPortal or custom UUID)
-    func startLaunch(name: String, tags: [String], attributes: [[String: String]], uuid: String? = nil) async throws -> String {
+    ///   - uuid: **REQUIRED** Custom UUID for idempotent launch creation (V2 API)
+    /// - Returns: Launch ID (UUID string from ReportPortal)
+    ///
+    /// ## V2 API Behavior:
+    /// - **Idempotent**: Multiple calls with same UUID return same launch
+    /// - **409 Conflict**: Expected when launch already exists (caller should handle gracefully)
+    /// - **Parallel-safe**: All workers can call simultaneously with same UUID
+    func startLaunch(name: String, tags: [String], attributes: [[String: String]], uuid: String) async throws -> String {
         let endPoint = StartLaunchEndPoint(
             launchName: name,
             tags: tags,
@@ -58,7 +69,7 @@ public final class ReportingService: Sendable {
 
         let result: FirstLaunch = try await httpClient.callEndPoint(endPoint)
 
-        Logger.shared.info("Launch created: \(result.id)")
+        Logger.shared.info("Launch created via V2 API: \(result.id)")
         return result.id
     }
 
