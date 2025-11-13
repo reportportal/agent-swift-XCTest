@@ -243,19 +243,15 @@ open class RPListener: NSObject, XCTestObservation {
 
                 // SIMPLIFIED HIERARCHY: All test class suites at root level
                 // Root .xctest bundle suite is often skipped by test plans/CLI execution
-                // Creating hierarchical structure: Launch → Root Bundle Suite → Test Class Suites → Tests
-                // Determine parent suite ID based on suite type
-                let parentSuiteID: String?
-                
+                // Creating flat structure: Launch → Test Class Suites → Tests
+                let parentSuiteID: String? = nil
+
                 if isRootSuite {
-                    // Root suite has no parent (directly under launch)
-                    parentSuiteID = nil
-                    Logger.shared.info("📦 ROOT BUNDLE SUITE DETECTED: \(testSuite.name) (creating at launch level)", correlationID: correlationID)
+                    Logger.shared.info("📦 ROOT BUNDLE SUITE DETECTED: \(testSuite.name) (will be skipped - using flat hierarchy)", correlationID: correlationID)
+                    // Don't create the root bundle suite - it's redundant
+                    return
                 } else {
-                    // Child suites need to wait for root suite to be created
-                    Logger.shared.info("📦 Creating TEST CLASS SUITE (will await root suite ID)", correlationID: correlationID)
-                    parentSuiteID = try await waitForRootSuiteID()
-                    Logger.shared.info("✅ Got parent suite ID: \(parentSuiteID ?? "nil")", correlationID: correlationID)
+                    Logger.shared.info("📦 Creating TEST CLASS SUITE at root level", correlationID: correlationID)
                 }
 
                 // Create suite operation
