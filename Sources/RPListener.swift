@@ -186,6 +186,8 @@ open class RPListener: NSObject, XCTestObservation {
     }
     
     public func testSuiteWillStart(_ testSuite: XCTestSuite) {
+        Logger.shared.info("📋 testSuiteWillStart called: '\(testSuite.name)'")
+        
         guard let asyncService = reportingService else {
             Logger.shared.warning("⚠️ Reporting disabled: Test suite '\(testSuite.name)' will not be reported to ReportPortal")
             return
@@ -195,8 +197,11 @@ open class RPListener: NSObject, XCTestObservation {
             !testSuite.name.contains("All tests"),
             !testSuite.name.contains("Selected tests") else
         {
+            Logger.shared.info("⏭️ Skipping meta-suite: '\(testSuite.name)'")
             return
         }
+        
+        Logger.shared.info("🔄 Processing suite: '\(testSuite.name)' (starting async Task)")
         
         // Register suite with OperationTracker for parallel execution
         Task {
@@ -309,10 +314,14 @@ open class RPListener: NSObject, XCTestObservation {
     
     
     public func testCaseWillStart(_ testCase: XCTestCase) {
+        Logger.shared.info("🧪 testCaseWillStart called: '\(testCase.name)'")
+        
         guard let asyncService = reportingService else {
             Logger.shared.warning("⚠️ Reporting disabled: Test case '\(testCase.name)' will not be reported to ReportPortal")
             return
         }
+        
+        Logger.shared.info("🔄 Processing test case: '\(testCase.name)' (starting async Task)")
         
         // Register test case with OperationTracker for parallel execution
         Task {
