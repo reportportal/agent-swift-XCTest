@@ -51,8 +51,10 @@ struct PostLogEndPoint: EndPoint {
         "json_request_part": [logEntry]
       ]
     } else {
+      // V2 API requires both item_id and launch_id for all log requests
       parameters = [
         "item_id": itemUuid,
+        "launch_id": launchUuid,
         "level": level,
         "message": message,
         "time": TimeHelper.currentTimeAsString()
