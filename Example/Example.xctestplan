@@ -9,15 +9,25 @@
     }
   ],
   "defaultOptions" : {
+    "commandLineArgumentEntries" : [
+      {
+        "argument" : ""
+      }
+    ],
     "environmentVariableEntries" : [
       {
         "key" : "TEST_PLAN_NAME",
         "value" : "Example Test Plan"
+      },
+      {
+        "key" : "RP_LAUNCH_UUID",
+        "value" : "$(RP_LAUNCH_UUID)"
       }
     ],
     "maximumParallelTestExecutionWorkers" : 4,
     "maximumTestRepetitions" : 1,
     "parallelizationEnabled" : true,
+    "preferredScreenCaptureFormat" : "screenshot",
     "targetForVariableExpansion" : {
       "containerPath" : "container:ReportPortalAgent.xcodeproj",
       "identifier" : "9203A38B2135C20C00BFAF82",

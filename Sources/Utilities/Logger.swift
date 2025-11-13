@@ -63,7 +63,8 @@ struct Logger {
         logMessage += " [\(fileName):\(line)]"
         logMessage += " \(message)"
 
-        print(logMessage)
+        // Use NSLog instead of print() so logs appear in xcodebuild output
+        NSLog("%@", logMessage)
     }
 
     /// Log a debug message

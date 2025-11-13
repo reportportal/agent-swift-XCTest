@@ -42,9 +42,15 @@ fi
 echo "✅ Running UI tests with 2 parallel workers..."
 echo ""
 
+# CRITICAL: xcodebuild doesn't automatically pass all environment variables to test processes
+# We need to ensure RP_LAUNCH_UUID is available to the test runner
+# Option 1: Use env command to explicitly set it
+# Option 2: Add to test plan (requires editing Example.xctestplan)
+# Using env command here for CI/CD compatibility
+
 # Run tests with parallel execution
 # The output is saved to a log file for analysis
-xcodebuild test \
+env RP_LAUNCH_UUID="$RP_LAUNCH_UUID" xcodebuild test \
   -scheme Example \
   -destination 'platform=iOS Simulator,name=iPhone 16e' \
   -parallel-testing-enabled YES \
