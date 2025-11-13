@@ -218,9 +218,11 @@ xcodebuild test \
 
 **To merge launches manually (when running from Xcode IDE):**
 1. Go to ReportPortal → Launches
-2. Select the 4 launches
+2. Select your launches
 3. Click "Merge" → Enter merged launch name
 4. All test results combined into single launch
+
+![Merge Example](./example_merge.png)
 
 **Why environment variables from Xcode don't work:**
 

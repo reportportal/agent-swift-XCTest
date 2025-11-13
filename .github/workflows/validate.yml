@@ -47,7 +47,7 @@ jobs:
           
       - name: Lint Pod
         run: |
-          pod lib lint --allow-warnings
+          pod lib lint --allow-warnings --platforms=ios
 
   build:
     name: Build default scheme using any available iPhone simulator
