@@ -23,7 +23,7 @@ open class RPListener: NSObject, XCTestObservation {
     // Task for root suite creation (to synchronize child suites)
     private var rootSuiteCreationTask: Task<String, Error>?
     
-    // Flag to ensure launch is created only once (testBundleWillStart can be called multiple times)
+    // Flag to ensure launch is created only once
     private var isLaunchCreated = false
     
     // CRITICAL: Task for launch creation to prevent race condition
@@ -32,6 +32,10 @@ open class RPListener: NSObject, XCTestObservation {
     
     public override init() {
         super.init()
+        
+        // XCTestObservationCenter requires main thread for observer registration
+        // init() is typically called on main thread, but ensure it with precondition
+        dispatchPrecondition(condition: .onQueue(.main))
         XCTestObservationCenter.shared.addTestObserver(self)
     }
     
@@ -103,26 +107,29 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
-        // Prevent duplicate launch creation (testBundleWillStart can be called multiple times)
+        // Prevent duplicate launch creation (in case testBundleWillStart called multiple times)
         guard !isLaunchCreated else {
             Logger.shared.info("⏭️ Bundle started but launch already created - skipping")
             return
         }
+        
         isLaunchCreated = true
+        Logger.shared.info("🎬 First bundle start detected - initializing ReportPortal reporting")
         
         // Create service for v4.0.0 async/await parallel execution
         let reportingService = ReportingService(configuration: configuration)
         self.reportingService = reportingService
         
-        // Get launch UUID (lazy initialization on first access)
+        // Get launch UUID (synchronous access, no API call)
         // CI/CD Mode: All workers get same UUID from RP_LAUNCH_UUID env var
         // Local Mode: Each worker generates unique UUID
         let launchUUID = LaunchManager.shared.launchID
-        Logger.shared.info("📦 Launch UUID generated (no API call): \(launchUUID)")
+        Logger.shared.info("📦 Launch UUID resolved (no API call): \(launchUUID)")
         
-        // Create launch in ReportPortal asynchronously (fire and forget)
+        // Ensure launch is created via V2 API before any suites/tests are reported
+        // This guarantees proper synchronization in parallel execution
         Task {
-            do {
+            await LaunchManager.shared.ensureLaunchStarted {
                 // Collect metadata attributes
                 let attributes: [[String: String]]
                 if let bundle = testBundle as Bundle? {
@@ -138,26 +145,15 @@ open class RPListener: NSObject, XCTestObservation {
                     testPlanName: testPlanName
                 )
 
-                // Create launch via ReportPortal API with custom UUID
-                // In CI/CD mode with shared UUID, first worker creates launch, others get 409 Conflict
+                // Create launch via V2 API with predefined UUID
+                // 409 Conflict is handled gracefully by LaunchManager (means launch exists = success)
                 let reportedLaunchID = try await reportingService.startLaunch(
                     name: enhancedLaunchName,
                     tags: configuration.tags,
                     attributes: attributes,
                     uuid: launchUUID
                 )
-                Logger.shared.info("📡 Launch created in ReportPortal: \(reportedLaunchID)")
-            } catch let error as HTTPClientError {
-                // Handle 409 Conflict - expected in CI/CD when multiple workers use same UUID
-                if case .httpError(let statusCode, _) = error, statusCode == 409 {
-                    Logger.shared.info("ℹ️  Launch already exists (409 Conflict) - joining existing launch: \(launchUUID)")
-                    Logger.shared.info("✅ This is EXPECTED in CI/CD mode with shared RP_LAUNCH_UUID")
-                    // Don't throw - this is success! Other worker already created the launch
-                } else {
-                    Logger.shared.error("Failed to create launch in ReportPortal: \(error.localizedDescription)")
-                }
-            } catch {
-                Logger.shared.error("Failed to create launch in ReportPortal: \(error.localizedDescription)")
+                Logger.shared.info("📡 Launch created via V2 API: \(reportedLaunchID)")
             }
         }
     }
@@ -208,7 +204,22 @@ open class RPListener: NSObject, XCTestObservation {
         
         // Register suite with OperationTracker for parallel execution
         Task {
-            // Get launch ID (lazy initialization on first access)
+            // CRITICAL: Wait for launch to be ready before creating any suites
+            // This ensures V2 API launch exists before we start reporting hierarchy
+            await LaunchManager.shared.ensureLaunchStarted {
+                // Launch creation is already initiated in testBundleWillStart
+                // This just ensures we wait for it to complete
+                // The closure is empty because launch creation happens once globally
+            }
+            
+            // Verify launch is actually ready
+            let isReady = await LaunchManager.shared.isReady()
+            guard isReady else {
+                Logger.shared.warning("⚠️  Launch not ready, skipping suite creation for: \(testSuite.name)")
+                return
+            }
+            
+            // Get launch ID (synchronous access after launch is ready)
             let launchID = launchManager.launchID
             
             do {
@@ -305,7 +316,21 @@ open class RPListener: NSObject, XCTestObservation {
         
         // Register test case with OperationTracker for parallel execution
         Task {
-            // Get launch ID (lazy initialization on first access)
+            // CRITICAL: Wait for launch to be ready before creating any tests
+            // This ensures V2 API launch exists before we start reporting tests
+            await LaunchManager.shared.ensureLaunchStarted {
+                // Launch creation is already initiated in testBundleWillStart
+                // This just ensures we wait for it to complete
+            }
+            
+            // Verify launch is actually ready
+            let isReady = await LaunchManager.shared.isReady()
+            guard isReady else {
+                Logger.shared.warning("⚠️  Launch not ready, skipping test creation for: \(testCase.name)")
+                return
+            }
+            
+            // Get launch ID (synchronous access after launch is ready)
             let launchID = launchManager.launchID
             
             do {
@@ -672,8 +697,20 @@ open class RPListener: NSObject, XCTestObservation {
             return
         }
         
+        Logger.shared.info("📦 Bundle finished - finalizing launch")
+        
+        // CRITICAL: Use semaphore to block until finalization completes
+        // XCTest process will terminate immediately after testBundleDidFinish returns,
+        // so we MUST block here to ensure async finalization completes
+        let semaphore = DispatchSemaphore(value: 0)
+        
         Task {
-            Logger.shared.info("📦 Bundle finished - finalizing launch")
+            // CRITICAL: Wait for pending async operations (screenshots, logs) to complete
+            // Test failures and runtime issues trigger async Tasks that may still be executing
+            // when bundle finishes. iOS runtime warnings can arrive 5-10 seconds after test completion.
+            Logger.shared.info("⏸️  Starting 10-second grace period for pending async operations...")
+            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 second grace period
+            Logger.shared.info("⏰ Grace period completed - proceeding with launch finalization")
             
             let launchID = launchManager.launchID
 
@@ -689,10 +726,27 @@ open class RPListener: NSObject, XCTestObservation {
                 Logger.shared.error("❌ Failed to finalize launch: \(error.localizedDescription)")
             }
             
-            // CRITICAL FIX: Remove test observer to prevent XCTest from restarting all tests
-            // Without this, XCTest sees the observer still active and restarts the entire suite
-            XCTestObservationCenter.shared.removeTestObserver(self)
-            Logger.shared.info("🛑 Test observer removed - execution complete")
+            // CRITICAL FIX: Remove test observer on main thread (XCTestObservationCenter requirement)
+            // This must happen on main thread to prevent "Test observers can only be registered 
+            // and unregistered on the main thread" assertion
+            await MainActor.run {
+                XCTestObservationCenter.shared.removeTestObserver(self)
+                Logger.shared.info("🛑 Test observer removed - execution complete")
+            }
+            
+            // Signal that finalization is complete
+            semaphore.signal()
+        }
+        
+        // CRITICAL: Block until finalization completes (prevents process termination)
+        // Timeout after 15 seconds (10s grace + 5s for API call)
+        let timeout = DispatchTime.now() + .seconds(15)
+        let result = semaphore.wait(timeout: timeout)
+        
+        if result == .timedOut {
+            Logger.shared.error("⚠️ Launch finalization timed out after 15 seconds")
+        } else {
+            Logger.shared.info("✅ Launch finalization completed successfully")
         }
     }
 }
