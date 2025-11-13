@@ -26,10 +26,6 @@ open class RPListener: NSObject, XCTestObservation {
     // Flag to ensure launch is created only once
     private var isLaunchCreated = false
     
-    // CRITICAL: Task for launch creation to prevent race condition
-    // Suites/tests MUST wait for this to complete before reporting
-    private var launchCreationTask: Task<Void, Never>?
-    
     public override init() {
         super.init()
         
@@ -103,7 +99,7 @@ open class RPListener: NSObject, XCTestObservation {
         let configuration = readConfiguration(from: testBundle)
         
         guard configuration.shouldSendReport else {
-            print("Set 'YES' for 'PushTestDataToReportPortal' property in Info.plist if you want to put data to report portal")
+            Logger.shared.warning("⚠️ Reporting disabled: Set 'YES' for 'PushTestDataToReportPortal' in Info.plist to enable ReportPortal reporting")
             return
         }
         
@@ -191,7 +187,7 @@ open class RPListener: NSObject, XCTestObservation {
     
     public func testSuiteWillStart(_ testSuite: XCTestSuite) {
         guard let asyncService = reportingService else {
-            print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test suite '\(testSuite.name)' will not be reported to ReportPortal.")
+            Logger.shared.warning("⚠️ Reporting disabled: Test suite '\(testSuite.name)' will not be reported to ReportPortal")
             return
         }
         
@@ -242,15 +238,19 @@ open class RPListener: NSObject, XCTestObservation {
 
                 // SIMPLIFIED HIERARCHY: All test class suites at root level
                 // Root .xctest bundle suite is often skipped by test plans/CLI execution
-                // Creating flat structure: Launch → Test Class Suites → Tests
-                let parentSuiteID: String? = nil
+                // Creating hierarchical structure: Launch → Root Bundle Suite → Test Class Suites → Tests
+                // Determine parent suite ID based on suite type
+                let parentSuiteID: String?
                 
                 if isRootSuite {
-                    Logger.shared.info("📦 ROOT BUNDLE SUITE DETECTED: \(testSuite.name) (will be skipped - using flat hierarchy)", correlationID: correlationID)
-                    // Don't create the root bundle suite - it's redundant
-                    return
+                    // Root suite has no parent (directly under launch)
+                    parentSuiteID = nil
+                    Logger.shared.info("📦 ROOT BUNDLE SUITE DETECTED: \(testSuite.name) (creating at launch level)", correlationID: correlationID)
                 } else {
-                    Logger.shared.info("📦 Creating TEST CLASS SUITE at root level", correlationID: correlationID)
+                    // Child suites need to wait for root suite to be created
+                    Logger.shared.info("📦 Creating TEST CLASS SUITE (will await root suite ID)", correlationID: correlationID)
+                    parentSuiteID = try await waitForRootSuiteID()
+                    Logger.shared.info("✅ Got parent suite ID: \(parentSuiteID ?? "nil")", correlationID: correlationID)
                 }
 
                 // Create suite operation
@@ -310,7 +310,7 @@ open class RPListener: NSObject, XCTestObservation {
     
     public func testCaseWillStart(_ testCase: XCTestCase) {
         guard let asyncService = reportingService else {
-            print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test case '\(testCase.name)' will not be reported to ReportPortal.")
+            Logger.shared.warning("⚠️ Reporting disabled: Test case '\(testCase.name)' will not be reported to ReportPortal")
             return
         }
         
@@ -476,7 +476,7 @@ open class RPListener: NSObject, XCTestObservation {
     @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
         guard let asyncService = reportingService else {
-            print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test issue for '\(testCase.name)' will not be reported to ReportPortal.")
+            Logger.shared.warning("⚠️ Reporting disabled: Test issue for '\(testCase.name)' will not be reported to ReportPortal")
             return
         }
         
@@ -544,7 +544,7 @@ open class RPListener: NSObject, XCTestObservation {
     // For iOs 17+
     public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
         guard let asyncService = reportingService else {
-            print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test failure for '\(testCase.name)' will not be reported to ReportPortal.")
+            Logger.shared.warning("⚠️ Reporting disabled: Test failure for '\(testCase.name)' will not be reported to ReportPortal")
             return
         }
         
@@ -609,7 +609,7 @@ open class RPListener: NSObject, XCTestObservation {
     
     public func testCaseDidFinish(_ testCase: XCTestCase) {
         guard let asyncService = reportingService else {
-            print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test completion for '\(testCase.name)' will not be reported to ReportPortal.")
+            Logger.shared.warning("⚠️ Reporting disabled: Test completion for '\(testCase.name)' will not be reported to ReportPortal")
             return
         }
         
@@ -648,7 +648,7 @@ open class RPListener: NSObject, XCTestObservation {
     
     public func testSuiteDidFinish(_ testSuite: XCTestSuite) {
         guard let asyncService = reportingService else {
-            print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test suite completion for '\(testSuite.name)' will not be reported to ReportPortal.")
+            Logger.shared.warning("⚠️ Reporting disabled: Test suite completion for '\(testSuite.name)' will not be reported to ReportPortal")
             return
         }
         
@@ -693,7 +693,7 @@ open class RPListener: NSObject, XCTestObservation {
         Logger.shared.info("🏁 testBundleDidFinish called - Bundle: \(testBundle.bundleIdentifier ?? "unknown")")
         
         guard reportingService != nil else {
-            print("🚨 RPListener Configuration Error: Reporting is disabled (PushTestDataToReportPortal=false). Test bundle completion will not be reported to ReportPortal.")
+            Logger.shared.warning("⚠️ Reporting disabled: Test bundle completion will not be reported to ReportPortal")
             return
         }
         
@@ -705,11 +705,13 @@ open class RPListener: NSObject, XCTestObservation {
         let semaphore = DispatchSemaphore(value: 0)
         
         Task {
-            // CRITICAL: Wait for pending async operations (screenshots, logs) to complete
+            // CRITICAL: Wait for pending async operations (screenshots, logs, test/suite reporting) to complete
             // Test failures and runtime issues trigger async Tasks that may still be executing
-            // when bundle finishes. iOS runtime warnings can arrive 5-10 seconds after test completion.
-            Logger.shared.info("⏸️  Starting 10-second grace period for pending async operations...")
-            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 second grace period
+            // when bundle finishes. In script/CI mode, these tasks need extra time to complete
+            // their network calls to ReportPortal before process termination.
+            Logger.shared.info("⏸️  Starting 15-second grace period for pending async operations...")
+            Logger.shared.info("   This ensures all test/suite start/finish calls complete before process exit")
+            try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 second grace period
             Logger.shared.info("⏰ Grace period completed - proceeding with launch finalization")
             
             let launchID = launchManager.launchID
@@ -739,12 +741,12 @@ open class RPListener: NSObject, XCTestObservation {
         }
         
         // CRITICAL: Block until finalization completes (prevents process termination)
-        // Timeout after 15 seconds (10s grace + 5s for API call)
-        let timeout = DispatchTime.now() + .seconds(15)
+        // Timeout after 20 seconds (15s grace + 5s for API call)
+        let timeout = DispatchTime.now() + .seconds(20)
         let result = semaphore.wait(timeout: timeout)
         
         if result == .timedOut {
-            Logger.shared.error("⚠️ Launch finalization timed out after 15 seconds")
+            Logger.shared.error("⚠️ Launch finalization timed out after 20 seconds")
         } else {
             Logger.shared.info("✅ Launch finalization completed successfully")
         }
