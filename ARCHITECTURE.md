@@ -260,7 +260,7 @@ func finalizeLaunch(status:) async throws
 func startSuite(operation:launchID:) async throws -> String
 func finishSuite(operation:) async throws
 func startTest(operation:launchID:) async throws -> String
-func finishTest(operation:) async throws
+func finishTest(operation:launchID:) async throws
 func postLog(message:level:) async throws
 ```
 
@@ -823,6 +823,10 @@ See `ExampleUITests/` for comprehensive test coverage:
    - Current: One launch per test session
    - Future: Reuse launch for multiple consecutive test runs (CI optimization)
 
+6. **Client-Side Launch Status Aggregation**
+   - Current: Launch finalization sends hardcoded `.passed` status (ReportPortal server calculates actual status from test results)
+   - Future: Track test outcomes in `LaunchManager` and compute aggregated status (`.failed` if any test failed, `.skipped` if all skipped, `.passed` if all passed) for client-side validation and more accurate API semantics
+
 ---
 
 ## Glossary
@@ -846,6 +850,51 @@ See `ExampleUITests/` for comprehensive test coverage:
 - [ReportPortal API v1 Specification](https://reportportal.io/docs/API-Documentation)
 - [XCTest Framework Reference](https://developer.apple.com/documentation/xctest)
 - [Swift Actors Proposal SE-0306](https://github.com/apple/swift-evolution/blob/main/proposals/0306-actors.md)
+
+---
+
+## Environment Variable Passing for Parallel Launch Coordination
+
+### Why Passing RP_LAUNCH_UUID Is Critical
+
+When running tests in parallel, each test worker is a separate process. By default, each worker will generate its own launch UUID, resulting in multiple launches in ReportPortal for a single test run. To ensure all results are reported to a single launch, you must pass a shared `RP_LAUNCH_UUID` environment variable to all test workers.
+
+### Correct Method: Test Plan Environment Variable
+
+Add the following entry to your `.xctestplan` file:
+
+```json
+{
+  "key": "RP_LAUNCH_UUID",
+  "value": "$(RP_LAUNCH_UUID)"
+}
+```
+
+Set the environment variable in your shell or CI/CD script before running tests:
+
+```bash
+export RP_LAUNCH_UUID="$(uuidgen)"
+xcodebuild test ...
+```
+
+This ensures all parallel workers inherit the same UUID and report to a single launch.
+
+### What Happens If You Don't Pass RP_LAUNCH_UUID
+
+- Each worker creates a separate launch in ReportPortal
+- Results are fragmented across multiple launches
+- You can manually merge launches in the ReportPortal UI (not recommended for CI/CD automation)
+
+### Manual Merge Instructions
+1. Go to ReportPortal → Launches
+2. Select the launches to merge
+3. Click "Merge" and enter a name
+4. All results will be combined
+
+### Troubleshooting
+- If you see multiple launches for a single test run, verify RP_LAUNCH_UUID is set and passed via the test plan
+- Environment variables set in Xcode pre-actions or build phases do NOT propagate to parallel workers
+- Always use the test plan method above for reliable CI/CD reporting
 
 ---
 
