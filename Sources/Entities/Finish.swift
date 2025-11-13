@@ -20,5 +20,4 @@ struct Finish: Decodable {
 struct LaunchFinish: Decodable {
     let id: String
     let link: String
-    let number: Int
 }
