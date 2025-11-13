@@ -12,7 +12,8 @@ echo "=========================================="
 echo ""
 
 # Generate a unique UUID for this test run (simulates CI/CD pipeline)
-export RP_LAUNCH_UUID=$(uuidgen)
+RP_LAUNCH_UUID=$(uuidgen)
+export RP_LAUNCH_UUID
 echo "🚀 Launch UUID (shared across all workers): $RP_LAUNCH_UUID"
 echo "📋 This UUID will be used by ALL parallel test workers"
 echo ""
