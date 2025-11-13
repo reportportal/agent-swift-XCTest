@@ -43,15 +43,9 @@ actor LaunchManager {
     
     /// Flag indicating launch is ready for suite/test reporting
     private var isLaunchReady = false
-
-    /// Cached launch UUID (initialized once on first access)
-    /// Uses Obj-C dispatch_once guarantee via lazy static for thread safety
-    private static let generatedUUID: String = {
-        let uuid = UUID().uuidString
-        Logger.shared.info("📦 [Local Mode] Generated unique launch UUID: \(uuid)")
-        Logger.shared.info("ℹ️  [Local Mode] Each parallel worker creates separate launch (manual merge needed)")
-        return uuid
-    }()
+    
+    /// Generated UUID for local mode (lazy initialization, thread-safe via static)
+    private static let localModeUUID: String = UUID().uuidString
 
     /// ReportPortal launch ID (custom UUID, resolved synchronously)
     ///
@@ -64,7 +58,7 @@ actor LaunchManager {
     /// - **Local**: Each worker generates own UUID → Separate launches (4 workers = 4 launches)
     ///
     /// ## Thread Safety:
-    /// Reads environment variables (immutable after process start) or uses static lazy UUID.
+    /// Reads environment variables (immutable after process start) or uses static UUID.
     /// Marked nonisolated for synchronous access from non-actor contexts.
     nonisolated var launchID: String {
         // Priority 1: Check for CI/CD provided UUID
@@ -73,8 +67,10 @@ actor LaunchManager {
             return ciUUID
         }
         
-        // Priority 2: Use pre-generated static UUID (initialized once per process)
-        return Self.generatedUUID
+        // Priority 2: Use static UUID for local mode (same UUID for all accesses within this process)
+        Logger.shared.info("📦 [Local Mode] Using launch UUID: \(Self.localModeUUID)")
+        Logger.shared.info("ℹ️  [Local Mode] Each parallel worker creates separate launch (manual merge needed)")
+        return Self.localModeUUID
     }
     
     /// Ensure launch has been started via V2 API before allowing suite/test creation
