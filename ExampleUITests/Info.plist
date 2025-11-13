@@ -29,7 +29,7 @@
 	<key>ReportPortalToken</key>
 	<string>&lt;token&gt;</string>
 	<key>ReportPortalURL</key>
-	<string>http://localhost:8080/api/v1</string>
+	<string>http://localhost:8080</string>
 	<key>ReportPortalProjectName</key>
 	<string>&lt;project name&gt;</string>
 </dict>
