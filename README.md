@@ -145,36 +145,20 @@ By default, parallel execution creates **separate launches per worker** (e.g., 4
 
 For CI/CD pipelines, you can configure **all workers to report to a single shared launch** using the `RP_LAUNCH_UUID` environment variable:
 
-```yaml
-# GitHub Actions
-- name: Run Tests in Parallel (Single Launch)
-  env:
-    RP_LAUNCH_UUID: ${{ github.run_id }}-${{ github.run_attempt }}
-  run: |
-    xcodebuild test \
-      -testPlan MyTestPlan \
-      -destination 'platform=iOS Simulator,name=iPhone 16' \
-      -parallel-testing-enabled YES \
-      -maximum-parallel-testing-workers 4
-```
-
-```yaml
-# GitLab CI
-test:
-  variables:
-    RP_LAUNCH_UUID: "${CI_PIPELINE_ID}-${CI_JOB_ID}"
-  script:
-    - xcodebuild test -scheme MyApp -parallel-testing-enabled YES
-```
-
 ```bash
-# Jenkins
-export RP_LAUNCH_UUID="${BUILD_ID}-${BUILD_NUMBER}"
-xcodebuild test -scheme MyApp -parallel-testing-enabled YES
+# Generate UUID and run tests with shared launch
+export RP_LAUNCH_UUID=$(uuidgen)
+
+xcodebuild test \
+  -scheme YourScheme \
+  -testPlan YourTestPlan \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -parallel-testing-enabled YES \
+  -maximum-parallel-testing-workers 4
 ```
 
 **How it works:**
-1. CI sets `RP_LAUNCH_UUID` environment variable **before** running tests
+1. `export RP_LAUNCH_UUID=$(uuidgen)` sets a shared UUID **before** running tests
 2. All parallel workers read the **same UUID** from environment
 3. First worker creates the launch in ReportPortal
 4. Other workers join the existing launch (409 Conflict handled automatically)
@@ -213,15 +197,34 @@ ReportPortal Dashboard:
 └── MyApp Tests - iPhone 16 Clone 4 (Worker 4)
 ```
 
-**To merge launches manually:**
+**To run with a single shared launch locally (via script):**
+
+```bash
+#!/bin/bash
+# run_tests_shared_launch.sh
+
+# Generate UUID once for this test run
+export RP_LAUNCH_UUID=$(uuidgen)
+
+echo "Running tests with shared launch UUID: $RP_LAUNCH_UUID"
+
+xcodebuild test \
+  -scheme MyApp \
+  -testPlan MyTestPlan \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -parallel-testing-enabled YES \
+  -maximum-parallel-testing-workers 4
+```
+
+**To merge launches manually (when running from Xcode IDE):**
 1. Go to ReportPortal → Launches
 2. Select the 4 launches
 3. Click "Merge" → Enter merged launch name
 4. All test results combined into single launch
 
-**Why not use shared UUID in local development?**
+**Why environment variables from Xcode don't work:**
 
-Environment variables from Xcode pre-actions **don't propagate to parallel workers** (they run in isolated processes). File-based coordination is possible but only works for simulators (not real devices) and adds complexity. For local dev, separate launches with manual merge is simpler and more reliable.
+Environment variables set in Xcode Scheme → Pre-Actions **don't propagate to parallel workers** (they run in isolated processes). The script approach above works because `export` sets the variable in the shell session before launching xcodebuild.
 
 ### Worker Count Recommendations
 
