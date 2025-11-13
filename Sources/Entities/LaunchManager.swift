@@ -61,12 +61,12 @@ actor LaunchManager {
     /// Reads environment variables (immutable after process start) or uses static UUID.
     /// Marked nonisolated for synchronous access from non-actor contexts.
     nonisolated var launchID: String {
-        // Priority 1: Check for CI/CD provided UUID
-        if let ciUUID = ProcessInfo.processInfo.environment["RP_LAUNCH_UUID"] {
+        // Priority 1: Check for CI/CD provided UUID (must be non-empty)
+        if let ciUUID = ProcessInfo.processInfo.environment["RP_LAUNCH_UUID"], !ciUUID.isEmpty {
             Logger.shared.info("📦 [CI Mode] Using shared launch UUID from environment: \(ciUUID)")
             return ciUUID
         }
-        
+
         // Priority 2: Use static UUID for local mode (same UUID for all accesses within this process)
         Logger.shared.info("📦 [Local Mode] Using launch UUID: \(Self.localModeUUID)")
         Logger.shared.info("ℹ️  [Local Mode] Each parallel worker creates separate launch (manual merge needed)")
