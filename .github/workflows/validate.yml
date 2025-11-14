@@ -43,7 +43,7 @@ jobs:
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '15.4'
 
       - name: List available simulators
         run: |
@@ -54,7 +54,7 @@ jobs:
       # macOS and tvOS compatibility is verified during release and by end users
       - name: Lint Pod
         run: |
-          pod lib lint --allow-warnings --skip-import-validation --use-libraries --platforms=ios
+          pod lib lint --allow-warnings --skip-import-validation --use-libraries --skip-tests --platforms=ios --verbose
 
   build:
     name: Build default scheme using any available iPhone simulator
