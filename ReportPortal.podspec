@@ -22,5 +22,6 @@ Pod::Spec.new do |s|
     s.weak_framework = "XCTest"
     s.pod_target_xcconfig = {
         'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "$(PLATFORM_DIR)/Developer/Library/Frameworks"',
+        'ENABLE_TESTING_SEARCH_PATHS' => 'YES'
     }
 end
