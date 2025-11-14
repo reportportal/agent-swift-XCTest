@@ -148,5 +148,44 @@ actor LaunchManager {
     func isReady() -> Bool {
         return isLaunchReady
     }
+
+    /// Wait until launch is ready for reporting (pure waiter, does not create)
+    ///
+    /// ## Usage:
+    /// Use this when the launch creation is handled elsewhere (e.g., testBundleWillStart)
+    /// and you only need to wait for it to complete before proceeding.
+    ///
+    /// ## Safety:
+    /// This method does NOT create a launch - it only waits for an existing creation task.
+    /// If called before any creation task exists, it returns immediately (potentially unsafe).
+    /// Only use this when you're certain launch creation was already initiated elsewhere.
+    ///
+    /// ```swift
+    /// // In testBundleWillStart - creates launch
+    /// await LaunchManager.shared.ensureLaunchStarted {
+    ///     try await reportingService.startLaunch(...)
+    /// }
+    ///
+    /// // In testSuiteWillStart - only waits
+    /// await LaunchManager.shared.waitUntilReady()
+    /// ```
+    func waitUntilReady() async {
+        // Fast path: launch already ready
+        if isLaunchReady {
+            Logger.shared.info("✅ Launch already ready")
+            return
+        }
+
+        // Wait for existing creation task
+        if let existingTask = launchCreationTask {
+            Logger.shared.info("⏳ Waiting for launch creation to complete...")
+            await existingTask.value
+            return
+        }
+
+        // No creation task exists - this is potentially unsafe
+        Logger.shared.warning("⚠️  waitUntilReady() called but no launch creation task exists!")
+        Logger.shared.warning("⚠️  Launch may not have been created yet. Ensure testBundleWillStart was called first.")
+    }
 }
 

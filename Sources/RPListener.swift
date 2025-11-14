@@ -207,11 +207,8 @@ open class RPListener: NSObject, XCTestObservation {
         Task {
             // CRITICAL: Wait for launch to be ready before creating any suites
             // This ensures V2 API launch exists before we start reporting hierarchy
-            await LaunchManager.shared.ensureLaunchStarted {
-                // Launch creation is already initiated in testBundleWillStart
-                // This just ensures we wait for it to complete
-                // The closure is empty because launch creation happens once globally
-            }
+            // Using waitUntilReady() since launch creation happens in testBundleWillStart
+            await LaunchManager.shared.waitUntilReady()
             
             // Verify launch is actually ready
             let isReady = await LaunchManager.shared.isReady()
@@ -323,10 +320,8 @@ open class RPListener: NSObject, XCTestObservation {
         Task {
             // CRITICAL: Wait for launch to be ready before creating any tests
             // This ensures V2 API launch exists before we start reporting tests
-            await LaunchManager.shared.ensureLaunchStarted {
-                // Launch creation is already initiated in testBundleWillStart
-                // This just ensures we wait for it to complete
-            }
+            // Using waitUntilReady() since launch creation happens in testBundleWillStart
+            await LaunchManager.shared.waitUntilReady()
             
             // Verify launch is actually ready
             let isReady = await LaunchManager.shared.isReady()
