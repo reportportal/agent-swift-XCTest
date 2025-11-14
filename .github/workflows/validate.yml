@@ -51,7 +51,7 @@ jobs:
 
       - name: Lint Pod
         run: |
-          pod lib lint --allow-warnings --skip-import-validation --use-libraries --skip-tests --platforms=ios
+          pod lib lint --allow-warnings --skip-import-validation --use-libraries --platforms=ios,macos,tvos --verbose
 
   build:
     name: Build default scheme using any available iPhone simulator
