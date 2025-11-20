@@ -43,7 +43,7 @@ jobs:
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '26.0'
 
       - name: List available simulators
         run: |
@@ -51,7 +51,7 @@ jobs:
 
       - name: Lint Pod
         run: |
-          pod lib lint --allow-warnings --verbose
+          pod lib lint --allow-warnings
 
   build:
     name: Build default scheme using any available iPhone simulator
