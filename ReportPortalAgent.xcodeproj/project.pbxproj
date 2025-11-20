@@ -418,7 +418,7 @@
 			attributes = {
 				LastSwiftUpdateCheck = 0940;
 				LastUpgradeCheck = 0940;
-				ORGANIZATIONNAME = "Sergey Komarov";
+				ORGANIZATIONNAME = "ReportPortal.io";
 				TargetAttributes = {
 					368751A41F5866CA0021B74D = {
 						CreatedOnToolsVersion = 8.3.3;
