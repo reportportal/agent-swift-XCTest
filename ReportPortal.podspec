@@ -13,9 +13,9 @@ Pod::Spec.new do |s|
     s.author           = { 'ReportPortal Team' => 'support@reportportal.io' }
     s.source           = { :git => 'https://github.com/reportportal/agent-swift-XCTest.git', :tag => s.version.to_s }
 
-    s.ios.deployment_target = '16.6'
+    s.ios.deployment_target = '18.6'
     s.osx.deployment_target = '14.0'
-    s.tvos.deployment_target = '16.0'
+    s.tvos.deployment_target = '18.2'
     s.swift_version = '5.5'
     s.source_files = 'Sources/**/*.swift'
 
