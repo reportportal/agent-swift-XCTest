@@ -24,14 +24,14 @@
 	<true/>
 	<key>ReportPortalLaunchName</key>
 	<string>Demo_Launch</string>
+	<key>ReportPortalProjectName</key>
+	<string>&lt;project name&gt;</string>
 	<key>ReportPortalTags</key>
 	<string>Test</string>
 	<key>ReportPortalToken</key>
 	<string>&lt;portal token&gt;</string>
 	<key>ReportPortalURL</key>
 	<string>http://localhost:8080</string>
-	<key>ReportPortalProjectName</key>
-	<string>&lt;project name&gt;</string>
 	<key>TestNameRules</key>
 	<dict>
 		<key>StripTestPrefix</key>
