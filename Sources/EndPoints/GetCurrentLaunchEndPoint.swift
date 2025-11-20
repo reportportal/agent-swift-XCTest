@@ -1,6 +1,6 @@
 //
 //  GetCurrentLaunchEndPoint.swift
-//  Alamofire
+//  RPAgentSwift
 //
 //  Created by Stas Kirichok on 27-08-2018.
 //

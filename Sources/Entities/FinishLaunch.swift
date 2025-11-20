@@ -7,8 +7,8 @@
 
 import Foundation
 
+
 struct FinishLaunch: Decodable {
-    let id: String?
-    let link: String?
-    let number: Int?
+    let id: String
+    let link: String
 }

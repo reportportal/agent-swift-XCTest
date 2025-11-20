@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: LaunchManager simplified from Actor to simple singleton class
+  - Changed from ~180 lines to 26 lines (85% reduction)
+  - Removed bundle counting (activeBundleCount, increment/decrement methods)
+  - Removed status aggregation (updateStatus, getAggregatedStatus methods)
+  - Removed finalization tracking (isFinalized, markFinalized methods)
+  - Launch ID now lazy var with custom UUID generation (no API waiting)
+  - Direct property access: `LaunchManager.shared.launchID` instead of async methods
+- Custom UUID Strategy: Generate launch UUID client-side instead of waiting for API response
+  - Eliminates race conditions, timeout logic, and complex synchronization
+  - UUID immediately available for all test operations
+  - ReportPortal launch creation happens asynchronously in background
+- Removed redundant status tracking - ReportPortal server calculates final status
+- Single bundle execution model (no multi-bundle coordination)
+
+### Technical Details
+- Minimum deployment target: iOS 13+, macOS 10.15+ (Swift Concurrency)
+- Architecture updates: Documentation updated to reflect simplified design
+- All async/await references to LaunchManager removed (no actor isolation needed)
+
 ## [3.1.3] - 2025-09-11
 ### Added
 - Enhanced error messages with metadata (device info, timestamps, test context), by @rusel95

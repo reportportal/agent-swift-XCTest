@@ -1,16 +1,24 @@
 import Foundation
 
 // Response structure for log POST requests
-// Server returns: {"responses":[{"id":"uuid"}]}
+// Server can return either:
+// - Old format: {"responses":[{"id":"uuid"}]}
+// - New format: {"id":"uuid"}
 struct LogResponse: Decodable {
-    let responses: [LogItem]
+    let responses: [LogItem]?
+    let id: String?
     
     struct LogItem: Decodable {
         let id: String
     }
     
-    // Convenience property to get the first log ID
+    // Convenience property to get the log ID (handles both formats)
     var logId: String? {
-        return responses.first?.id
+        // Try new format first (direct id field)
+        if let directId = id {
+            return directId
+        }
+        // Fall back to old format (responses array)
+        return responses?.first?.id
     }
 } 

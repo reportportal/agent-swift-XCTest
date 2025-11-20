@@ -8,9 +8,12 @@
 
 import Foundation
 
+/// Launch creation response
+/// V1 API: {"id": "uuid", "number": 123}
+/// V2 API: {"id": "uuid"} (number is optional)
 struct FirstLaunch: Decodable  {
     let id: String
-    let number: Int
+    let number: Int?  // Optional - V2 API doesn't return this
 }
 
 struct Launch: Decodable  {

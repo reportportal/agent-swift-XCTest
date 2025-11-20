@@ -126,3 +126,6 @@ Temporary Items
 # Other
 *.log
 .env
+.github/
+.specify/
+.claude/

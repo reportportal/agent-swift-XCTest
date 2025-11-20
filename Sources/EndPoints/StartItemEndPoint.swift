@@ -20,9 +20,10 @@ struct StartItemEndPoint: EndPoint {
       relativePath += "/\(parentID)"
     }
 
+    // V2 API uses camelCase parameter names (launchUuid not launch_id)
     parameters = [
       "description": "",
-      "launch_id": launchID,
+      "launchUuid": launchID,  // V2 API: camelCase
       "name": itemName,
       "start_time": TimeHelper.currentTimeAsString(),
       "tags": [],

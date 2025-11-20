@@ -8,15 +8,9 @@
 
 import Foundation
 
-class AuthorizationPlugin: HTTPClientPlugin {
+final class AuthorizationPlugin: HTTPClientPlugin {
 
   private let token: String
-  private lazy var defaultHeader: [String: String] = {
-    return [
-      "Content-Type": "application/json",
-      "Authorization": "Bearer \(token)",
-    ]
-  }()
   
   init(token: String) {
     self.token = token
