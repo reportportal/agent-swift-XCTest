@@ -1,4 +1,4 @@
-//  Created by Stas Kirichok on 23-08-2018.
+//  Created by Ruslan Popesku on 10/22/25.
 //  Copyright 2025 EPAM Systems
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,18 +16,25 @@
 
 import Foundation
 
-enum TimeHelper {
+enum ReportingServiceError: LocalizedError {
+  case launchIdNotFound
+  case testSuiteIdNotFound
+  case configurationError
+  case networkError
+  case securityViolation
   
-  private static let formatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    
-    return formatter
-  }()
-  
-  static func currentTimeAsString() -> String {
-      return formatter.string(from: Date())
+  var errorDescription: String? {
+    switch self {
+    case .launchIdNotFound:
+      return "Launch ID not found"
+    case .testSuiteIdNotFound:
+      return "Test Suite ID not found"
+    case .configurationError:
+      return "Invalid configuration"
+    case .networkError:
+      return "Network error occurred"
+    case .securityViolation:
+      return "Security violation"
+    }
   }
-  
 }

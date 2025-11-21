@@ -1,4 +1,5 @@
-# Copyright 2024 EPAM Systems
+# Copyright 2025 EPAM Systems
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -32,19 +33,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3.6'
-          
-      - name: Install dependencies
-        run: |
-          gem install cocoapods -v '1.16.2'
+      - name: Setup build enviroment
+        uses: ./.github/actions/setup-build-env
 
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-          
       - name: Lint Pod
         run: |
           pod lib lint --allow-warnings

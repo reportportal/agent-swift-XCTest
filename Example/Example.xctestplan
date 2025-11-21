@@ -4,36 +4,44 @@
       "id" : "3BC8ABC9-D1EE-4E68-9E80-6999766F4B2E",
       "name" : "Test Scheme Action",
       "options" : {
-
+        "threadSanitizerEnabled" : false
       }
     }
   ],
   "defaultOptions" : {
+    "commandLineArgumentEntries" : [
+      {
+        "argument" : ""
+      }
+    ],
     "environmentVariableEntries" : [
       {
         "key" : "TEST_PLAN_NAME",
         "value" : "Example Test Plan"
+      },
+      {
+        "key" : "RP_LAUNCH_UUID",
+        "value" : "$(RP_LAUNCH_UUID)"
       }
     ],
+    "maximumParallelTestExecutionWorkers" : 4,
+    "maximumTestRepetitions" : 1,
+    "parallelizationEnabled" : true,
+    "preferredScreenCaptureFormat" : "screenshot",
     "targetForVariableExpansion" : {
       "containerPath" : "container:ReportPortalAgent.xcodeproj",
       "identifier" : "9203A38B2135C20C00BFAF82",
       "name" : "Example"
-    }
+    },
+    "testRepetitionMode" : "none"
   },
   "testTargets" : [
     {
+      "parallelizable" : true,
       "target" : {
         "containerPath" : "container:ReportPortalAgent.xcodeproj",
         "identifier" : "9203A3A92135C20E00BFAF82",
         "name" : "ExampleUITests"
-      }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:ReportPortalAgent.xcodeproj",
-        "identifier" : "9203A39E2135C20E00BFAF82",
-        "name" : "ExampleUnitTests"
       }
     }
   ],

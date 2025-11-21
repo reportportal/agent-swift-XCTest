@@ -1,8 +1,17 @@
-//
-//  HTTPClient.swift
-//
 //  Created by Stas Kirichok on 20/08/18.
-//  Copyright © 2018 Windmill. All rights reserved.
+//  Copyright 2025 EPAM Systems
+//  
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//  
+//      https://www.apache.org/licenses/LICENSE-2.0
+//  
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
 //
 
 import Foundation
@@ -10,31 +19,40 @@ import Foundation
 enum HTTPClientError: Error {
   case invalidURL
   case noResponse
+  case httpError(statusCode: Int, body: String?)
+  case decodingError(String)
+  case networkError(Error)
 }
 
-class HTTPClient: NSObject, URLSessionDelegate {
+final class HTTPClient: NSObject, URLSessionDelegate, @unchecked Sendable {
 
   private let baseURL: URL
   private let requestTimeout: TimeInterval = 120
-  private let utilityQueue = DispatchQueue(label: "com.report_portal_agent.httpclient", qos: .utility)
-  private var plugins: [HTTPClientPlugin] = []
+  private let plugins: [HTTPClientPlugin]
+  
+  // Lazy var allows us to use 'self' as delegate after initialization
   private lazy var urlSession: URLSession = {
     let configuration = URLSessionConfiguration.default
-    configuration.timeoutIntervalForRequest = requestTimeout
+    configuration.timeoutIntervalForRequest = 120
+    configuration.timeoutIntervalForResource = 300
+    configuration.httpMaximumConnectionsPerHost = 6
     
     #if DEBUG
-    // DEVELOPMENT ONLY: Allow proxy certificates for testing
+    // DEVELOPMENT ONLY: Initialize with delegate for SSL bypass (proxy testing)
+    // Note: @unchecked Sendable because URLSession is not Sendable on all SDK versions
     return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     #else
+    // RELEASE: No delegate needed
     return URLSession(configuration: configuration)
     #endif
   }()
-  
-  init(baseURL: URL) {
+
+  init(baseURL: URL, plugins: [HTTPClientPlugin] = []) {
     self.baseURL = baseURL
+    self.plugins = plugins
     super.init()
   }
-  
+
   // DEVELOPMENT ONLY: Bypass SSL validation for proxy testing
   #if DEBUG
   func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
@@ -47,94 +65,117 @@ class HTTPClient: NSObject, URLSessionDelegate {
   }
   #endif
 
-  func setPlugins(_ plugins: [HTTPClientPlugin]) {
-    self.plugins = plugins
+  // MARK: - Async/Await API
+
+  /// Call endpoint with async/await (non-blocking)
+  func callEndPoint<T: Decodable>(_ endPoint: EndPoint) async throws -> T {
+    let request = try buildRequest(for: endPoint)
+
+    let (data, response): (Data, URLResponse)
+    do {
+      (data, response) = try await urlSession.data(for: request)
+    } catch {
+      Logger.shared.error("Network error: \(error.localizedDescription)")
+      throw HTTPClientError.networkError(error)
+    }
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      Logger.shared.error("Invalid response format: expected HTTP response")
+      throw HTTPClientError.noResponse
+    }
+
+    guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
+      let body = String(data: data, encoding: .utf8)
+      // Truncate large response bodies to prevent log spam (max 1KB)
+      let truncatedBody = truncateForLog(body ?? "no body", maxLength: 1024)
+      Logger.shared.error("HTTP error \(httpResponse.statusCode): \(truncatedBody)")
+      throw HTTPClientError.httpError(statusCode: httpResponse.statusCode, body: body)
+    }
+
+    // Handle 204 No Content or empty responses
+    if httpResponse.statusCode == 204 || data.isEmpty {
+      // For 204 or empty responses, we can't decode JSON
+      // Check if T is optional or has a default value
+      // For now, throw an error since ReportPortal API should always return data
+      Logger.shared.error("Received 204 No Content or empty response")
+      throw HTTPClientError.noResponse
+    }
+
+    do {
+      let result = try JSONDecoder().decode(T.self, from: data)
+      return result
+    } catch {
+      let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
+      // Truncate large response bodies to prevent log spam (max 1KB)
+      let truncatedBody = truncateForLog(responseBody, maxLength: 1024)
+      Logger.shared.error("JSON decode error: \(error.localizedDescription)")
+      Logger.shared.error("Raw response: \(truncatedBody)")
+      throw HTTPClientError.decodingError("Failed to decode response: \(error.localizedDescription)")
+    }
   }
 
-  func callEndPoint<T: Decodable>(_ endPoint: EndPoint, completion: @escaping (_ result: T) -> Void) throws {
+  // MARK: - Private Helpers
+
+  private func buildRequest(for endPoint: EndPoint) throws -> URLRequest {
     var url = baseURL.appendingPathComponent(endPoint.relativePath)
 
     if endPoint.encoding == .url {
-      var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+      guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+        Logger.shared.error("Failed to create URLComponents from URL: \(url)")
+        throw HTTPClientError.invalidURL
+      }
       let queryItems = endPoint.parameters.map {
         return URLQueryItem(name: "\($0)", value: "\($1)")
       }
 
       urlComponents.queryItems = queryItems
-      url = urlComponents.url!
+      guard let constructedURL = urlComponents.url else {
+        Logger.shared.error("Failed to construct URL from URLComponents with query items")
+        throw HTTPClientError.invalidURL
+      }
+      url = constructedURL
     }
 
     var request = URLRequest(url: url)
     request.httpMethod = endPoint.method.rawValue
     request.cachePolicy = .reloadIgnoringCacheData
     request.allHTTPHeaderFields = endPoint.headers
-    
+
     // Handle different encoding types
     switch endPoint.encoding {
     case .json:
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       let data = try JSONSerialization.data(withJSONObject: endPoint.parameters, options: .prettyPrinted)
       request.httpBody = data
-      
+
     case .multipartFormData:
-      // Use proper multipart construction based on John Xavier's guide
-      try handleProperMultipart(request: request, endPoint: endPoint, completion: completion)
-      return
-      
+      // Build multipart body
+      let boundary = "Boundary-\(UUID().uuidString)"
+      let bodyData = createMultipartBody(
+        parameters: endPoint.parameters,
+        attachments: endPoint.attachments,
+        boundary: boundary
+      )
+      request.setValue("multipart/form-data; boundary=" + boundary, forHTTPHeaderField: "Content-Type")
+      request.setValue(String(bodyData.count), forHTTPHeaderField: "Content-Length")
+      request.httpBody = bodyData
+      request.httpShouldHandleCookies = false
+
     case .url:
       // URL encoding handled above
       break
     }
-    
-    plugins.forEach { (plugin) in
-      plugin.processRequest(&request)
-    }
-    
-    utilityQueue.async {
-      let task = self.urlSession.dataTask(with: request as URLRequest) { (data: Data?, response: URLResponse?, error: Error?) in
-        self.handleResponse(data: data, response: response, error: error, completion: completion)
-      }
-      task.resume()
-    }
-  }
-  
-  // MARK: - Proper Multipart Construction (Stack Overflow Pattern)
-  private func handleProperMultipart<T: Decodable>(request: URLRequest, endPoint: EndPoint, completion: @escaping (_ result: T) -> Void) throws {
-    // Build multipart body following the style described at https://fluffy.es/upload-image-to-server/
-
-    var mutableRequest = request
-
-    // Generate a unique boundary
-    let boundary = "Boundary-\(UUID().uuidString)"
-
-    // Build the multipart body with ALL parameters & attachments (can handle any number of files)
-    let bodyData = createMultipartBody(
-      parameters: endPoint.parameters,
-      attachments: endPoint.attachments,
-      boundary: boundary
-    )
-
-    // Set required headers
-    mutableRequest.setValue("multipart/form-data; boundary=" + boundary, forHTTPHeaderField: "Content-Type")
-    mutableRequest.setValue(String(bodyData.count), forHTTPHeaderField: "Content-Length")
-
-    mutableRequest.httpBody = bodyData
-    mutableRequest.httpShouldHandleCookies = false
 
     // Allow plugins to mutate the request
     for plugin in plugins {
-      plugin.processRequest(&mutableRequest)
+      plugin.processRequest(&request)
     }
 
-    utilityQueue.async {
-      let task = self.urlSession.dataTask(with: mutableRequest) { (data: Data?, response: URLResponse?, error: Error?) in
-        self.handleResponse(data: data, response: response, error: error, completion: completion)
-      }
-      task.resume()
-    }
+    return request
   }
-  
-  /// and every attachment gets its own part separated by the same boundary.
+
+  /// Build multipart body for file upload requests
+  /// Each parameter and attachment gets its own part separated by the boundary
   ///
   /// - Parameters:
   ///   - parameters: Dictionary of parameters to send. Values can be `String`, `Data`, or any JSON-serialisable type.
@@ -195,45 +236,23 @@ class HTTPClient: NSObject, URLSessionDelegate {
 
     return body
   }
-  
-  // MARK: - Shared Response Handling
-  private func handleResponse<T: Decodable>(data: Data?, response: URLResponse?, error: Error?, completion: @escaping (_ result: T) -> Void) {
-    
-    if let error = error {
-      print("🚨 HTTPClient Network Error: Request failed due to network connectivity or timeout issues. Details: \(error.localizedDescription). Check your internet connection and server availability.")
-      return
-    }
-    
-    guard let data = data else {
-      print("🚨 HTTPClient Data Error: Server responded but no data was received. This could indicate a server-side issue or incomplete response.")
-      return
-    }
-    
-    guard let httpResponse = response as? HTTPURLResponse else {
-      print("🚨 HTTPClient Response Error: Invalid response format received from server. Expected HTTP response but got: \(String(describing: response))")
-      return
-    }
 
-    do {
-      if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
-        let result = try JSONDecoder().decode(T.self, from: data)
-        completion(result)
-      } else {
-        let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
-        print("🚨 HTTPClient HTTP Error: Server returned status code \(httpResponse.statusCode). This indicates a server-side error or invalid request.")
-        print("   📄 Response details: \(responseBody)")
-        print("   🔗 Request URL: \(httpResponse.url?.absoluteString ?? "Unknown")")
-      }
-    } catch let error {
-      let responseBody = String(data: data, encoding: .utf8) ?? "Unable to decode response body"
-      print("🚨 HTTPClient JSON Decode Error: Failed to parse server response as expected format.")
-      print("   🔍 Decode error: \(error.localizedDescription)")
-      print("   📄 Raw response: \(responseBody)")
-      print("   💡 This usually means the server returned a different JSON structure than expected.")
+  // MARK: - Logging Helpers
+
+  /// Truncate string for logging to prevent console spam
+  /// - Parameters:
+  ///   - string: Original string
+  ///   - maxLength: Maximum length (default 1024 bytes)
+  /// - Returns: Truncated string with ellipsis if truncated
+  private func truncateForLog(_ string: String, maxLength: Int = 1024) -> String {
+    if string.count <= maxLength {
+      return string
     }
+    let truncated = String(string.prefix(maxLength))
+    return "\(truncated)... (truncated, \(string.count) bytes total)"
   }
 }
 
-protocol HTTPClientPlugin {
+protocol HTTPClientPlugin: Sendable {
   func processRequest(_ originRequest: inout URLRequest)
 }
