@@ -122,7 +122,7 @@ jobs:
   
       - name: Publish to Cocoapods trunk
         run: |
-          pod trunk push ${{ env.PODSPEC_FILE }} --allow-warnings --skip-import-validation
+          pod trunk push ${{ env.PODSPEC_FILE }} --allow-warnings
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
           POD_VERSION: ${{ env.CURRENT_VERSION }}
