@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 90;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -155,33 +155,25 @@
 /* Begin PBXFrameworksBuildPhase section */
 		368751A11F5866CA0021B74D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A3892135C20C00BFAF82 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A39C2135C20E00BFAF82 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9203A3BE2136E2CA00BFAF82 /* ReportPortalAgent.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A3A72135C20E00BFAF82 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9203A3C12136E2D800BFAF82 /* ReportPortalAgent.framework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -329,10 +321,8 @@
 /* Begin PBXHeadersBuildPhase section */
 		368751A21F5866CA0021B74D /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
@@ -348,8 +338,6 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			name = ReportPortalAgent;
 			productName = RPAgentSwiftXCTest;
 			productReference = 368751A51F5866CA0021B74D /* ReportPortalAgent.framework */;
@@ -364,8 +352,6 @@
 				9203A38A2135C20C00BFAF82 /* Resources */,
 			);
 			buildRules = (
-			);
-			dependencies = (
 			);
 			name = Example;
 			productName = Example;
@@ -418,7 +404,7 @@
 			attributes = {
 				LastSwiftUpdateCheck = 0940;
 				LastUpgradeCheck = 0940;
-				ORGANIZATIONNAME = "ReportPortal.io";
+				ORGANIZATIONNAME = ReportPortal.io;
 				TargetAttributes = {
 					368751A41F5866CA0021B74D = {
 						CreatedOnToolsVersion = 8.3.3;
@@ -445,7 +431,6 @@
 				};
 			};
 			buildConfigurationList = 3687519F1F5866CA0021B74D /* Build configuration list for PBXProject "ReportPortalAgent" */;
-			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -453,6 +438,7 @@
 				Base,
 			);
 			mainGroup = 3687519B1F5866CA0021B74D;
+			preferredProjectObjectVersion = 90;
 			productRefGroup = 368751A61F5866CA0021B74D /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -468,40 +454,31 @@
 /* Begin PBXResourcesBuildPhase section */
 		368751A31F5866CA0021B74D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A38A2135C20C00BFAF82 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9203A3992135C20E00BFAF82 /* LaunchScreen.storyboard in Resources */,
 				9203A3942135C20C00BFAF82 /* Main.storyboard in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A39D2135C20E00BFAF82 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A3A82135C20E00BFAF82 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		368751A01F5866CA0021B74D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				92FEE087212ECB7900ADB1ED /* TimeHelper.swift in Sources */,
 				85EE82942E38F79F005825E8 /* MetadataCollector.swift in Sources */,
@@ -536,30 +513,24 @@
 				92FEE076212EA38600ADB1ED /* TestType.swift in Sources */,
 				FE6653CD2899F4316DA698AB /* ReportingServiceError.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A3882135C20C00BFAF82 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9203A3912135C20C00BFAF82 /* SummatorViewController.swift in Sources */,
 				9203A3BB2136B21F00BFAF82 /* SummatorService.swift in Sources */,
 				9203A38F2135C20C00BFAF82 /* AppDelegate.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A39B2135C20E00BFAF82 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				851D90FA2EB14A3B0026437F /* OperationTrackerTests.swift in Sources */,
 				9203A3A42135C20E00BFAF82 /* SummatorTests.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9203A3A62135C20E00BFAF82 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9203A3AF2135C20E00BFAF82 /* SummatorControllerTests.swift in Sources */,
 				85B50B652EB1FF54003A22C5 /* XCTestCase+Expectations.swift in Sources */,
@@ -570,7 +541,6 @@
 				85E8FC692EB0D14200D94838 /* ParallelCalculationsUITests.swift in Sources */,
 				85E8FC6A2EB0D14200D94838 /* ParallelNavigationUITests.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -617,7 +587,7 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		368751AB1F5866CA0021B74D /* Debug */ = {
+		368751AB1F5866CA0021B74D /* Debug configuration for PBXProject "ReportPortalAgent" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -679,7 +649,7 @@
 			};
 			name = Debug;
 		};
-		368751AC1F5866CA0021B74D /* Release */ = {
+		368751AC1F5866CA0021B74D /* Release configuration for PBXProject "ReportPortalAgent" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -727,7 +697,8 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				ONLY_ACTIVE_ARCH = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -735,7 +706,7 @@
 			};
 			name = Release;
 		};
-		368751AE1F5866CA0021B74D /* Debug */ = {
+		368751AE1F5866CA0021B74D /* Debug configuration for PBXNativeTarget "ReportPortalAgent" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
@@ -753,7 +724,11 @@
 				INFOPLIST_FILE = "$(SRCROOT)/Sources/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.epam.reportportal.xctestagent;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -764,7 +739,7 @@
 			};
 			name = Debug;
 		};
-		368751AF1F5866CA0021B74D /* Release */ = {
+		368751AF1F5866CA0021B74D /* Release configuration for PBXNativeTarget "ReportPortalAgent" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
@@ -782,7 +757,11 @@
 				INFOPLIST_FILE = "$(SRCROOT)/Sources/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.epam.reportportal.xctestagent;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -792,7 +771,7 @@
 			};
 			name = Release;
 		};
-		9203A3B22135C20E00BFAF82 /* Debug */ = {
+		9203A3B22135C20E00BFAF82 /* Debug configuration for PBXNativeTarget "Example" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -806,7 +785,10 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = Example/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.epam.reportportal.Example;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -816,7 +798,7 @@
 			};
 			name = Debug;
 		};
-		9203A3B32135C20E00BFAF82 /* Release */ = {
+		9203A3B32135C20E00BFAF82 /* Release configuration for PBXNativeTarget "Example" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -830,7 +812,10 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = Example/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.epam.reportportal.Example;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -840,7 +825,7 @@
 			};
 			name = Release;
 		};
-		9203A3B52135C20E00BFAF82 /* Debug */ = {
+		9203A3B52135C20E00BFAF82 /* Debug configuration for PBXNativeTarget "ExampleUnitTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
@@ -854,7 +839,11 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = ExampleUnitTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epam.reportportal.ExampleUnitTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -864,7 +853,7 @@
 			};
 			name = Debug;
 		};
-		9203A3B62135C20E00BFAF82 /* Release */ = {
+		9203A3B62135C20E00BFAF82 /* Release configuration for PBXNativeTarget "ExampleUnitTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
@@ -878,7 +867,11 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = ExampleUnitTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epam.reportportal.ExampleUnitTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -888,7 +881,7 @@
 			};
 			name = Release;
 		};
-		9203A3B82135C20E00BFAF82 /* Debug */ = {
+		9203A3B82135C20E00BFAF82 /* Debug configuration for PBXNativeTarget "ExampleUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
@@ -901,7 +894,11 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = ExampleUITests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epam.reportportal.ExampleUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -914,7 +911,7 @@
 			};
 			name = Debug;
 		};
-		9203A3B92135C20E00BFAF82 /* Release */ = {
+		9203A3B92135C20E00BFAF82 /* Release configuration for PBXNativeTarget "ExampleUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
@@ -927,7 +924,11 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = ExampleUITests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.epam.reportportal.ExampleUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -946,46 +947,41 @@
 		3687519F1F5866CA0021B74D /* Build configuration list for PBXProject "ReportPortalAgent" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				368751AB1F5866CA0021B74D /* Debug */,
-				368751AC1F5866CA0021B74D /* Release */,
+				368751AB1F5866CA0021B74D /* Debug configuration for PBXProject "ReportPortalAgent" */,
+				368751AC1F5866CA0021B74D /* Release configuration for PBXProject "ReportPortalAgent" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		368751AD1F5866CA0021B74D /* Build configuration list for PBXNativeTarget "ReportPortalAgent" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				368751AE1F5866CA0021B74D /* Debug */,
-				368751AF1F5866CA0021B74D /* Release */,
+				368751AE1F5866CA0021B74D /* Debug configuration for PBXNativeTarget "ReportPortalAgent" */,
+				368751AF1F5866CA0021B74D /* Release configuration for PBXNativeTarget "ReportPortalAgent" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		9203A3B12135C20E00BFAF82 /* Build configuration list for PBXNativeTarget "Example" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9203A3B22135C20E00BFAF82 /* Debug */,
-				9203A3B32135C20E00BFAF82 /* Release */,
+				9203A3B22135C20E00BFAF82 /* Debug configuration for PBXNativeTarget "Example" */,
+				9203A3B32135C20E00BFAF82 /* Release configuration for PBXNativeTarget "Example" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		9203A3B42135C20E00BFAF82 /* Build configuration list for PBXNativeTarget "ExampleUnitTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9203A3B52135C20E00BFAF82 /* Debug */,
-				9203A3B62135C20E00BFAF82 /* Release */,
+				9203A3B52135C20E00BFAF82 /* Debug configuration for PBXNativeTarget "ExampleUnitTests" */,
+				9203A3B62135C20E00BFAF82 /* Release configuration for PBXNativeTarget "ExampleUnitTests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		9203A3B72135C20E00BFAF82 /* Build configuration list for PBXNativeTarget "ExampleUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9203A3B82135C20E00BFAF82 /* Debug */,
-				9203A3B92135C20E00BFAF82 /* Release */,
+				9203A3B82135C20E00BFAF82 /* Debug configuration for PBXNativeTarget "ExampleUITests" */,
+				9203A3B92135C20E00BFAF82 /* Release configuration for PBXNativeTarget "ExampleUITests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
