@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
     s.swift_version = '5.5'
     s.source_files = 'Sources/**/*.swift'
 
-    s.weak_framework = "XCTest"
+    s.weak_frameworks = 'XCTest', 'AppIntents'
     s.pod_target_xcconfig = {
         'FRAMEWORK_SEARCH_PATHS' => '$(inherited) "$(PLATFORM_DIR)/Developer/Library/Frameworks"',
         'ENABLE_TESTING_SEARCH_PATHS' => 'YES'
