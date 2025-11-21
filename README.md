@@ -267,34 +267,6 @@ In ReportPortal, all test results will appear under a **single launch** with pro
 
 ---
 
-## 📚 Documentation
-
-This README serves as the central hub for all documentation. Below are links to detailed guides organized by audience.
-
-### For End Users
-
-| Document | Description |
-|----------|-------------|
-| **[CHANGELOG.md](./CHANGELOG.md)** | Release history, version notes, and change log |
-| **[README.md](./README.md)** | Installation, configuration, and parallel execution setup |
-
-### For Developers & Contributors
-
-| Document | Description |
-|----------|-------------|
-| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | System architecture, concurrency model, V2 API structure, sequence diagrams, design rationale, and future enhancements |
-| **[.github/copilot-instructions.md](./.github/copilot-instructions.md)** | Development guidelines, Swift Concurrency best practices, recent changes, and coding standards |
-
-### Quick Links
-
-- **Getting Started**: See [Installation](#installation) and [Report Portal properties](#report-portal-properties) above
-- **Parallel Execution Setup**: See [Parallel Test Execution (v4.0+)](#parallel-test-execution-v40) section
-- **CI/CD Integration**: See examples in [Parallel Test Execution](#parallel-test-execution-v40) section
-- **Architecture Overview**: Start with [ARCHITECTURE.md](./ARCHITECTURE.md) for diagrams and design decisions
-- **Recent Changes**: Check [.github/copilot-instructions.md](./.github/copilot-instructions.md) for latest updates
-
----
-
 ## Authors
 [@rusel95](https://github.com/rusel95), <ruslanpopesku95@gmail.com>
 
