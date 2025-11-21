@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [4.0.0] - 2025-11-21
+
 ### Changed
 - **BREAKING**: LaunchManager simplified from Actor to simple singleton class, by @rusel95
   - Changed from ~180 lines to 26 lines (85% reduction)
