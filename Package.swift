@@ -1,3 +1,6 @@
+// swift-tools-version:5.5
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+//
 //  Copyright 2025 EPAM Systems
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,9 +14,6 @@
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
-//
-// swift-tools-version:5.5
-// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
@@ -21,10 +21,10 @@ let package = Package(
     name: "agent-swift-XCTest",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v14),
-        .tvOS(.v18),
-        .watchOS(.v11)
+        .iOS(.v15),
+        .macOS(.v12),
+        .tvOS(.v15),
+        .watchOS(.v8)
     ],
     products: [
         // Products define the executables and libraries produced by a package, and make them visible to other packages.
