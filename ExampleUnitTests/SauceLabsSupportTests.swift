@@ -325,3 +325,43 @@ final class LaunchGateOrderingTests: XCTestCase {
         withExtendedLifetime(listeners) {}
     }
 }
+
+// MARK: - LaunchUUID resolution
+
+/// The launch UUID may be supplied through the test bundle's `Info.plist`, because on
+/// real-device farms that is the only channel that reaches every shard. Resolution is a
+/// static resolver (env var → Info.plist → nil) so it is testable without touching the
+/// memoized per-process value.
+final class LaunchUUIDTests: XCTestCase {
+
+    func testConfiguredLaunchUUID_NothingSet_ReturnsNil() {
+        // The unit bundle carries no ReportPortalLaunchUUID, so the launch is per-process.
+        XCTAssertNil(LaunchUUID.configuredLaunchUUID(from: Bundle(for: LaunchUUIDTests.self)))
+    }
+
+    func testConfiguredLaunchUUID_EnvVarWins() {
+        setenv("RP_LAUNCH_UUID", "run-42-1", 1)
+        defer { unsetenv("RP_LAUNCH_UUID") }
+
+        let resolved = LaunchUUID.configuredLaunchUUID(from: Bundle(for: LaunchUUIDTests.self))
+        XCTAssertEqual(resolved?.0, "run-42-1")
+        XCTAssertEqual(resolved?.1, .environment)
+    }
+
+    func testConfiguredLaunchUUID_TrimsAndTreatsBlankAsAbsent() {
+        setenv("RP_LAUNCH_UUID", "  run-42-1\n", 1)
+        XCTAssertEqual(LaunchUUID.configuredLaunchUUID(from: nil)?.0, "run-42-1",
+                       "whitespace must not split one run into two launches")
+
+        // An unexpanded $(RP_LAUNCH_UUID) build setting arrives as an empty string; it must
+        // not become the launch id.
+        setenv("RP_LAUNCH_UUID", "   ", 1)
+        defer { unsetenv("RP_LAUNCH_UUID") }
+        XCTAssertNil(LaunchUUID.configuredLaunchUUID(from: nil))
+    }
+
+    func testSkipFinish_StaysOffWhenNoLaunchUUIDWasSupplied() {
+        // Nothing supplied the launch UUID, so this process still owns finalizing it.
+        XCTAssertFalse(RPListener.resolveSkipFinish(from: Bundle(for: LaunchUUIDTests.self)))
+    }
+}

@@ -162,7 +162,9 @@ open class RPListener: NSObject, XCTestObservation {
         self.reportingService = reportingService
         
         // Get launch UUID — resolved once per process, stable across all calls.
-        let launchUUID = LaunchUUID.value
+        // The test bundle is passed so the Info.plist tier can be read: on real-device
+        // farms it is the only channel that reaches every shard.
+        let launchUUID = LaunchUUID.resolve(from: testBundle)
         Logger.shared.info("📦 Launch UUID: \(launchUUID)")
         
         // Create the launch gate — a single Task that all subsequent XCTest callbacks
@@ -877,6 +879,15 @@ open class RPListener: NSObject, XCTestObservation {
            let parsed = parseBoolFlag(plistValue) {
             Logger.shared.info("⏭️ skipFinish from Info.plist: \(parsed)")
             return parsed
+        }
+        // A launch UUID compiled into the Info.plist is shared by every shard of the run,
+        // so this process does not own the launch: finalizing it here would close the
+        // launch under the shards still reporting, and ReportPortal force-finishes every
+        // still-running item with the finish request's status when a launch is finished. The run is closed
+        // once, from CI, after all shards are done.
+        if LaunchUUID.source == .infoPlist {
+            Logger.shared.info("⏭️ skipFinish: launch UUID came from Info.plist (shared launch — CI finalizes it)")
+            return true
         }
         return false
     }
