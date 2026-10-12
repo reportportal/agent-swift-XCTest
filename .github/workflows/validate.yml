@@ -82,11 +82,17 @@ jobs:
           persist-credentials: false
       - name: Run ExampleUnitTests
         run: |
-          # Ask xcodebuild for an iPhone simulator it can actually run and pin it by id: a
-          # name alone resolves against the newest runtime only, where that model may not exist.
-          device_id=$(xcodebuild -showdestinations -scheme Example -project ReportPortalAgent.xcodeproj 2>&1 \
-            | grep -m1 'platform:iOS Simulator.*name:iPhone' | grep -oE 'id:[^,]+' | cut -d: -f2)
-          echo "Using simulator: $device_id"
+          # Pin an iPhone simulator by id, from the newest iOS runtime the selected Xcode's SDK
+          # supports: a name alone resolves against the newest runtime only, where that model
+          # may not exist.
+          sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          device_id=$(xcrun simctl list devices available -j | SDK="$sdk" ruby -rjson -e '
+            ver = ->(s) { s.split(/[.-]/).map(&:to_i) }
+            devices = JSON.parse(STDIN.read)["devices"]
+            runtimes = devices.keys.select { |k| k.include?("SimRuntime.iOS-") && (ver.(k[/iOS-([\d-]+)/, 1]) <=> ver.(ENV["SDK"])) <= 0 }
+            iphones = runtimes.max_by { |k| ver.(k[/iOS-([\d-]+)/, 1]) }.then { |k| devices[k].select { |d| d["name"].start_with?("iPhone") } }
+            puts iphones.first["udid"]')
+          echo "Using simulator: $device_id (iOS SDK $sdk)"
           # Run only the network-free unit target: ExampleUnitTests sets
           # PushTestDataToReportPortal=NO, so it makes no live ReportPortal calls and is
           # deterministic in CI. It covers the agent's own resolution logic
