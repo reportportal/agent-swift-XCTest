@@ -230,6 +230,7 @@ final class RecordingReportingService: ReportingServiceProtocol, @unchecked Send
         return uuid
     }
     func patchLaunchAttributes(uuid: String, attributes: [[String: String]]) async throws { record("patchLaunchAttributes") }
+    func launchStartTime(uuid: String) async throws -> Date? { record("launchStartTime"); return nil }
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String { record("startSuite"); return UUID().uuidString }
     func finishSuite(operation: SuiteOperation) async throws { record("finishSuite") }
     func startTest(operation: TestOperation, launchID: String) async throws -> String { record("startTest"); return UUID().uuidString }
@@ -363,5 +364,28 @@ final class LaunchUUIDTests: XCTestCase {
     func testSkipFinish_StaysOffWhenNoLaunchUUIDWasSupplied() {
         // Nothing supplied the launch UUID, so this process still owns finalizing it.
         XCTAssertFalse(RPListener.resolveSkipFinish(from: Bundle(for: LaunchUUIDTests.self)))
+    }
+}
+
+final class TimeHelperTests: XCTestCase {
+
+    func testDateFromServer_ParsesBothReportPortalFormats() {
+        XCTAssertEqual(TimeHelper.date(fromServer: "2026-09-07T11:37:03.436Z")?.timeIntervalSince1970 ?? 0,
+                       1_788_781_023.436, accuracy: 0.0005)
+        XCTAssertEqual(TimeHelper.date(fromServer: "2026-09-07T13:28:14Z")?.timeIntervalSince1970,
+                       1_788_787_694)
+        XCTAssertNil(TimeHelper.date(fromServer: nil))
+        XCTAssertNil(TimeHelper.date(fromServer: "1788781023436"))
+    }
+
+    func testLaunchDecodes_EpochMillisecondsAndIsoTimestamps() throws {
+        // ReportPortal 5.15 returned this exact shape for a launch: numeric timestamps.
+        let numeric = #"{"id":46,"uuid":"run-1","startTime":1791826312000,"endTime":1791826450000,"lastModified":1791826270109,"statistics":{"executions":{},"defects":{}},"attributes":[]}"#
+        let launch = try JSONDecoder().decode(Launch.self, from: Data(numeric.utf8))
+        XCTAssertEqual(launch.startTime?.date?.timeIntervalSince1970, 1_791_826_312)
+
+        let iso = #"{"id":10,"startTime":"2026-09-07T11:37:03.436Z"}"#
+        XCTAssertEqual(try JSONDecoder().decode(Launch.self, from: Data(iso.utf8)).startTime?.date?.timeIntervalSince1970 ?? 0,
+                       1_788_781_023.436, accuracy: 0.0005)
     }
 }

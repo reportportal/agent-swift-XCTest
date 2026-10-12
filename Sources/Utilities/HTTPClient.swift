@@ -144,6 +144,8 @@ final class HTTPClient: NSObject, URLSessionDelegate, @unchecked Sendable {
     // Handle different encoding types
     switch endPoint.encoding {
     case .json:
+      // URLSession rejects a GET that carries a body ("resource exceeds maximum size").
+      guard endPoint.method != .get else { break }
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       let data = try JSONSerialization.data(withJSONObject: endPoint.parameters, options: .prettyPrinted)
       request.httpBody = data

@@ -30,7 +30,7 @@ struct Launch: Decodable  {
     let id: Int
     let uuid, name: String?
     let number: Int?
-    let startTime, endTime, lastModified: String?
+    let startTime, endTime, lastModified: ServerTime?
     let status: String?
     let statistics: Statistics?
     let attributes: [Attributes?]?
@@ -40,6 +40,22 @@ struct Launch: Decodable  {
     let hasRetries, rerun: Bool?
     let metadata: Metadata?
     let description: String?
+}
+
+/// A ReportPortal timestamp. Depending on version and launch, the server returns an ISO-8601
+/// string ("2026-09-07T11:37:03.436Z") or epoch milliseconds (1791826312000); a field typed as
+/// either one alone makes the whole `Launch` fail to decode on the other.
+struct ServerTime: Decodable {
+    let date: Date?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let milliseconds = try? container.decode(Double.self) {
+            date = Date(timeIntervalSince1970: milliseconds / 1000)
+        } else {
+            date = TimeHelper.date(fromServer: try? container.decode(String.self))
+        }
+    }
 }
 
 struct Metadata: Decodable {

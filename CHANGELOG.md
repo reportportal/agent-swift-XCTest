@@ -19,6 +19,13 @@
     shards are done. An explicit `ReportPortalSkipFinish` still wins.
 
 ### Fixed
+- **A device whose clock lags the shared launch's creator lost all its results.** ReportPortal
+  rejects an item that starts before its launch, and the async v2 API drops it without an
+  error — measured: half a second of lag was enough. With a shared launch UUID the agent now
+  reads the launch's stored start time and never stamps earlier than it, by @rusel95.
+- Reading a launch (`GET launch/uuid/{uuid}`) never worked: every request carried a JSON body,
+  which URLSession rejects for GET, and epoch-millisecond timestamps failed to decode. Both
+  fixed, which also makes the orphan-launch attribute back-fill work, by @rusel95.
 - **Random loss of all launch attributes (the real "N of 6 didn't merge" cause).** The
   start-launch and start-item bodies sent a legacy `"tags"` field alongside `"attributes"`.
   Server-side, ReportPortal's `StartRQ` declares `@JsonAlias({"attributes","tags"})` — both

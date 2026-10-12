@@ -145,6 +145,13 @@ public final class ReportingService: Sendable {
         Logger.shared.info("📎 Back-filled \(attributes.count) attribute(s) onto existing launch \(uuid) (id: \(launch.id))")
     }
 
+    /// Start time of a launch as ReportPortal stored it. Throws while the launch does not exist
+    /// yet — v2 reporting is asynchronous, so a just-started launch can lag behind.
+    func launchStartTime(uuid: String) async throws -> Date? {
+        let launch: Launch = try await httpClientV1.callEndPoint(GetLaunchByUuidEndPoint(uuid: uuid))
+        return launch.startTime?.date
+    }
+
     // MARK: - Suite Management
 
     /// Create suite item in ReportPortal
@@ -434,6 +441,7 @@ struct LaunchUpdateResponse: Decodable {
 protocol ReportingServiceProtocol: Sendable {
     func startLaunch(name: String, tags: [String], attributes: [[String: String]], uuid: String) async throws -> String
     func patchLaunchAttributes(uuid: String, attributes: [[String: String]]) async throws
+    func launchStartTime(uuid: String) async throws -> Date?
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String
     func finishSuite(operation: SuiteOperation) async throws
     func startTest(operation: TestOperation, launchID: String) async throws -> String

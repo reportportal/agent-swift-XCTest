@@ -205,6 +205,9 @@ open class RPListener: NSObject, XCTestObservation {
                         uuid: launchUUID
                     )
                     Logger.shared.info("✅ Launch created: \(id) (attempt \(attempt)/\(maxAttempts))")
+                    if LaunchUUID.source != .generated {
+                        await RPListener.alignClock(withSharedLaunch: launchUUID, using: reportingService)
+                    }
                     return true
                 } catch {
                     // 409 = a launch with this UUID already exists. Two cases:
@@ -238,6 +241,23 @@ open class RPListener: NSObject, XCTestObservation {
         self.launchGate = gate
     }
     
+    /// A shared launch is created by whichever process reaches ReportPortal first, stamped with
+    /// that device's clock. ReportPortal rejects an item that starts before its launch, and the
+    /// async v2 API drops it without an error — a device whose clock lags the creator's by even
+    /// half a second would lose every class it runs. Read the launch's stored start time and
+    /// never stamp earlier than it.
+    static func alignClock(withSharedLaunch uuid: String, using service: ReportingServiceProtocol) async {
+        for attempt in 1...5 {
+            if let start = try? await service.launchStartTime(uuid: uuid) {
+                TimeHelper.clamp(notBefore: start)
+                Logger.shared.info("🕒 Timestamps aligned to the shared launch start: \(start)")
+                return
+            }
+            try? await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
+        }
+        Logger.shared.warning("⚠️ Could not read the shared launch's start time; a device clock lagging the creator's may lose items")
+    }
+
     static func buildEnhancedLaunchName(baseLaunchName: String, testPlanName: String?) -> String {
         if let testPlan = testPlanName, !testPlan.isEmpty {
             let sanitizedTestPlan = testPlan.replacingOccurrences(of: " ", with: "_")
