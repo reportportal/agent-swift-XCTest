@@ -65,12 +65,11 @@ jobs:
           scheme: ${{ 'default' }}
           platform: ${{ 'iOS Simulator' }}
         run: |
-          # xcrun xctrace returns via stderr, not the expected stdout (see https://developer.apple.com/forums/thread/663959)
-          device=`xcrun xctrace list devices 2>&1 | grep -oE 'iPhone.*?[^\(]+' | head -1 | awk '{$1=$1;print}' | sed -e "s/ Simulator$//"`
           if [ $scheme = default ]; then scheme=$(cat default); fi
           if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
           file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
-          xcodebuild build -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -destination "platform=$platform,name=$device"
+          # A build needs no concrete device; the generic destination survives runner-image changes.
+          xcodebuild build -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -destination "generic/platform=$platform"
 
   unit-tests:
     name: Unit tests (ExampleUnitTests)
@@ -83,9 +82,11 @@ jobs:
           persist-credentials: false
       - name: Run ExampleUnitTests
         run: |
-          # Resolve an available iPhone simulator (same detection as the build job).
-          device=`xcrun xctrace list devices 2>&1 | grep -oE 'iPhone.*?[^\(]+' | head -1 | awk '{$1=$1;print}' | sed -e "s/ Simulator$//"`
-          echo "Using simulator: $device"
+          # Ask xcodebuild for an iPhone simulator it can actually run and pin it by id: a
+          # name alone resolves against the newest runtime only, where that model may not exist.
+          device_id=$(xcodebuild -showdestinations -scheme Example -project ReportPortalAgent.xcodeproj 2>&1 \
+            | grep -m1 'platform:iOS Simulator.*name:iPhone' | grep -oE 'id:[^,]+' | cut -d: -f2)
+          echo "Using simulator: $device_id"
           # Run only the network-free unit target: ExampleUnitTests sets
           # PushTestDataToReportPortal=NO, so it makes no live ReportPortal calls and is
           # deterministic in CI. It covers the agent's own resolution logic
@@ -95,5 +96,5 @@ jobs:
           xcodebuild test \
             -scheme Example \
             -project ReportPortalAgent.xcodeproj \
-            -destination "platform=iOS Simulator,name=$device" \
+            -destination "platform=iOS Simulator,id=$device_id" \
             -only-testing:ExampleUnitTests
