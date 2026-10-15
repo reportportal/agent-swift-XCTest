@@ -299,9 +299,11 @@ launch statistics count each one. Turn on retry collapsing in the same `Info.pli
   the row to see every attempt and the device it ran on.
 - With a shared launch UUID, a test class gets the **same suite id in every process** of the
   run, so a retry on another device lands in the original suite instead of a copy.
-- Shared suites are left open by the devices (another device may still be running a test in
-  one) and are closed by the launch finish call, with the status of their tests. Keep the
-  `curl` above.
+- A device that ran a whole class finishes its suite; a retry that joins an already finished
+  suite finishes it again, so ReportPortal recomputes its status. If a class is split across
+  devices that run at the same time, its suite is left open by them (finishing it would cut
+  off a test still running on another device) and the launch finish call closes it — keep the
+  `curl` above. ReportPortal tags a suite closed that way `status: interrupted`.
 - Xcode's own repetitions (`-retry-tests-on-failure`) collapse the same way.
 
 It is off by default because the same test reported twice in one launch can also mean the

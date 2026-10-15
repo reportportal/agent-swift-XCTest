@@ -49,6 +49,9 @@ struct SuiteOperation: Sendable {
     /// this process creates (and finishes) its own suite.
     var sharedUUID: String?
 
+    /// Whether this process ran every test of the class, not a slice of it.
+    var ranWholeClass = true
+
     /// Initialize a new suite operation
     init(
         correlationID: UUID = UUID(),

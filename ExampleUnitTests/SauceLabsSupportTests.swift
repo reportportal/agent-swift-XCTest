@@ -233,6 +233,7 @@ final class RecordingReportingService: ReportingServiceProtocol, @unchecked Send
     func launchStartTime(uuid: String) async throws -> Date? { record("launchStartTime"); return nil }
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String { record("startSuite"); return UUID().uuidString }
     func finishSuite(operation: SuiteOperation) async throws { record("finishSuite") }
+    func itemStatus(uuid: String) async throws -> String? { record("itemStatus"); return nil }
     func startTest(operation: TestOperation, launchID: String) async throws -> String {
         try? await Task.sleep(nanoseconds: 50_000_000) // 50ms: make out-of-order finishes observable
         record("startTest")
@@ -551,6 +552,15 @@ final class CollapseRetriesTests: XCTestCase {
         for key in ["uuid", "codeRef", "testCaseId", "retry"] {
             XCTAssertNil(endPoint.parameters[key], "\(key) must only be sent when set")
         }
+    }
+
+    func testSharedSuite_FinishedByWholeClassAndByLateRetry_NotUnderARunningSlice() {
+        XCTAssertTrue(RPListener.finishesSharedSuite(ranWholeClass: true, statusNow: nil))
+        XCTAssertTrue(RPListener.finishesSharedSuite(ranWholeClass: false, statusNow: "FAILED"),
+                      "a retry re-finishes an already finished suite so its status is recomputed")
+        XCTAssertFalse(RPListener.finishesSharedSuite(ranWholeClass: false, statusNow: "IN_PROGRESS"),
+                       "another device may be running a test in it")
+        XCTAssertFalse(RPListener.finishesSharedSuite(ranWholeClass: false, statusNow: nil))
     }
 
     func testCollapseRetries_IsOptIn() {

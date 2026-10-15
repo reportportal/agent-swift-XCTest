@@ -230,6 +230,12 @@ public final class ReportingService: Sendable {
         return item.startTime?.date
     }
 
+    /// Status of an item as ReportPortal stored it (`IN_PROGRESS` until it is finished).
+    func itemStatus(uuid: String) async throws -> String? {
+        let item: ItemResource = try await httpClientV1.callEndPoint(GetItemByUuidEndPoint(uuid: uuid))
+        return item.status
+    }
+
     /// Finish suite item in ReportPortal
     /// - Parameter operation: SuiteOperation with suite ID and final status
     func finishSuite(operation: SuiteOperation) async throws {
@@ -469,6 +475,7 @@ struct GetItemByUuidEndPoint: EndPoint {
 /// The part of ReportPortal's item resource the agent reads.
 struct ItemResource: Decodable {
     let startTime: ServerTime?
+    let status: String?
 }
 
 /// `PUT launch/{id}/update` — replace a launch's attributes (used to back-fill
@@ -504,6 +511,7 @@ protocol ReportingServiceProtocol: Sendable {
     func launchStartTime(uuid: String) async throws -> Date?
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String
     func finishSuite(operation: SuiteOperation) async throws
+    func itemStatus(uuid: String) async throws -> String?
     func startTest(operation: TestOperation, launchID: String) async throws -> String
     func finishTest(operation: TestOperation) async throws
     func postLog(message: String, level: String, itemID: String, launchID: String, correlationID: UUID?) async throws

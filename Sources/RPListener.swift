@@ -306,6 +306,16 @@ open class RPListener: NSObject, XCTestObservation {
         Logger.shared.warning("⚠️ Could not read the shared launch's start time; a device clock lagging the creator's may lose items")
     }
 
+    /// Whether this process finishes a suite shared with other processes. Finishing a suite
+    /// force-finishes the tests still running in it, so a process that ran only a slice of the
+    /// class leaves a suite that is still in progress elsewhere open; the launch finish closes it
+    /// (ReportPortal then tags it `status: interrupted`). A process that ran the whole class
+    /// finishes it, and so does a retry that joined an already finished suite, so ReportPortal
+    /// recomputes its status from the retried tests.
+    static func finishesSharedSuite(ranWholeClass: Bool, statusNow: String?) -> Bool {
+        ranWholeClass || (statusNow != nil && statusNow != "IN_PROGRESS")
+    }
+
     /// XCTest reports a skipped test as succeeded (`hasSucceeded == true`), so check the skip first.
     static func status(skipped: Bool, succeeded: Bool) -> TestStatus {
         if skipped { return .skipped }
@@ -371,6 +381,8 @@ open class RPListener: NSObject, XCTestObservation {
         // Retries of this class run in other processes: they must all report into one suite,
         // so it gets the same id everywhere instead of a fresh one per process.
         let sharesSuite = collapseRetries && LaunchUUID.source != .generated
+        let ranWholeClass = (testSuite.tests.first as? XCTestCase)
+            .map { testSuite.testCaseCount >= type(of: $0).defaultTestSuite.testCaseCount } ?? true
 
         enqueueSuiteStart(testSuite.name) {
             // Await the launch gate — guarantees launch creation finished. Skip reporting
@@ -430,6 +442,7 @@ open class RPListener: NSObject, XCTestObservation {
                     metadata: [:]
                 )
                 operation.codeRef = codeRef
+                operation.ranWholeClass = ranWholeClass
                 if sharesSuite {
                     operation.sharedUUID = LaunchUUID.sharedItemUUID(launchUUID: launchID, name: codeRef)
                 }
@@ -780,12 +793,13 @@ open class RPListener: NSObject, XCTestObservation {
                 return
             }
 
-            // A shared suite may still be running tests on another device, and finishing it
-            // would force-finish them. The launch finish closes it, with the status of its tests.
-            if operation.sharedUUID != nil {
-                await self.operationTracker.unregisterSuite(identifier: identifier)
-                Logger.shared.info("🔗 Shared suite '\(identifier)' left open for the launch finish", correlationID: operation.correlationID)
-                return
+            if let sharedUUID = operation.sharedUUID {
+                let status = operation.ranWholeClass ? nil : try? await asyncService.itemStatus(uuid: sharedUUID)
+                guard RPListener.finishesSharedSuite(ranWholeClass: operation.ranWholeClass, statusNow: status) else {
+                    await self.operationTracker.unregisterSuite(identifier: identifier)
+                    Logger.shared.info("🔗 Shared suite '\(identifier)' left open: another device is running part of it", correlationID: operation.correlationID)
+                    return
+                }
             }
             
             do {
