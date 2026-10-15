@@ -22,7 +22,13 @@ struct StartItemEndPoint: EndPoint {
   var relativePath: String
   let parameters: [String : Any]
 
-  init(itemName: String, parentID: String? = nil, launchID: String, type: TestType, attributes: [[String: String]] = []) {
+  /// - Parameters:
+  ///   - uuid: Client-chosen item uuid; lets every process of a shared launch address the same item.
+  ///   - codeRef: Stable identity (`Module.Class[.method]`), also sent as `testCaseId`, so
+  ///     ReportPortal tracks the item's history across launches.
+  ///   - retry: Ask ReportPortal to nest an earlier attempt of the same item under this one.
+  init(itemName: String, parentID: String? = nil, launchID: String, type: TestType, attributes: [[String: String]] = [],
+       uuid: String? = nil, codeRef: String? = nil, retry: Bool = false) {
     relativePath = "item"
     if let parentID = parentID {
       relativePath += "/\(parentID)"
@@ -32,7 +38,7 @@ struct StartItemEndPoint: EndPoint {
     // No legacy "tags" field: server-side it's a @JsonAlias of "attributes" (last field in
     // the JSON wins), so an empty "tags": [] could wipe the item's attributes whenever the
     // random dictionary serialization order put it after "attributes".
-    parameters = [
+    var parameters: [String: Any] = [
       "description": "",
       "launchUuid": launchID,  // V2 API: camelCase
       "name": itemName,
@@ -40,6 +46,17 @@ struct StartItemEndPoint: EndPoint {
       "type": type.rawValue,
       "attributes": attributes
     ]
+    if let uuid = uuid {
+      parameters["uuid"] = uuid
+    }
+    if let codeRef = codeRef {
+      parameters["codeRef"] = codeRef
+      parameters["testCaseId"] = codeRef
+    }
+    if retry {
+      parameters["retry"] = true
+    }
+    self.parameters = parameters
   }
 
 }

@@ -60,6 +60,32 @@ open class RPListener: NSObject, XCTestObservation {
     /// suspends until the gate's body completes — guaranteeing launch exists first.
     private var launchGate: Task<Bool, Never>?
 
+    /// Reporting work per test class, chained in XCTest callback order. XCTest delivers the
+    /// callbacks serially on the main thread, so a class's requests go out as start suite →
+    /// start test → logs → finish test → finish suite: a test is never finished before it was
+    /// started, and a suite never before its last test (ReportPortal would force-finish that
+    /// test with the suite's status). Classes are chained separately, so one class's requests
+    /// don't hold up the next class.
+    private var classChains: [String: Task<Void, Never>] = [:]
+
+    /// `ReportPortalCollapseRetries`: mark tests as retries so ReportPortal nests earlier
+    /// attempts of a test under its last one.
+    private var collapseRetries = false
+
+    /// Device and OS on every test of a shared launch, so each attempt shows where it ran.
+    private var testAttributes: [[String: String]] = []
+
+    /// Upper bound on how long the end of the bundle waits for reporting still in flight.
+    static let finalizationTimeout: TimeInterval = 120
+
+    private func enqueue(on className: String, _ work: @escaping () async -> Void) {
+        let previous = classChains[className]
+        classChains[className] = Task {
+            await previous?.value
+            await work()
+        }
+    }
+
     public override init() {
         super.init()
 
@@ -166,6 +192,11 @@ open class RPListener: NSObject, XCTestObservation {
         // farms it is the only channel that reaches every shard.
         let launchUUID = LaunchUUID.resolve(from: testBundle)
         Logger.shared.info("📦 Launch UUID: \(launchUUID)")
+
+        collapseRetries = RPListener.resolveCollapseRetries(from: testBundle)
+        if LaunchUUID.source != .generated {
+            testAttributes = MetadataCollector.collectDeviceAttributes()
+        }
         
         // Create the launch gate — a single Task that all subsequent XCTest callbacks
         // await before touching ReportPortal. Solves the "4 of 6" priority inversion:
@@ -258,6 +289,12 @@ open class RPListener: NSObject, XCTestObservation {
         Logger.shared.warning("⚠️ Could not read the shared launch's start time; a device clock lagging the creator's may lose items")
     }
 
+    /// XCTest reports a skipped test as succeeded (`hasSucceeded == true`), so check the skip first.
+    static func status(skipped: Bool, succeeded: Bool) -> TestStatus {
+        if skipped { return .skipped }
+        return succeeded ? .passed : .failed
+    }
+
     static func buildEnhancedLaunchName(baseLaunchName: String, testPlanName: String?) -> String {
         if let testPlan = testPlanName, !testPlan.isEmpty {
             let sanitizedTestPlan = testPlan.replacingOccurrences(of: " ", with: "_")
@@ -304,11 +341,18 @@ open class RPListener: NSObject, XCTestObservation {
             Logger.shared.info("⏭️ Skipping meta-suite: '\(testSuite.name)'")
             return
         }
+
+        // A filter can leave a class with no tests to run; XCTest still opens and closes it.
+        guard testSuite.testCaseCount > 0 else {
+            Logger.shared.info("⏭️ Skipping empty suite: '\(testSuite.name)'")
+            return
+        }
         
         Logger.shared.info("🔄 Processing suite: '\(testSuite.name)' (starting async Task)")
         
-        // Register suite with OperationTracker for parallel execution
-        Task {
+        let codeRef = (testSuite.tests.first as? XCTestCase).map { String(reflecting: type(of: $0)) } ?? testSuite.name
+
+        enqueue(on: testSuite.name) {
             // Await the launch gate — guarantees launch creation finished. Skip reporting
             // if it failed: the launch doesn't exist, so child-item calls would all fail.
             guard let gate = self.launchGate else {
@@ -365,9 +409,15 @@ open class RPListener: NSObject, XCTestObservation {
                     childTestIDs: [],
                     metadata: [:]
                 )
+                operation.codeRef = codeRef
+                // Retries of this class run in other processes: they must all report into one
+                // suite, so it gets the same id everywhere instead of a fresh one per process.
+                if self.collapseRetries && LaunchUUID.source != .generated {
+                    operation.sharedUUID = LaunchUUID.sharedItemUUID(launchUUID: launchID, name: codeRef)
+                }
 
                 // Register suite in tracker with consistent identifier
-                await operationTracker.registerSuite(operation, identifier: identifier)
+                await self.operationTracker.registerSuite(operation, identifier: identifier)
 
                 Logger.shared.info("✅ Suite registered: '\(identifier)' → ID: pending", correlationID: correlationID)
 
@@ -393,7 +443,7 @@ open class RPListener: NSObject, XCTestObservation {
 
                 // Update operation with suite ID
                 operation.suiteID = suiteID
-                await operationTracker.updateSuite(operation, identifier: identifier)
+                await self.operationTracker.updateSuite(operation, identifier: identifier)
 
                 // Store root suite ID if this is root
                 if isRootSuite {
@@ -419,8 +469,11 @@ open class RPListener: NSObject, XCTestObservation {
         
         Logger.shared.info("🔄 Processing test case: '\(testCase.name)' (starting async Task)")
         
-        // Register test case with OperationTracker for parallel execution
-        Task {
+        let testName = extractTestName(from: testCase)
+        let className = String(describing: type(of: testCase))
+        let codeRef = "\(String(reflecting: type(of: testCase))).\(testName)"
+
+        enqueue(on: className) {
             // Await the launch gate — guarantees launch creation finished. Skip reporting
             // if it failed: the launch doesn't exist, so child-item calls would all fail.
             guard let gate = self.launchGate else {
@@ -437,10 +490,6 @@ open class RPListener: NSObject, XCTestObservation {
             
             do {
                 let correlationID = UUID()
-
-                // Extract test information
-                let testName = extractTestName(from: testCase)
-                let className = String(describing: type(of: testCase))
                 let identifier = "\(className).\(testName)"
 
                 // DIAGNOSTIC: Log test details
@@ -453,8 +502,8 @@ open class RPListener: NSObject, XCTestObservation {
                     """, correlationID: correlationID)
 
                 // Get parent suite ID (from current suite context)
-                guard let suiteID = await getCurrentSuiteID(for: className) else {
-                    let activeSuites = await operationTracker.getAllSuiteIdentifiers()
+                guard let suiteID = await self.getCurrentSuiteID(for: className) else {
+                    let activeSuites = await self.operationTracker.getAllSuiteIdentifiers()
                     Logger.shared.error("""
                         ❌ TEST REGISTRATION FAILED: '\(className).\(testName)'
                         Reason: Parent suite ID not found for class '\(className)'
@@ -466,7 +515,7 @@ open class RPListener: NSObject, XCTestObservation {
                 }
                 
                 // Collect metadata
-                let metadata = collectTestMetadata()
+                let metadata = self.collectTestMetadata()
                 
                 // Create test operation
                 var operation = TestOperation(
@@ -480,16 +529,19 @@ open class RPListener: NSObject, XCTestObservation {
                     metadata: metadata,
                     attachments: []
                 )
+                operation.codeRef = codeRef
+                operation.attributes = self.testAttributes
+                operation.retry = self.collapseRetries
                 
                 // Register test in tracker
-                await operationTracker.registerTest(operation, identifier: identifier)
+                await self.operationTracker.registerTest(operation, identifier: identifier)
                 
                 // Start test in ReportPortal
                 let testID = try await asyncService.startTest(operation: operation, launchID: launchID)
                 
                 // Update operation with test ID
                 operation.testID = testID
-                await operationTracker.updateTest(operation, identifier: identifier)
+                await self.operationTracker.updateTest(operation, identifier: identifier)
                 
                 Logger.shared.info("Test started: \(testID)", correlationID: correlationID)
             } catch {
@@ -513,25 +565,22 @@ open class RPListener: NSObject, XCTestObservation {
     // XCTest suite names should match the class name for test class suites
     // Uses event-driven waiting (continuations) to handle async suite registration
     private func getCurrentSuiteID(for className: String) async -> String? {
-        // Try waiting for suite to be registered (handles async registration race)
-        // This uses continuations - test will pause until suite registers or timeout occurs
-        do {
-            let suiteOp = try await operationTracker.waitForSuite(identifier: className, timeout: 10)
-            Logger.shared.debug("Found suite for class '\(className)' via event-driven wait")
+        // The suite's start ran earlier in this class's chain, so it is registered by now —
+        // unless it failed to start. Don't wait: that would stall every later request of the class.
+        if let suiteOp = await self.operationTracker.getSuite(identifier: className), !suiteOp.suiteID.isEmpty {
             return suiteOp.suiteID
-        } catch {
-            Logger.shared.warning("Suite '\(className)' not registered after waiting: \(error.localizedDescription)")
         }
+        Logger.shared.warning("Suite '\(className)' is not started")
 
         // If exact match failed after waiting, check all registered suites for potential matches
         // This handles edge cases where XCTest might provide different naming
-        let allSuites = await operationTracker.getAllSuiteIdentifiers()
+        let allSuites = await self.operationTracker.getAllSuiteIdentifiers()
         Logger.shared.debug("Searching for suite matching class '\(className)' in: [\(allSuites.joined(separator: ", "))]")
 
         // Try to find a suite that contains the class name
         for suiteIdentifier in allSuites {
             if suiteIdentifier.contains(className) || className.contains(suiteIdentifier) {
-                if let suiteOp = await operationTracker.getSuite(identifier: suiteIdentifier) {
+                if let suiteOp = await self.operationTracker.getSuite(identifier: suiteIdentifier), !suiteOp.suiteID.isEmpty {
                     Logger.shared.info("Found suite '\(suiteIdentifier)' for class '\(className)' via partial match")
                     return suiteOp.suiteID
                 }
@@ -577,90 +626,36 @@ open class RPListener: NSObject, XCTestObservation {
     
     @available(*, deprecated, message: "Use fun public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) for iOs 17+")
     public func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssueReference) {
-        guard let asyncService = reportingService else {
-            Logger.shared.warning("⚠️ Reporting disabled: Test issue for '\(testCase.name)' will not be reported to ReportPortal")
-            return
-        }
-        
-        // Async attachment upload for concurrent execution
-        Task {
-            // Get launch ID (lazy initialization on first access)
-            let launchID = LaunchUUID.value
-
-            // Build identifier to get test operation
-            let testName = extractTestName(from: testCase)
-            let className = String(describing: type(of: testCase))
-            let identifier = "\(className).\(testName)"
-
-            guard let operation = await operationTracker.getTest(identifier: identifier) else {
-                Logger.shared.warning("""
-                    ⚠️ Cannot report test issue: Test operation not found for '\(identifier)'
-                    Reason: Test may not have been registered successfully
-                    Impact: Test failure details will not be visible in ReportPortal
-                    """)
-                return
-            }
-
-            do {
-                let lineNumberString = issue.sourceCodeContext.location?.lineNumber != nil
-                ? " on line \(issue.sourceCodeContext.location!.lineNumber)"
-                : ""
-                let errorMessage = "Test '\(String(describing: issue.description))' failed\(lineNumberString), \(issue.description)"
-
-                // Post error log with async API (non-blocking)
-                try await asyncService.postLog(
-                    message: errorMessage,
-                    level: "error",
-                    itemID: operation.testID,
-                    launchID: launchID,
-                    correlationID: operation.correlationID
-                )
-
-                // Capture and upload screenshot directly (v3.x approach)
-                #if canImport(UIKit)
-                do {
-                    let screenshot = await XCUIScreen.main.screenshot()
-                    let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-                    let filename = "failure_screenshot_\(timestamp).png"
-
-                    try await asyncService.postScreenshot(
-                        screenshotData: await screenshot.pngRepresentation,
-                        filename: filename,
-                        itemID: operation.testID,
-                        launchID: launchID,
-                        correlationID: operation.correlationID
-                    )
-                    Logger.shared.info("📸 Screenshot uploaded successfully", correlationID: operation.correlationID)
-                } catch {
-                    Logger.shared.warning("Failed to upload screenshot: \(error.localizedDescription)", correlationID: operation.correlationID)
-                }
-                #endif
-
-                Logger.shared.info("TEST FAIL reported", correlationID: operation.correlationID)
-            } catch {
-                Logger.shared.error("Failed to report TEST FAIL: \(error.localizedDescription)", correlationID: operation.correlationID)
-            }
-        }
+        let lineNumberString = issue.sourceCodeContext.location.map { " on line \($0.lineNumber)" } ?? ""
+        reportFailure(of: testCase, message: "Test '\(String(describing: issue.description))' failed\(lineNumberString), \(issue.description)")
     }
     
     // For iOs 17+
     public func testCase(_ testCase: XCTestCase, didFailWithDescription description: String, inFile filePath: String?, atLine lineNumber: Int) {
+        let fileInfo = filePath.map { " in \(URL(fileURLWithPath: $0).lastPathComponent)" } ?? ""
+        reportFailure(of: testCase, message: "Test failed on line \(lineNumber)\(fileInfo): \(description)")
+    }
+
+    /// Log a failure and a screenshot of the screen at that moment on the failing test.
+    private func reportFailure(of testCase: XCTestCase, message: String) {
         guard let asyncService = reportingService else {
             Logger.shared.warning("⚠️ Reporting disabled: Test failure for '\(testCase.name)' will not be reported to ReportPortal")
             return
         }
-        
-        // Async attachment upload for concurrent execution
-        Task {
-            // Get launch ID (lazy initialization on first access)
+
+        // Take the screenshot now, not when the class's chain reaches the upload.
+        #if canImport(UIKit)
+        let screenshot = Task { @MainActor in XCUIScreen.main.screenshot().pngRepresentation }
+        #endif
+
+        let testName = extractTestName(from: testCase)
+        let className = String(describing: type(of: testCase))
+        let identifier = "\(className).\(testName)"
+
+        enqueue(on: className) {
             let launchID = LaunchUUID.value
 
-            // Build identifier to get test operation
-            let testName = extractTestName(from: testCase)
-            let className = String(describing: type(of: testCase))
-            let identifier = "\(className).\(testName)"
-
-            guard let operation = await operationTracker.getTest(identifier: identifier) else {
+            guard let operation = await self.operationTracker.getTest(identifier: identifier) else {
                 Logger.shared.warning("""
                     ⚠️ Cannot report test failure: Test operation not found for '\(identifier)'
                     Reason: Test may not have been registered successfully
@@ -670,28 +665,20 @@ open class RPListener: NSObject, XCTestObservation {
             }
 
             do {
-                let fileInfo = filePath != nil ? " in \(URL(fileURLWithPath: filePath!).lastPathComponent)" : ""
-                let errorMessage = "Test failed on line \(lineNumber)\(fileInfo): \(description)"
-
-                // Post error log with async API (non-blocking)
                 try await asyncService.postLog(
-                    message: errorMessage,
+                    message: message,
                     level: "error",
                     itemID: operation.testID,
                     launchID: launchID,
                     correlationID: operation.correlationID
                 )
 
-                // Capture and upload screenshot directly (v3.x approach, works on iOS 17+)
                 #if canImport(UIKit)
                 do {
-                    let screenshot = await XCUIScreen.main.screenshot()
                     let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-                    let filename = "failure_screenshot_\(timestamp).png"
-
                     try await asyncService.postScreenshot(
-                        screenshotData: await screenshot.pngRepresentation,
-                        filename: filename,
+                        screenshotData: await screenshot.value,
+                        filename: "failure_screenshot_\(timestamp).png",
                         itemID: operation.testID,
                         launchID: launchID,
                         correlationID: operation.correlationID
@@ -714,34 +701,32 @@ open class RPListener: NSObject, XCTestObservation {
             Logger.shared.warning("⚠️ Reporting disabled: Test completion for '\(testCase.name)' will not be reported to ReportPortal")
             return
         }
-        
+
+        let testName = extractTestName(from: testCase)
+        let className = String(describing: type(of: testCase))
+        let identifier = "\(className).\(testName)"
+        let status = RPListener.status(skipped: testCase.testRun?.hasBeenSkipped ?? false,
+                                       succeeded: testCase.testRun?.hasSucceeded ?? false)
+
         // Finalize test with status update and cleanup
-        Task {
-            // Build identifier
-            let testName = extractTestName(from: testCase)
-            let className = String(describing: type(of: testCase))
-            let identifier = "\(className).\(testName)"
-            
+        enqueue(on: className) {
             // Retrieve test operation from tracker
-            guard var operation = await operationTracker.getTest(identifier: identifier) else {
+            guard var operation = await self.operationTracker.getTest(identifier: identifier) else {
                 Logger.shared.error("Test operation not found in tracker: \(identifier)")
                 return
             }
 
             do {
-                // Update status based on test result
-                let hasSucceeded = testCase.testRun?.hasSucceeded ?? false
-                operation.status = hasSucceeded ? .passed : .failed
+                operation.status = status
 
                 // Finish test in ReportPortal
                 // Note: Screenshots are uploaded directly in failure methods, not here
                 try await asyncService.finishTest(operation: operation)
 
                 // Unregister test from tracker (cleanup)
-                await operationTracker.unregisterTest(identifier: identifier)
+                await self.operationTracker.unregisterTest(identifier: identifier)
 
-                let statusString = operation.status?.rawValue ?? "UNKNOWN"
-                Logger.shared.info("Test finished: \(operation.testID) with status: \(statusString)", correlationID: operation.correlationID)
+                Logger.shared.info("Test finished: \(operation.testID) with status: \(status.rawValue)", correlationID: operation.correlationID)
             } catch {
                 Logger.shared.error("Failed to finish test '\(testCase.name)': \(error.localizedDescription)", correlationID: operation.correlationID)
             }
@@ -756,33 +741,40 @@ open class RPListener: NSObject, XCTestObservation {
         
         guard
             !testSuite.name.contains("All tests"),
-            !testSuite.name.contains("Selected tests") else
+            !testSuite.name.contains("Selected tests"),
+            testSuite.testCaseCount > 0 else
         {
             return
         }
         
+        let identifier = testSuite.name
+
         // Finalize suite with OperationTracker
-        Task {
-            let identifier = testSuite.name
+        enqueue(on: identifier) {
             Logger.shared.info("🏁 testSuiteDidFinish called - Suite: '\(identifier)'")
             
             // Retrieve suite operation from tracker
-            guard let operation = await operationTracker.getSuite(identifier: identifier) else {
+            guard let operation = await self.operationTracker.getSuite(identifier: identifier) else {
                 Logger.shared.error("❌ Suite operation not found in tracker: \(identifier)")
+                return
+            }
+
+            // A shared suite may still be running tests on another device, and finishing it
+            // would force-finish them. The launch finish closes it, with the status of its tests.
+            if operation.sharedUUID != nil {
+                await self.operationTracker.unregisterSuite(identifier: identifier)
+                Logger.shared.info("🔗 Shared suite '\(identifier)' left open for the launch finish", correlationID: operation.correlationID)
                 return
             }
             
             do {
-                // Determine final status (would be updated from child tests in production)
-                // For now, keep as-is - in full implementation, aggregate from child tests
-                
                 Logger.shared.info("📡 Finishing suite '\(identifier)' in ReportPortal...", correlationID: operation.correlationID)
                 
                 // Finish suite in ReportPortal
                 try await asyncService.finishSuite(operation: operation)
                 
                 // Unregister suite from tracker (cleanup)
-                await operationTracker.unregisterSuite(identifier: identifier)
+                await self.operationTracker.unregisterSuite(identifier: identifier)
                 
                 Logger.shared.info("✅ Suite finished: \(operation.suiteID)", correlationID: operation.correlationID)
             } catch {
@@ -794,70 +786,54 @@ open class RPListener: NSObject, XCTestObservation {
     public func testBundleDidFinish(_ testBundle: Bundle) {
         Logger.shared.info("🏁 testBundleDidFinish called - Bundle: \(testBundle.bundleIdentifier ?? "unknown")")
         
-        guard reportingService != nil else {
+        guard let asyncService = reportingService else {
             Logger.shared.warning("⚠️ Reporting disabled: Test bundle completion will not be reported to ReportPortal")
             return
         }
         
-        Logger.shared.info("📦 Bundle finished - finalizing launch")
-        
-        // CRITICAL: Use semaphore to block until finalization completes
-        // XCTest process will terminate immediately after testBundleDidFinish returns,
-        // so we MUST block here to ensure async finalization completes
-        let semaphore = DispatchSemaphore(value: 0)
-        
+        Logger.shared.info("📦 Bundle finished - waiting for pending reporting, then finalizing launch")
+
+        let pending = Array(classChains.values)
+        let gate = launchGate
+        let skipFinish = RPListener.resolveSkipFinish(from: testBundle)
+        let done = DispatchSemaphore(value: 0)
+
         Task {
-            // CRITICAL: Wait for pending async operations (screenshots, logs, test/suite reporting) to complete
-            // Test failures and runtime issues trigger async Tasks that may still be executing
-            // when bundle finishes. In script/CI mode, these tasks need extra time to complete
-            // their network calls to ReportPortal before process termination.
-            Logger.shared.info("⏸️  Starting 15-second grace period for pending async operations...")
-            Logger.shared.info("   This ensures all test/suite start/finish calls complete before process exit")
-            try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 second grace period
-            Logger.shared.info("⏰ Grace period completed - proceeding with launch finalization")
-            
+            for chain in pending {
+                await chain.value
+            }
+
             let launchID = LaunchUUID.value
-
-            // ReportPortal will calculate the final status from all test results
-            Logger.shared.info("📊 Finalizing launch \(launchID)")
-
-            let skipFinish = RPListener.resolveSkipFinish(from: testBundle)
-            if skipFinish {
+            if await gate?.value != true {
+                Logger.shared.warning("⚠️ Launch was not created — nothing to finalize")
+            } else if skipFinish {
                 Logger.shared.info("⏭️ RP_SKIP_FINISH is set — skipping launch finalization")
                 Logger.shared.info("📋 Launch ID for manual/script finalization: \(launchID)")
             } else {
                 do {
-                    if let asyncService = reportingService {
-                        try await asyncService.finalizeLaunch(launchID: launchID, status: .passed)
-                        Logger.shared.info("✅ Launch finalized successfully: \(launchID)")
-                    }
+                    try await asyncService.finalizeLaunch(launchID: launchID)
+                    Logger.shared.info("✅ Launch finalized successfully: \(launchID)")
                 } catch {
                     Logger.shared.error("❌ Failed to finalize launch: \(error.localizedDescription)")
                 }
             }
-            
-            // CRITICAL FIX: Remove test observer on main thread (XCTestObservationCenter requirement)
-            // This must happen on main thread to prevent "Test observers can only be registered 
-            // and unregistered on the main thread" assertion
-            await MainActor.run {
-                XCTestObservationCenter.shared.removeTestObserver(self)
-                Logger.shared.info("🛑 Test observer removed - execution complete")
+            done.signal()
+        }
+
+        // XCTest ends the process as soon as this returns, so wait here for the reporting still
+        // in flight. Keep the main run loop turning meanwhile: blocking it would deadlock work
+        // that needs the main actor, such as a failure screenshot.
+        let deadline = Date().addingTimeInterval(RPListener.finalizationTimeout)
+        while done.wait(timeout: .now()) == .timedOut {
+            guard Date() < deadline else {
+                Logger.shared.error("⚠️ Reporting did not finish within \(Int(RPListener.finalizationTimeout))s — results still in flight are lost")
+                break
             }
-            
-            // Signal that finalization is complete
-            semaphore.signal()
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
         }
-        
-        // CRITICAL: Block until finalization completes (prevents process termination)
-        // Timeout after 20 seconds (15s grace + 5s for API call)
-        let timeout = DispatchTime.now() + .seconds(20)
-        let result = semaphore.wait(timeout: timeout)
-        
-        if result == .timedOut {
-            Logger.shared.error("⚠️ Launch finalization timed out after 20 seconds")
-        } else {
-            Logger.shared.info("✅ Launch finalization completed successfully")
-        }
+
+        XCTestObservationCenter.shared.removeTestObserver(self)
+        Logger.shared.info("🛑 Test observer removed - execution complete")
     }
 
     // MARK: - SauceLabs Merge Support
@@ -908,6 +884,24 @@ open class RPListener: NSObject, XCTestObservation {
         if LaunchUUID.source == .infoPlist {
             Logger.shared.info("⏭️ skipFinish: launch UUID came from Info.plist (shared launch — CI finalizes it)")
             return true
+        }
+        return false
+    }
+
+    /// Resolve collapseRetries: (1) RP_COLLAPSE_RETRIES env var, (2) ReportPortalCollapseRetries
+    /// Info.plist, (3) false. Opt-in because the same test reported twice in one launch is either
+    /// a retry (one row) or the same suite on several device models (separate rows), and only the
+    /// setup knows which.
+    static func resolveCollapseRetries(from testBundle: Bundle?) -> Bool {
+        if let envValue = ProcessInfo.processInfo.environment["RP_COLLAPSE_RETRIES"],
+           let parsed = parseBoolFlag(envValue) {
+            Logger.shared.info("🔁 collapseRetries from env var: \(parsed)")
+            return parsed
+        }
+        if let plistValue = testBundle?.object(forInfoDictionaryKey: "ReportPortalCollapseRetries"),
+           let parsed = parseBoolFlag(plistValue) {
+            Logger.shared.info("🔁 collapseRetries from Info.plist: \(parsed)")
+            return parsed
         }
         return false
     }

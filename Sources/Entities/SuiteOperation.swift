@@ -42,6 +42,13 @@ struct SuiteOperation: Sendable {
     /// Device info, bundle name, etc.
     var metadata: [String: String]
 
+    /// Stable identity sent to ReportPortal (`Module.Class`).
+    var codeRef: String?
+
+    /// Item uuid shared by every process of the launch when retries are collapsed; `nil` means
+    /// this process creates (and finishes) its own suite.
+    var sharedUUID: String?
+
     /// Initialize a new suite operation
     init(
         correlationID: UUID = UUID(),

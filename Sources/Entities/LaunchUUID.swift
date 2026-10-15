@@ -14,6 +14,7 @@
 //  limitations under the License.
 //
 
+import CryptoKit
 import Foundation
 
 /// Where the launch UUID came from. A UUID supplied through the `Info.plist` is shared by
@@ -44,7 +45,7 @@ enum LaunchUUID {
         lock.lock()
         defer { lock.unlock() }
 
-        if let resolvedValue {
+        if let resolvedValue = resolvedValue {
             return resolvedValue
         }
 
@@ -87,6 +88,17 @@ enum LaunchUUID {
             return (value, .infoPlist)
         }
         return nil
+    }
+
+    /// The item uuid a shared container gets in every process of the run: a SHA-1 name-based
+    /// UUID (version 5 layout) of the launch UUID and the container's name. Shards and retries on
+    /// other devices compute the same id, so they report into one suite instead of each
+    /// creating its own copy.
+    static func sharedItemUUID(launchUUID: String, name: String) -> String {
+        var bytes = Array(Insecure.SHA1.hash(data: Data("\(launchUUID)/\(name)".utf8)).prefix(16))
+        bytes[6] = (bytes[6] & 0x0F) | 0x50 // version 5
+        bytes[8] = (bytes[8] & 0x3F) | 0x80 // RFC 4122 variant
+        return bytes.withUnsafeBytes { UUID(uuid: $0.load(as: uuid_t.self)) }.uuidString.lowercased()
     }
 
     private static func nonEmpty(_ value: String?) -> String? {

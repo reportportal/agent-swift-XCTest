@@ -48,7 +48,7 @@ enum TimeHelper {
 
   /// Parses a ReportPortal timestamp ("2026-09-07T11:37:03.436Z" or "2026-09-07T13:28:14Z").
   static func date(fromServer string: String?) -> Date? {
-      guard let string else { return nil }
+      guard let string = string else { return nil }
       let parser = ISO8601DateFormatter()
       parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
       if let date = parser.date(from: string) { return date }
