@@ -330,7 +330,7 @@ RPListener ──► LaunchUUID           (launch identity: shared RP_LAUNCH_UUI
 - **`RPListener`** — the `XCTestObservation` entry point; resolves configuration and translates test events into API calls. Uses a "launch gate" Task to guarantee launch exists before any suites/tests are reported.
 - **`LaunchUUID`** — resolves launch UUID once per process (`RP_LAUNCH_UUID` env var, `ReportPortalLaunchUUID` in `Info.plist`, or auto-generated).
 - **`ReportingService`** — stateless async/await wrapper over the ReportPortal v2 API.
-- **Ordering** — each test class's requests go out in callback order (start suite → start test → logs → finish test → finish suite), so a suite is never closed under a running test. At the end of the bundle the agent waits for exactly the requests still in flight (up to 120 s) before the process exits.
+- **Ordering** — a suite starts before its tests, each test's requests go out in order (start → logs → finish), and a suite finishes only after all of its tests, so it is never closed under a running test. Different tests still report concurrently. At the end of the bundle the agent waits for exactly the requests still in flight (up to 120 s) before the process exits.
 - **Statuses** — tests send their own status; suites and the launch send none, so ReportPortal derives them from the tests.
 - **Idempotency** — finalizing an already-finished launch (HTTP 409) is treated as success.
 

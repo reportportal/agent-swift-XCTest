@@ -449,6 +449,21 @@ final class ReportingOrderTests: XCTestCase {
     /// Not auto-discovered (no `test` prefix): only used as the subject of the callbacks.
     final class OrderingSample: XCTestCase {
         @objc func sample() {}
+        @objc func other() {}
+    }
+
+    /// Records request order; a slow `startTest` makes a missing wait visible.
+    private func makeListener(_ recorder: RecordingReportingService) -> RPListener {
+        RPListener(injectedConfiguration: AgentConfiguration(
+            reportPortalURL: URL(string: "https://example.invalid")!,
+            projectName: "proj",
+            launchName: "Launch",
+            shouldSendReport: true,
+            portalToken: "token",
+            tags: [],
+            launchMode: .default,
+            testNameRules: []
+        ), makeReportingService: { _ in recorder })
     }
 
     // Synchronous on purpose: XCTest runs it on the main thread, like the real callbacks.
@@ -544,5 +559,35 @@ final class CollapseRetriesTests: XCTestCase {
         setenv("RP_COLLAPSE_RETRIES", "YES", 1)
         defer { unsetenv("RP_COLLAPSE_RETRIES") }
         XCTAssertTrue(RPListener.resolveCollapseRetries(from: nil))
+    }
+}
+
+extension ReportingOrderTests {
+
+    func testASuiteFinishesAfterAllItsTestsWhileTestsReportSideBySide() {
+        let recorder = RecordingReportingService()
+        let listener = makeListener(recorder)
+        let first = OrderingSample(selector: #selector(OrderingSample.sample))
+        let second = OrderingSample(selector: #selector(OrderingSample.other))
+        let suite = XCTestSuite(name: "OrderingSample")
+        suite.addTest(first)
+        suite.addTest(second)
+
+        let started = Date()
+        listener.testBundleWillStart(Bundle(for: ReportingOrderTests.self))
+        listener.testSuiteWillStart(suite)
+        for test in [first, second] {
+            listener.testCaseWillStart(test)
+            listener.testCaseDidFinish(test)
+        }
+        listener.testSuiteDidFinish(suite)
+        listener.testBundleDidFinish(Bundle(for: ReportingOrderTests.self))
+
+        let calls = recorder.calls
+        XCTAssertEqual(calls.filter { $0 == "finishTest" }.count, 2)
+        XCTAssertEqual(Array(calls.suffix(2)), ["finishSuite", "finalizeLaunch"], "\(calls)")
+        XCTAssertEqual(Array(calls.prefix(2)), ["startLaunch", "startSuite"], "\(calls)")
+        // Each start sleeps 50 ms; the two tests overlap instead of queueing behind each other.
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
     }
 }

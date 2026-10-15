@@ -42,7 +42,8 @@
 - **Requests could reach ReportPortal out of order.** Every XCTest callback started its own
   task, so a suite could be finished before its last test (ReportPortal then force-finishes
   that test with the suite's status) and a test could be finished before its start returned
-  an id. Each test class's requests now go out in callback order, by @rusel95.
+  an id. A suite now starts before its tests, each test's requests go out in order, and a
+  suite finishes only after all of its tests; different tests still report concurrently, by @rusel95.
 - **Every test process spent 20 s at the end and logged a timeout.** The bundle end slept 15 s,
   then waited on the blocked main thread for `MainActor.run`, which could never run, until a
   20 s timeout. It now waits for exactly the requests still in flight (up to 120 s) while

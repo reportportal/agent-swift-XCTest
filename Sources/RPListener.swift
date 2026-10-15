@@ -60,13 +60,14 @@ open class RPListener: NSObject, XCTestObservation {
     /// suspends until the gate's body completes — guaranteeing launch exists first.
     private var launchGate: Task<Bool, Never>?
 
-    /// Reporting work per test class, chained in XCTest callback order. XCTest delivers the
-    /// callbacks serially on the main thread, so a class's requests go out as start suite →
-    /// start test → logs → finish test → finish suite: a test is never finished before it was
-    /// started, and a suite never before its last test (ReportPortal would force-finish that
-    /// test with the suite's status). Classes are chained separately, so one class's requests
-    /// don't hold up the next class.
-    private var classChains: [String: Task<Void, Never>] = [:]
+    /// Reporting work, ordered by XCTest callback order (callbacks arrive serially on the main
+    /// thread). A suite starts before its tests; each test's own requests run in order (start →
+    /// logs → finish), so it is never finished before its start returned an id; and a suite
+    /// finishes only after every request of its tests, since ReportPortal would force-finish a
+    /// still-running test with the suite's status. Different tests still report concurrently.
+    private var suiteStarts: [String: Task<Void, Never>] = [:]
+    private var testChains: [String: Task<Void, Never>] = [:]
+    private var suiteFinishes: [Task<Void, Never>] = []
 
     /// `ReportPortalCollapseRetries`: mark tests as retries so ReportPortal nests earlier
     /// attempts of a test under its last one.
@@ -78,12 +79,28 @@ open class RPListener: NSObject, XCTestObservation {
     /// Upper bound on how long the end of the bundle waits for reporting still in flight.
     static let finalizationTimeout: TimeInterval = 120
 
-    private func enqueue(on className: String, _ work: @escaping () async -> Void) {
-        let previous = classChains[className]
-        classChains[className] = Task {
+    private func enqueueSuiteStart(_ className: String, _ work: @escaping () async -> Void) {
+        suiteStarts[className] = Task { await work() }
+    }
+
+    /// `identifier` is `Class.method`; the test's first request waits for its suite's start.
+    private func enqueue(test identifier: String, in className: String, _ work: @escaping () async -> Void) {
+        let previous = testChains[identifier] ?? suiteStarts[className]
+        testChains[identifier] = Task {
             await previous?.value
             await work()
         }
+    }
+
+    private func enqueueSuiteFinish(_ className: String, _ work: @escaping () async -> Void) {
+        let before = testChains.filter { $0.key.hasPrefix(className + ".") }.map { $0.value }
+            + [suiteStarts[className]].compactMap { $0 }
+        suiteFinishes.append(Task {
+            for task in before {
+                await task.value
+            }
+            await work()
+        })
     }
 
     public override init() {
@@ -351,8 +368,11 @@ open class RPListener: NSObject, XCTestObservation {
         Logger.shared.info("🔄 Processing suite: '\(testSuite.name)' (starting async Task)")
         
         let codeRef = (testSuite.tests.first as? XCTestCase).map { String(reflecting: type(of: $0)) } ?? testSuite.name
+        // Retries of this class run in other processes: they must all report into one suite,
+        // so it gets the same id everywhere instead of a fresh one per process.
+        let sharesSuite = collapseRetries && LaunchUUID.source != .generated
 
-        enqueue(on: testSuite.name) {
+        enqueueSuiteStart(testSuite.name) {
             // Await the launch gate — guarantees launch creation finished. Skip reporting
             // if it failed: the launch doesn't exist, so child-item calls would all fail.
             guard let gate = self.launchGate else {
@@ -410,9 +430,7 @@ open class RPListener: NSObject, XCTestObservation {
                     metadata: [:]
                 )
                 operation.codeRef = codeRef
-                // Retries of this class run in other processes: they must all report into one
-                // suite, so it gets the same id everywhere instead of a fresh one per process.
-                if self.collapseRetries && LaunchUUID.source != .generated {
+                if sharesSuite {
                     operation.sharedUUID = LaunchUUID.sharedItemUUID(launchUUID: launchID, name: codeRef)
                 }
 
@@ -471,9 +489,12 @@ open class RPListener: NSObject, XCTestObservation {
         
         let testName = extractTestName(from: testCase)
         let className = String(describing: type(of: testCase))
+        let identifier = "\(className).\(testName)"
         let codeRef = "\(String(reflecting: type(of: testCase))).\(testName)"
+        let attributes = testAttributes
+        let retry = collapseRetries
 
-        enqueue(on: className) {
+        enqueue(test: identifier, in: className) {
             // Await the launch gate — guarantees launch creation finished. Skip reporting
             // if it failed: the launch doesn't exist, so child-item calls would all fail.
             guard let gate = self.launchGate else {
@@ -490,7 +511,6 @@ open class RPListener: NSObject, XCTestObservation {
             
             do {
                 let correlationID = UUID()
-                let identifier = "\(className).\(testName)"
 
                 // DIAGNOSTIC: Log test details
                 Logger.shared.info("""
@@ -530,8 +550,8 @@ open class RPListener: NSObject, XCTestObservation {
                     attachments: []
                 )
                 operation.codeRef = codeRef
-                operation.attributes = self.testAttributes
-                operation.retry = self.collapseRetries
+                operation.attributes = attributes
+                operation.retry = retry
                 
                 // Register test in tracker
                 await self.operationTracker.registerTest(operation, identifier: identifier)
@@ -652,7 +672,7 @@ open class RPListener: NSObject, XCTestObservation {
         let className = String(describing: type(of: testCase))
         let identifier = "\(className).\(testName)"
 
-        enqueue(on: className) {
+        enqueue(test: identifier, in: className) {
             let launchID = LaunchUUID.value
 
             guard let operation = await self.operationTracker.getTest(identifier: identifier) else {
@@ -709,7 +729,7 @@ open class RPListener: NSObject, XCTestObservation {
                                        succeeded: testCase.testRun?.hasSucceeded ?? false)
 
         // Finalize test with status update and cleanup
-        enqueue(on: className) {
+        enqueue(test: identifier, in: className) {
             // Retrieve test operation from tracker
             guard var operation = await self.operationTracker.getTest(identifier: identifier) else {
                 Logger.shared.error("Test operation not found in tracker: \(identifier)")
@@ -742,6 +762,7 @@ open class RPListener: NSObject, XCTestObservation {
         guard
             !testSuite.name.contains("All tests"),
             !testSuite.name.contains("Selected tests"),
+            !testSuite.name.contains(".xctest"),
             testSuite.testCaseCount > 0 else
         {
             return
@@ -750,7 +771,7 @@ open class RPListener: NSObject, XCTestObservation {
         let identifier = testSuite.name
 
         // Finalize suite with OperationTracker
-        enqueue(on: identifier) {
+        enqueueSuiteFinish(identifier) {
             Logger.shared.info("🏁 testSuiteDidFinish called - Suite: '\(identifier)'")
             
             // Retrieve suite operation from tracker
@@ -793,7 +814,7 @@ open class RPListener: NSObject, XCTestObservation {
         
         Logger.shared.info("📦 Bundle finished - waiting for pending reporting, then finalizing launch")
 
-        let pending = Array(classChains.values)
+        let pending = Array(suiteStarts.values) + Array(testChains.values) + suiteFinishes
         let gate = launchGate
         let skipFinish = RPListener.resolveSkipFinish(from: testBundle)
         let done = DispatchSemaphore(value: 0)
@@ -824,12 +845,12 @@ open class RPListener: NSObject, XCTestObservation {
         // in flight. Keep the main run loop turning meanwhile: blocking it would deadlock work
         // that needs the main actor, such as a failure screenshot.
         let deadline = Date().addingTimeInterval(RPListener.finalizationTimeout)
-        while done.wait(timeout: .now()) == .timedOut {
+        while done.wait(timeout: .now() + .milliseconds(10)) == .timedOut {
             guard Date() < deadline else {
                 Logger.shared.error("⚠️ Reporting did not finish within \(Int(RPListener.finalizationTimeout))s — results still in flight are lost")
                 break
             }
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
         }
 
         XCTestObservationCenter.shared.removeTestObserver(self)
