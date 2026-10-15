@@ -40,6 +40,8 @@ The agent hooks into XCTest via [`XCTestObservation`](https://developer.apple.co
 - ☁️ **SauceLabs real-device merge** — a standout extra on top of all-platform support: each isolated device creates its own launch, and a vendored post-run script merges them into one. Copy-paste guide + script + agent prompt in [docs/SAUCELABS_SETUP.md](docs/SAUCELABS_SETUP.md).
 - 🧩 **Flexible configuration** — env vars override `Info.plist`, with sensible defaults.
 - 🏷️ **Metadata & tags** — device/OS attributes, custom tags, and test-plan-aware launch names.
+- 🔂 **Retries in one row (opt-in)** — farm or Xcode retries of a test show as one row with the final status, earlier attempts nested inside. See [retries in one row](#retries-in-one-row).
+- 🎯 **Statuses ReportPortal computes** — suites and launches finish without a status, so ReportPortal derives it from the tests; skipped tests are reported as skipped.
 - 🔁 **Idempotent finalize** — a launch already finished (HTTP 409) is treated as success, not an error.
 
 ## Compatibility
@@ -130,7 +132,8 @@ pod install
 | `ReportPortalTags` | String | — | Comma-separated tags. |
 | `IsDebugLaunchMode` | Bool | — | Marks the launch as debug mode. |
 | `TestNameRules` | Dict | — | Display-name transforms (see below). |
-| `ReportPortalLaunchUUID` | String | — | Run-unique value so every shard reports into **one** launch. See [one launch on real devices](#one-launch-on-real-devices-v41). |
+| `ReportPortalLaunchUUID` | String | — | Run-unique value so every shard reports into **one** launch. See [one launch on real devices](#one-launch-on-real-devices). |
+| `ReportPortalCollapseRetries` | Bool **or** String | — | Shows a retried test as one row, earlier attempts nested. Off by default. See [retries in one row](#retries-in-one-row). |
 | `ReportPortalMergeGroup` | String | — | Tags launches for the legacy SauceLabs post-run merge. |
 | `ReportPortalSkipFinish` | Bool **or** String | — | Defers launch finalization. Defaults to **on** when `ReportPortalLaunchUUID` is set. |
 
@@ -143,6 +146,7 @@ Env vars take priority over `Info.plist` (useful in CI where `Info.plist` is bak
 | `RP_LAUNCH_UUID` | Shared launch UUID so parallel workers report into **one** launch. |
 | `RP_MERGE_GROUP` | Overrides `ReportPortalMergeGroup`. |
 | `RP_SKIP_FINISH` | Overrides `ReportPortalSkipFinish` (`true`/`yes`/`1` vs `false`/`no`/`0`). |
+| `RP_COLLAPSE_RETRIES` | Overrides `ReportPortalCollapseRetries`. |
 | `RP_CI_RUN_ID` | Disambiguates concurrent CI runs; falls back to `GITHUB_RUN_ID`. |
 | `TEST_PLAN_NAME` | Appends the test-plan name to the launch name. |
 
@@ -204,7 +208,9 @@ export RP_LAUNCH_UUID=$(uuidgen)
 xcodebuild test …
 ```
 
-The first clone to call `POST /launch` creates the launch; the other clones receive HTTP 409 and treat it as a successful join. All clones report into the single launch.
+The first clone's `POST /launch` creates the launch; ReportPortal drops the other clones' identical requests (its reporting API is asynchronous, so they still get a success response) and every clone reports into that launch.
+
+Each clone finishes the launch when it is done. A test another clone is still running at that moment is closed as `INTERRUPTED`. For exact results set `RP_SKIP_FINISH=YES` and finish the launch once, after all clones are done, as in [one launch on real devices](#one-launch-on-real-devices).
 
 > ⚠️ **Don't generate the UUID in a build-phase script.** Build phases only run when sources change, so a re-run without code changes reuses a stale UUID and joins the previous run's (already-finished) launch.
 
@@ -252,8 +258,12 @@ xcodebuild build-for-testing -scheme YourScheme \
 ```
 
 Every shard compiled from that bundle reports into the same launch: the first
-`POST /launch` creates it, the rest join on HTTP 409. Retries that re-run the same bundle
-join it too. No post-run merge is needed.
+`POST /launch` creates it and ReportPortal drops the rest. Retries that re-run the same
+bundle join it too. No post-run merge is needed.
+
+A device whose clock runs behind the launch creator's never stamps an item before the
+launch's start: ReportPortal would silently drop it. The agent reads the start time the
+server stored and stamps from there.
 
 The value is used as the launch id verbatim, so any run-unique string works — a UUID is
 always safe, and `${{ github.run_id }}-${{ github.run_attempt }}` needs no shell step.
@@ -271,6 +281,32 @@ curl -sf -X PUT -H "Authorization: Bearer $RP_TOKEN" -H "Content-Type: applicati
 `RP_LAUNCH_UUID` as an **environment variable** keeps its existing behaviour (parallel
 simulator clones on one machine, agent finalizes normally) and takes priority over the
 plist.
+
+### Retries in one row
+
+A farm retry (SauceLabs `smartRetry`) re-runs failed tests on another device, in a new
+process. Without help, every attempt is a separate row: `FAILED`, `FAILED`, `PASSED`, and the
+launch statistics count each one. Turn on retry collapsing in the same `Info.plist`:
+
+```xml
+<key>ReportPortalCollapseRetries</key>
+<true/>
+```
+
+- Every test is started as a possible retry. ReportPortal finds an earlier attempt of the
+  same test in the same suite and nests it under the new one, so the test is **one row with
+  the status of its last attempt**, and statistics count it once. Nothing is deleted: open
+  the row to see every attempt and the device it ran on.
+- With a shared launch UUID, a test class gets the **same suite id in every process** of the
+  run, so a retry on another device lands in the original suite instead of a copy.
+- Shared suites are left open by the devices (another device may still be running a test in
+  one) and are closed by the launch finish call, with the status of their tests. Keep the
+  `curl` above.
+- Xcode's own repetitions (`-retry-tests-on-failure`) collapse the same way.
+
+It is off by default because the same test reported twice in one launch can also mean the
+same suite ran on several device models on purpose; collapsing would hide those results.
+Tests in a shared launch carry `device` and `os` attributes either way.
 
 ## SauceLabs Real-Device Merge (legacy)
 
@@ -292,9 +328,11 @@ RPListener ──► LaunchUUID           (launch identity: shared RP_LAUNCH_UUI
 ```
 
 - **`RPListener`** — the `XCTestObservation` entry point; resolves configuration and translates test events into API calls. Uses a "launch gate" Task to guarantee launch exists before any suites/tests are reported.
-- **`LaunchUUID`** — resolves launch UUID once per process (`RP_LAUNCH_UUID` env var or auto-generated).
+- **`LaunchUUID`** — resolves launch UUID once per process (`RP_LAUNCH_UUID` env var, `ReportPortalLaunchUUID` in `Info.plist`, or auto-generated).
 - **`ReportingService`** — stateless async/await wrapper over the ReportPortal v2 API.
-- **Idempotency** — joining an existing launch (HTTP 409 on start) and finalizing an already-finished launch (HTTP 409 on finish) are both treated as success.
+- **Ordering** — each test class's requests go out in callback order (start suite → start test → logs → finish test → finish suite), so a suite is never closed under a running test. At the end of the bundle the agent waits for exactly the requests still in flight (up to 120 s) before the process exits.
+- **Statuses** — tests send their own status; suites and the launch send none, so ReportPortal derives them from the tests.
+- **Idempotency** — finalizing an already-finished launch (HTTP 409) is treated as success.
 
 ## Contributing
 

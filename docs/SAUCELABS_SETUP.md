@@ -48,8 +48,8 @@ The **only** configuration that survives to the device is what is **compiled int
 
 | | **Shared launch** (recommended) | **Post-run merge** (legacy) |
 |---|---|---|
-| How | `ReportPortalLaunchUUID` in the test bundle's `Info.plist`; every shard joins one launch on HTTP 409 | `merge_group` attribute + a ~290-line script that queries and merges launches afterwards |
-| Farm retries | Re-run the same bundle ⇒ same launch, automatically | Each retry is another launch to merge |
+| How | `ReportPortalLaunchUUID` in the test bundle's `Info.plist`; every shard reports into one launch | `merge_group` attribute + a ~290-line script that queries and merges launches afterwards |
+| Farm retries | Re-run the same bundle ⇒ same launch; with `ReportPortalCollapseRetries` each retried test is one row, earlier attempts nested | Each retry is another launch to merge, every attempt a separate row |
 | CI needs | One `PUT /launch/{uuid}/finish` at the end of the job | `jq`, `curl`, the vendored merge script, discovery/settle polling |
 | Use it when | The agent is ≥ 4.1 (has `ReportPortalLaunchUUID`) | Pinned to an older agent |
 
@@ -59,6 +59,9 @@ The **only** configuration that survives to the device is what is **compiled int
 <!-- test target Info.plist, once -->
 <key>ReportPortalLaunchUUID</key>
 <string>$(RP_LAUNCH_UUID)</string>
+<!-- with smartRetry: show a retried test as one row -->
+<key>ReportPortalCollapseRetries</key>
+<true/>
 ```
 
 ```yaml
@@ -78,8 +81,9 @@ curl -sf -X PUT -H "Authorization: Bearer $RP_TOKEN" -H "Content-Type: applicati
   "$RP_ENDPOINT/api/v1/$RP_PROJECT/launch/$RP_LAUNCH_UUID/finish"
 ```
 
-No `merge_group`, no `PlistBuddy`, no merge script. The value is used as the launch id
-verbatim, so any run-unique string works.
+No `merge_group`, no `PlistBuddy`, no merge script, no retry dedup script. The value is used
+as the launch id verbatim, so any run-unique string works. See
+[retries in one row](../README.md#retries-in-one-row) for how retries are collapsed.
 
 > **Why the separate finish call.** With one shared launch the agent deliberately does not
 > finalize it (`ReportPortalSkipFinish` defaults to on in this mode). Finishing a launch
