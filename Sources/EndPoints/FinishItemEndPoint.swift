@@ -22,21 +22,27 @@ struct FinishItemEndPoint: EndPoint {
     let relativePath: String
     let parameters: [String : Any]
     
-    init(itemID: String, status: TestStatus, launchID: String) throws {
+    /// - Parameter status: `nil` lets ReportPortal compute the status from the item's children.
+    ///   An explicit status always wins on the server, so a container must not send one it
+    ///   didn't derive: a suite finished as PASSED stays PASSED over a failed test.
+    init(itemID: String, status: TestStatus?, launchID: String) throws {
         guard itemID.isEmpty == false else {
             throw ReportingServiceError.launchIdNotFound
         }
-        
+
         relativePath = "item/\(itemID)"
-        parameters = [
+        var parameters: [String: Any] = [
             "end_time": TimeHelper.currentTimeAsString(),
-            "launchUuid": launchID,
-            "issue": [
+            "launchUuid": launchID
+        ]
+        if let status = status {
+            parameters["status"] = status.rawValue
+            parameters["issue"] = [
                 "comment": "",
                 "issue_type": status == .failed ? "ti001" : "NOT_ISSUE"
-            ],
-            "status": status.rawValue
-        ]
+            ]
+        }
+        self.parameters = parameters
     }
     
 }

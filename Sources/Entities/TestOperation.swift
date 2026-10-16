@@ -109,6 +109,15 @@ struct TestOperation: Sendable {
     /// Screenshots, logs collected during test (Sendable-safe payloads)
     var attachments: [AttachmentPayload]
 
+    /// Stable identity sent to ReportPortal (`Module.Class.method`).
+    var codeRef: String?
+
+    /// Item attributes, e.g. the device a test ran on in a shared launch.
+    var attributes: [[String: String]] = []
+
+    /// Ask ReportPortal to nest an earlier attempt of this test under this one.
+    var retry = false
+
     /// Initialize a new test operation
     init(
         correlationID: UUID = UUID(),

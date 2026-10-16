@@ -25,9 +25,35 @@ enum TimeHelper {
     
     return formatter
   }()
-  
+
+  private static let lock = NSLock()
+  private static var notBefore: Date?
+
   static func currentTimeAsString() -> String {
-      return formatter.string(from: Date())
+      lock.lock()
+      let floor = notBefore
+      lock.unlock()
+      return formatter.string(from: max(Date(), floor ?? .distantPast))
   }
-  
+
+  /// Never stamp earlier than `date` from now on. A process that joins a launch another
+  /// device created must not report items that start before that launch: ReportPortal
+  /// rejects them, and the async v2 API drops them silently, so a device whose clock lags
+  /// the creator's would lose every class it runs.
+  static func clamp(notBefore date: Date) {
+      lock.lock()
+      defer { lock.unlock() }
+      notBefore = max(notBefore ?? date, date)
+  }
+
+  /// Parses a ReportPortal timestamp ("2026-09-07T11:37:03.436Z" or "2026-09-07T13:28:14Z").
+  static func date(fromServer string: String?) -> Date? {
+      guard let string = string else { return nil }
+      let parser = ISO8601DateFormatter()
+      parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+      if let date = parser.date(from: string) { return date }
+      parser.formatOptions = [.withInternetDateTime]
+      return parser.date(from: string)
+  }
+
 }

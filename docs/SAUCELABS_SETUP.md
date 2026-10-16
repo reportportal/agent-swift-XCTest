@@ -44,7 +44,59 @@ The **only** configuration that survives to the device is what is **compiled int
 
 ---
 
-## Quick Start
+## Two paths — pick one
+
+| | **Shared launch** (recommended) | **Post-run merge** (legacy) |
+|---|---|---|
+| How | `ReportPortalLaunchUUID` in the test bundle's `Info.plist`; every shard reports into one launch | `merge_group` attribute + a ~290-line script that queries and merges launches afterwards |
+| Farm retries | Re-run the same bundle ⇒ same launch; with `ReportPortalCollapseRetries` each retried test is one row, earlier attempts nested | Each retry is another launch to merge, every attempt a separate row |
+| CI needs | One `PUT /launch/{uuid}/finish` at the end of the job | `jq`, `curl`, the vendored merge script, discovery/settle polling |
+| Use it when | The agent is ≥ 4.1 (has `ReportPortalLaunchUUID`) | Pinned to an older agent |
+
+**Shared launch — the whole recipe:**
+
+```xml
+<!-- test target Info.plist, once -->
+<key>ReportPortalLaunchUUID</key>
+<string>$(RP_LAUNCH_UUID)</string>
+<!-- with smartRetry: show a retried test as one row -->
+<key>ReportPortalCollapseRetries</key>
+<true/>
+```
+
+```yaml
+env:
+  RP_LAUNCH_UUID: ${{ github.run_id }}-${{ github.run_attempt }}
+```
+
+```bash
+xcodebuild build-for-testing -scheme YourScheme \
+  -destination 'generic/platform=iOS' -derivedDataPath ./DerivedData \
+  RP_LAUNCH_UUID="$RP_LAUNCH_UUID"
+
+saucectl run --config .sauce/config.yml       # blocks until all shards finish
+
+curl -sf -X PUT -H "Authorization: Bearer $RP_TOKEN" -H "Content-Type: application/json" \
+  -d "{\"endTime\":\"$(date +%s000)\"}" \
+  "$RP_ENDPOINT/api/v1/$RP_PROJECT/launch/$RP_LAUNCH_UUID/finish"
+```
+
+No `merge_group`, no `PlistBuddy`, no merge script, no retry dedup script. The value is used
+as the launch id verbatim, so any run-unique string works. See
+[retries in one row](../README.md#retries-in-one-row) for how retries are collapsed.
+
+> **Why the separate finish call.** With one shared launch the agent deliberately does not
+> finalize it (`ReportPortalSkipFinish` defaults to on in this mode). Finishing a launch
+> force-finishes its still-running items with the status carried by the finish request, so
+> whichever shard finished first would stamp the other shards' in-flight items and set the
+> launch's `endTime` while five devices are still reporting. Exactly one actor closes the
+> launch, once, at the end.
+
+The rest of this guide documents the **legacy post-run merge**.
+
+---
+
+## Quick Start (legacy post-run merge)
 
 ### Prerequisites
 

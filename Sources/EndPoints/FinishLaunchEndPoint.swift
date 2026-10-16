@@ -22,10 +22,11 @@ struct FinishLaunchEndPoint: EndPoint {
   let relativePath: String
   let parameters: [String : Any]
 
-  init(launchID: String, status: TestStatus) {
+  // No status: ReportPortal derives it from the launch's items. An explicit one wins on the
+  // server, so the PASSED this used to send showed failed launches as passed.
+  init(launchID: String) {
     relativePath = "launch/\(launchID)/finish"
     parameters = [
-      "status": status.rawValue,
       "end_time": TimeHelper.currentTimeAsString()
     ]
   }

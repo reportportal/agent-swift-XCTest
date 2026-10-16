@@ -230,13 +230,19 @@ final class RecordingReportingService: ReportingServiceProtocol, @unchecked Send
         return uuid
     }
     func patchLaunchAttributes(uuid: String, attributes: [[String: String]]) async throws { record("patchLaunchAttributes") }
+    func launchStartTime(uuid: String) async throws -> Date? { record("launchStartTime"); return nil }
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String { record("startSuite"); return UUID().uuidString }
     func finishSuite(operation: SuiteOperation) async throws { record("finishSuite") }
-    func startTest(operation: TestOperation, launchID: String) async throws -> String { record("startTest"); return UUID().uuidString }
+    func itemStatus(uuid: String) async throws -> String? { record("itemStatus"); return nil }
+    func startTest(operation: TestOperation, launchID: String) async throws -> String {
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms: make out-of-order finishes observable
+        record("startTest")
+        return UUID().uuidString
+    }
     func finishTest(operation: TestOperation) async throws { record("finishTest") }
     func postLog(message: String, level: String, itemID: String, launchID: String, correlationID: UUID?) async throws { record("postLog") }
     func postScreenshot(screenshotData: Data, filename: String, itemID: String, launchID: String, correlationID: UUID?) async throws { record("postScreenshot") }
-    func finalizeLaunch(launchID: String, status: TestStatus) async throws { record("finalizeLaunch") }
+    func finalizeLaunch(launchID: String) async throws { record("finalizeLaunch") }
 }
 
 /// Drives the real `RPListener` XCTest callbacks (via a test init that skips observer
@@ -256,6 +262,13 @@ final class LaunchGateOrderingTests: XCTestCase {
         )
     }
 
+    /// A class suite with one test: the agent doesn't report suites with nothing to run.
+    private func suite(named name: String) -> XCTestSuite {
+        let suite = XCTestSuite(name: name)
+        suite.addTest(ReportingOrderTests.OrderingSample(selector: #selector(ReportingOrderTests.OrderingSample.sample)))
+        return suite
+    }
+
     /// Poll until `condition` holds or the timeout elapses (RPListener fires unstructured Tasks).
     private func wait(timeout: TimeInterval = 5, until condition: @escaping () -> Bool) async {
         let deadline = Date().addingTimeInterval(timeout)
@@ -272,7 +285,7 @@ final class LaunchGateOrderingTests: XCTestCase {
         let listener = RPListener(injectedConfiguration: makeConfig(), makeReportingService: { _ in recorder })
 
         listener.testBundleWillStart(Bundle(for: RecordingReportingService.self))
-        listener.testSuiteWillStart(XCTestSuite(name: "CheckoutFeatureTests"))
+        listener.testSuiteWillStart(suite(named: "CheckoutFeatureTests"))
 
         await wait { recorder.calls.contains("startSuite") }
 
@@ -306,7 +319,7 @@ final class LaunchGateOrderingTests: XCTestCase {
             recorders.append(recorder)
             listeners.append(listener)
             listener.testBundleWillStart(Bundle(for: RecordingReportingService.self))
-            listener.testSuiteWillStart(XCTestSuite(name: "Device\(i)Tests"))
+            listener.testSuiteWillStart(suite(named: "Device\(i)Tests"))
         }
 
         await wait(timeout: 10) { recorders.allSatisfy { $0.calls.contains("startSuite") } }
@@ -323,5 +336,268 @@ final class LaunchGateOrderingTests: XCTestCase {
         }
 
         withExtendedLifetime(listeners) {}
+    }
+}
+
+// MARK: - LaunchUUID resolution
+
+/// The launch UUID may be supplied through the test bundle's `Info.plist`, because on
+/// real-device farms that is the only channel that reaches every shard. Resolution is a
+/// static resolver (env var → Info.plist → nil) so it is testable without touching the
+/// memoized per-process value.
+final class LaunchUUIDTests: XCTestCase {
+
+    func testConfiguredLaunchUUID_NothingSet_ReturnsNil() {
+        // The unit bundle carries no ReportPortalLaunchUUID, so the launch is per-process.
+        XCTAssertNil(LaunchUUID.configuredLaunchUUID(from: Bundle(for: LaunchUUIDTests.self)))
+    }
+
+    func testConfiguredLaunchUUID_EnvVarWins() {
+        setenv("RP_LAUNCH_UUID", "run-42-1", 1)
+        defer { unsetenv("RP_LAUNCH_UUID") }
+
+        let resolved = LaunchUUID.configuredLaunchUUID(from: Bundle(for: LaunchUUIDTests.self))
+        XCTAssertEqual(resolved?.0, "run-42-1")
+        XCTAssertEqual(resolved?.1, .environment)
+    }
+
+    func testConfiguredLaunchUUID_TrimsAndTreatsBlankAsAbsent() {
+        setenv("RP_LAUNCH_UUID", "  run-42-1\n", 1)
+        XCTAssertEqual(LaunchUUID.configuredLaunchUUID(from: nil)?.0, "run-42-1",
+                       "whitespace must not split one run into two launches")
+
+        // An unexpanded $(RP_LAUNCH_UUID) build setting arrives as an empty string; it must
+        // not become the launch id.
+        setenv("RP_LAUNCH_UUID", "   ", 1)
+        defer { unsetenv("RP_LAUNCH_UUID") }
+        XCTAssertNil(LaunchUUID.configuredLaunchUUID(from: nil))
+    }
+
+    func testSkipFinish_StaysOffWhenNoLaunchUUIDWasSupplied() {
+        // Nothing supplied the launch UUID, so this process still owns finalizing it.
+        XCTAssertFalse(RPListener.resolveSkipFinish(from: Bundle(for: LaunchUUIDTests.self)))
+    }
+}
+
+final class TimeHelperTests: XCTestCase {
+
+    func testDateFromServer_ParsesBothReportPortalFormats() {
+        XCTAssertEqual(TimeHelper.date(fromServer: "2026-09-07T11:37:03.436Z")?.timeIntervalSince1970 ?? 0,
+                       1_788_781_023.436, accuracy: 0.0005)
+        XCTAssertEqual(TimeHelper.date(fromServer: "2026-09-07T13:28:14Z")?.timeIntervalSince1970,
+                       1_788_787_694)
+        XCTAssertNil(TimeHelper.date(fromServer: nil))
+        XCTAssertNil(TimeHelper.date(fromServer: "1788781023436"))
+    }
+
+    func testLaunchDecodes_EpochMillisecondsAndIsoTimestamps() throws {
+        // ReportPortal 5.15 returned this exact shape for a launch: numeric timestamps.
+        let numeric = #"{"id":46,"uuid":"run-1","startTime":1791826312000,"endTime":1791826450000,"lastModified":1791826270109,"statistics":{"executions":{},"defects":{}},"attributes":[]}"#
+        let launch = try JSONDecoder().decode(Launch.self, from: Data(numeric.utf8))
+        XCTAssertEqual(launch.startTime?.date?.timeIntervalSince1970, 1_791_826_312)
+
+        let iso = #"{"id":10,"startTime":"2026-09-07T11:37:03.436Z"}"#
+        XCTAssertEqual(try JSONDecoder().decode(Launch.self, from: Data(iso.utf8)).startTime?.date?.timeIntervalSince1970 ?? 0,
+                       1_788_781_023.436, accuracy: 0.0005)
+    }
+}
+
+// MARK: - Statuses ReportPortal shows
+
+/// ReportPortal keeps an explicit status over the one it would derive, so containers and the
+/// launch must finish WITHOUT one, and a test's own status must be the real one.
+final class ReportedStatusTests: XCTestCase {
+
+    func testSkippedTestIsReportedAsSkipped() {
+        // XCTest reports a skipped test with hasSucceeded == true.
+        XCTAssertEqual(RPListener.status(skipped: true, succeeded: true), .skipped,
+                       "a skipped test must not reach ReportPortal as PASSED")
+        XCTAssertEqual(RPListener.status(skipped: false, succeeded: true), .passed)
+        XCTAssertEqual(RPListener.status(skipped: false, succeeded: false), .failed)
+    }
+
+    func testSuiteFinishedWithoutStatusLetsReportPortalDeriveIt() throws {
+        let endPoint = try FinishItemEndPoint(itemID: "item-1", status: nil, launchID: "run-1")
+        XCTAssertNil(endPoint.parameters["status"])
+        XCTAssertNil(endPoint.parameters["issue"])
+        XCTAssertEqual(endPoint.parameters["launchUuid"] as? String, "run-1")
+    }
+
+    func testTestFinishKeepsItsStatusAndIssue() throws {
+        let failed = try FinishItemEndPoint(itemID: "item-1", status: .failed, launchID: "run-1")
+        XCTAssertEqual(failed.parameters["status"] as? String, "FAILED")
+        XCTAssertEqual((failed.parameters["issue"] as? [String: String])?["issue_type"], "ti001")
+
+        let skipped = try FinishItemEndPoint(itemID: "item-1", status: .skipped, launchID: "run-1")
+        XCTAssertEqual(skipped.parameters["status"] as? String, "SKIPPED")
+        XCTAssertEqual((skipped.parameters["issue"] as? [String: String])?["issue_type"], "NOT_ISSUE",
+                       "a skip is not a defect to investigate")
+    }
+
+    func testLaunchFinishSendsNoStatus() {
+        XCTAssertNil(FinishLaunchEndPoint(launchID: "run-1").parameters["status"],
+                     "an explicit PASSED showed failed launches as passed")
+    }
+}
+
+// MARK: - Request order and the end of the bundle
+
+/// Each class's requests must reach ReportPortal in callback order. A test finished before it
+/// was started has no id yet; a suite finished before its last test makes ReportPortal
+/// force-finish that test with the suite's status.
+final class ReportingOrderTests: XCTestCase {
+
+    /// Not auto-discovered (no `test` prefix): only used as the subject of the callbacks.
+    final class OrderingSample: XCTestCase {
+        @objc func sample() {}
+        @objc func other() {}
+    }
+
+    /// Records request order; a slow `startTest` makes a missing wait visible.
+    private func makeListener(_ recorder: RecordingReportingService) -> RPListener {
+        RPListener(injectedConfiguration: AgentConfiguration(
+            reportPortalURL: URL(string: "https://example.invalid")!,
+            projectName: "proj",
+            launchName: "Launch",
+            shouldSendReport: true,
+            portalToken: "token",
+            tags: [],
+            launchMode: .default,
+            testNameRules: []
+        ), makeReportingService: { _ in recorder })
+    }
+
+    // Synchronous on purpose: XCTest runs it on the main thread, like the real callbacks.
+    func testClassRequestsGoOutInCallbackOrderAndTheBundleEndWaitsForThem() {
+        let recorder = RecordingReportingService()
+        let listener = RPListener(injectedConfiguration: AgentConfiguration(
+            reportPortalURL: URL(string: "https://example.invalid")!,
+            projectName: "proj",
+            launchName: "Launch",
+            shouldSendReport: true,
+            portalToken: "token",
+            tags: [],
+            launchMode: .default,
+            testNameRules: []
+        ), makeReportingService: { _ in recorder })
+
+        let test = OrderingSample(selector: #selector(OrderingSample.sample))
+        let suite = XCTestSuite(name: "OrderingSample")
+        suite.addTest(test)
+
+        let started = Date()
+        listener.testBundleWillStart(Bundle(for: ReportingOrderTests.self))
+        listener.testSuiteWillStart(suite)
+        listener.testCaseWillStart(test)
+        listener.testCaseDidFinish(test)
+        listener.testSuiteDidFinish(suite)
+        listener.testBundleDidFinish(Bundle(for: ReportingOrderTests.self))
+
+        XCTAssertEqual(recorder.calls, ["startLaunch", "startSuite", "startTest", "finishTest", "finishSuite", "finalizeLaunch"])
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5,
+                          "the bundle end waits for the pending requests, not a fixed delay")
+    }
+
+    func testAClassFilteredDownToNoTestsIsNotReported() {
+        let recorder = RecordingReportingService()
+        let listener = RPListener(injectedConfiguration: AgentConfiguration(
+            reportPortalURL: URL(string: "https://example.invalid")!,
+            projectName: "proj",
+            launchName: "Launch",
+            shouldSendReport: true,
+            portalToken: "token",
+            tags: [],
+            launchMode: .default,
+            testNameRules: []
+        ), makeReportingService: { _ in recorder })
+
+        let empty = XCTestSuite(name: "OrderingSample")
+        listener.testBundleWillStart(Bundle(for: ReportingOrderTests.self))
+        listener.testSuiteWillStart(empty)
+        listener.testSuiteDidFinish(empty)
+        listener.testBundleDidFinish(Bundle(for: ReportingOrderTests.self))
+
+        XCTAssertEqual(recorder.calls, ["startLaunch", "finalizeLaunch"])
+    }
+}
+
+// MARK: - Collapsing retries
+
+final class CollapseRetriesTests: XCTestCase {
+
+    func testSharedItemUUID_IsTheSameInEveryProcessOfTheRun() {
+        let id = LaunchUUID.sharedItemUUID(launchUUID: "run-42-1", name: "ExampleUITests.LoginTests")
+        XCTAssertEqual(id, LaunchUUID.sharedItemUUID(launchUUID: "run-42-1", name: "ExampleUITests.LoginTests"))
+        XCTAssertNotEqual(id, LaunchUUID.sharedItemUUID(launchUUID: "run-42-2", name: "ExampleUITests.LoginTests"),
+                          "another run must not join this run's suites")
+        XCTAssertNotEqual(id, LaunchUUID.sharedItemUUID(launchUUID: "run-42-1", name: "ExampleUITests.SignupTests"))
+        XCTAssertNotNil(UUID(uuidString: id))
+        XCTAssertEqual(Array(id)[14], "5", "name-based SHA-1 UUID (version 5 layout)")
+    }
+
+    func testStartItem_SendsSharedUuidIdentityAndRetry() {
+        let endPoint = StartItemEndPoint(itemName: "testLogin", parentID: "suite-1", launchID: "run-1", type: .step,
+                                         attributes: [["key": "device", "value": "iPhone 15"]],
+                                         uuid: "item-1", codeRef: "ExampleUITests.LoginTests.testLogin", retry: true)
+        XCTAssertEqual(endPoint.relativePath, "item/suite-1")
+        XCTAssertEqual(endPoint.parameters["uuid"] as? String, "item-1")
+        XCTAssertEqual(endPoint.parameters["codeRef"] as? String, "ExampleUITests.LoginTests.testLogin")
+        XCTAssertEqual(endPoint.parameters["testCaseId"] as? String, "ExampleUITests.LoginTests.testLogin")
+        XCTAssertEqual(endPoint.parameters["retry"] as? Bool, true)
+        XCTAssertEqual((endPoint.parameters["attributes"] as? [[String: String]])?.first?["value"], "iPhone 15")
+    }
+
+    func testStartItem_DefaultsSendNoneOfThem() {
+        let endPoint = StartItemEndPoint(itemName: "testLogin", parentID: "suite-1", launchID: "run-1", type: .step)
+        for key in ["uuid", "codeRef", "testCaseId", "retry"] {
+            XCTAssertNil(endPoint.parameters[key], "\(key) must only be sent when set")
+        }
+    }
+
+    func testSharedSuite_FinishedByWholeClassAndByLateRetry_NotUnderARunningSlice() {
+        XCTAssertTrue(RPListener.finishesSharedSuite(ranWholeClass: true, statusNow: nil))
+        XCTAssertTrue(RPListener.finishesSharedSuite(ranWholeClass: false, statusNow: "FAILED"),
+                      "a retry re-finishes an already finished suite so its status is recomputed")
+        XCTAssertFalse(RPListener.finishesSharedSuite(ranWholeClass: false, statusNow: "IN_PROGRESS"),
+                       "another device may be running a test in it")
+        XCTAssertFalse(RPListener.finishesSharedSuite(ranWholeClass: false, statusNow: nil))
+    }
+
+    func testCollapseRetries_IsOptIn() {
+        XCTAssertFalse(RPListener.resolveCollapseRetries(from: Bundle(for: CollapseRetriesTests.self)))
+
+        setenv("RP_COLLAPSE_RETRIES", "YES", 1)
+        defer { unsetenv("RP_COLLAPSE_RETRIES") }
+        XCTAssertTrue(RPListener.resolveCollapseRetries(from: nil))
+    }
+}
+
+extension ReportingOrderTests {
+
+    func testASuiteFinishesAfterAllItsTestsWhileTestsReportSideBySide() {
+        let recorder = RecordingReportingService()
+        let listener = makeListener(recorder)
+        let first = OrderingSample(selector: #selector(OrderingSample.sample))
+        let second = OrderingSample(selector: #selector(OrderingSample.other))
+        let suite = XCTestSuite(name: "OrderingSample")
+        suite.addTest(first)
+        suite.addTest(second)
+
+        let started = Date()
+        listener.testBundleWillStart(Bundle(for: ReportingOrderTests.self))
+        listener.testSuiteWillStart(suite)
+        for test in [first, second] {
+            listener.testCaseWillStart(test)
+            listener.testCaseDidFinish(test)
+        }
+        listener.testSuiteDidFinish(suite)
+        listener.testBundleDidFinish(Bundle(for: ReportingOrderTests.self))
+
+        let calls = recorder.calls
+        XCTAssertEqual(calls.filter { $0 == "finishTest" }.count, 2)
+        XCTAssertEqual(Array(calls.suffix(2)), ["finishSuite", "finalizeLaunch"], "\(calls)")
+        XCTAssertEqual(Array(calls.prefix(2)), ["startLaunch", "startSuite"], "\(calls)")
+        // Each start sleeps 50 ms; the two tests overlap instead of queueing behind each other.
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
     }
 }

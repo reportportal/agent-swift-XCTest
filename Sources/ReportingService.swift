@@ -106,15 +106,13 @@ public final class ReportingService: Sendable {
         return result.id
     }
 
-    /// Finish launch in ReportPortal
-    /// - Parameters:
-    ///   - launchID: Launch ID from LaunchUUID.value
-    ///   - status: Status to send (ReportPortal will calculate actual status from tests)
-    func finalizeLaunch(launchID: String, status: TestStatus) async throws {
+    /// Finish launch in ReportPortal. No status is sent: ReportPortal calculates it from the tests.
+    /// - Parameter launchID: Launch ID from LaunchUUID.value
+    func finalizeLaunch(launchID: String) async throws {
         do {
-            let endPoint = FinishLaunchEndPoint(launchID: launchID, status: status)
+            let endPoint = FinishLaunchEndPoint(launchID: launchID)
             let _: LaunchFinish = try await httpClient.callEndPoint(endPoint)
-            Logger.shared.info("Launch finalized: \(launchID) with status: \(status.rawValue)")
+            Logger.shared.info("Launch finalized: \(launchID)")
         } catch let error as HTTPClientError {
             if error.isLaunchAlreadyFinished {
                 Logger.shared.warning("⚠️ Launch finalization returned 409 — launch already finished (idempotent, non-fatal)")
@@ -145,6 +143,13 @@ public final class ReportingService: Sendable {
         Logger.shared.info("📎 Back-filled \(attributes.count) attribute(s) onto existing launch \(uuid) (id: \(launch.id))")
     }
 
+    /// Start time of a launch as ReportPortal stored it. Throws while the launch does not exist
+    /// yet — v2 reporting is asynchronous, so a just-started launch can lag behind.
+    func launchStartTime(uuid: String) async throws -> Date? {
+        let launch: Launch = try await httpClientV1.callEndPoint(GetLaunchByUuidEndPoint(uuid: uuid))
+        return launch.startTime?.date
+    }
+
     // MARK: - Suite Management
 
     /// Create suite item in ReportPortal
@@ -153,6 +158,10 @@ public final class ReportingService: Sendable {
     ///   - launchID: Parent launch ID
     /// - Returns: Suite item ID (UUID string)
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String {
+        if let sharedUUID = operation.sharedUUID {
+            return try await joinSharedSuite(operation: operation, uuid: sharedUUID, launchID: launchID)
+        }
+
         let endPoint: StartItemEndPoint
 
         if let rootSuiteID = operation.rootSuiteID {
@@ -162,14 +171,16 @@ public final class ReportingService: Sendable {
                 itemName: operation.suiteName,
                 parentID: rootSuiteID,
                 launchID: launchID,
-                type: .test  // Test class = type .test
+                type: .test,  // Test class = type .test
+                codeRef: operation.codeRef
             )
         } else {
             // This is a root suite (bundle)
             endPoint = StartItemEndPoint(
                 itemName: operation.suiteName,
                 launchID: launchID,
-                type: .suite  // Bundle = type .suite
+                type: .suite,  // Bundle = type .suite
+                codeRef: operation.codeRef
             )
         }
 
@@ -179,17 +190,61 @@ public final class ReportingService: Sendable {
         return result.id
     }
 
+    /// A suite shared by every process of the launch: reuse it when another process already
+    /// created it, otherwise create it under the shared uuid (a concurrent duplicate is dropped by
+    /// the server). Then read back the start time the server stored and never stamp a child
+    /// earlier: ReportPortal drops a child that starts before its parent, silently on the async
+    /// API, so a device whose clock lags the suite's creator would lose its tests.
+    private func joinSharedSuite(operation: SuiteOperation, uuid: String, launchID: String) async throws -> String {
+        if let start = try? await itemStartTime(uuid: uuid) {
+            TimeHelper.clamp(notBefore: start)
+            Logger.shared.info("🔗 Joined shared suite '\(operation.suiteName)' (\(uuid))", correlationID: operation.correlationID)
+            return uuid
+        }
+
+        let endPoint = StartItemEndPoint(
+            itemName: operation.suiteName,
+            launchID: launchID,
+            type: .suite,
+            uuid: uuid,
+            codeRef: operation.codeRef
+        )
+        let _: Item = try await httpClient.callEndPoint(endPoint)
+
+        // v2 reporting is asynchronous: the suite can take a moment to become readable.
+        for attempt in 1...5 {
+            if let start = try? await itemStartTime(uuid: uuid) {
+                TimeHelper.clamp(notBefore: start)
+                Logger.shared.info("🔗 Created shared suite '\(operation.suiteName)' (\(uuid))", correlationID: operation.correlationID)
+                return uuid
+            }
+            try? await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
+        }
+        Logger.shared.warning("⚠️ Could not read shared suite '\(operation.suiteName)' back; a lagging device clock may lose its tests", correlationID: operation.correlationID)
+        return uuid
+    }
+
+    /// Start time of an item as ReportPortal stored it. Throws while the item does not exist.
+    func itemStartTime(uuid: String) async throws -> Date? {
+        let item: ItemResource = try await httpClientV1.callEndPoint(GetItemByUuidEndPoint(uuid: uuid))
+        return item.startTime?.date
+    }
+
+    /// Status of an item as ReportPortal stored it (`IN_PROGRESS` until it is finished).
+    func itemStatus(uuid: String) async throws -> String? {
+        let item: ItemResource = try await httpClientV1.callEndPoint(GetItemByUuidEndPoint(uuid: uuid))
+        return item.status
+    }
+
     /// Finish suite item in ReportPortal
     /// - Parameter operation: SuiteOperation with suite ID and final status
     func finishSuite(operation: SuiteOperation) async throws {
         let launchID = LaunchUUID.value
 
-        // Use suite status if available, otherwise default to passed
-        let status = operation.status ?? .passed
-
+        // Without an explicit status ReportPortal derives the suite's from its tests.
         let endPoint = try FinishItemEndPoint(
             itemID: operation.suiteID,
-            status: status,
+            status: operation.status,
             launchID: launchID
         )
 
@@ -210,7 +265,10 @@ public final class ReportingService: Sendable {
             itemName: operation.testName,
             parentID: operation.suiteID,
             launchID: launchID,
-            type: .step  // Individual test method = type .step
+            type: .step,  // Individual test method = type .step
+            attributes: operation.attributes,
+            codeRef: operation.codeRef,
+            retry: operation.retry
         )
 
         let result: Item = try await httpClient.callEndPoint(endPoint)
@@ -404,6 +462,22 @@ struct GetLaunchByUuidEndPoint: EndPoint {
     }
 }
 
+/// `GET item/uuid/{uuid}` — read an item (v1 only), e.g. to join a suite another process created.
+struct GetItemByUuidEndPoint: EndPoint {
+    let method: HTTPMethod = .get
+    let relativePath: String
+
+    init(uuid: String) {
+        relativePath = "item/uuid/\(uuid)"
+    }
+}
+
+/// The part of ReportPortal's item resource the agent reads.
+struct ItemResource: Decodable {
+    let startTime: ServerTime?
+    let status: String?
+}
+
 /// `PUT launch/{id}/update` — replace a launch's attributes (used to back-fill
 /// `merge_group` and metadata onto an orphan launch so the post-run merge can find it).
 struct UpdateLaunchEndPoint: EndPoint {
@@ -434,13 +508,15 @@ struct LaunchUpdateResponse: Decodable {
 protocol ReportingServiceProtocol: Sendable {
     func startLaunch(name: String, tags: [String], attributes: [[String: String]], uuid: String) async throws -> String
     func patchLaunchAttributes(uuid: String, attributes: [[String: String]]) async throws
+    func launchStartTime(uuid: String) async throws -> Date?
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String
     func finishSuite(operation: SuiteOperation) async throws
+    func itemStatus(uuid: String) async throws -> String?
     func startTest(operation: TestOperation, launchID: String) async throws -> String
     func finishTest(operation: TestOperation) async throws
     func postLog(message: String, level: String, itemID: String, launchID: String, correlationID: UUID?) async throws
     func postScreenshot(screenshotData: Data, filename: String, itemID: String, launchID: String, correlationID: UUID?) async throws
-    func finalizeLaunch(launchID: String, status: TestStatus) async throws
+    func finalizeLaunch(launchID: String) async throws
 }
 
 extension ReportingService: ReportingServiceProtocol {}

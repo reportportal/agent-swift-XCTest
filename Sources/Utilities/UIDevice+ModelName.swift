@@ -30,7 +30,8 @@ public extension UIDevice {
       guard let value = element.value as? Int8, value != 0 else { return identifier }
       return identifier + String(UnicodeScalar(UInt8(value)))
     }
-    if identifier == "i386" || identifier == "x86_64" {
+    // A simulator reports the host's architecture; arm64 on Apple silicon Macs.
+    if identifier == "i386" || identifier == "x86_64" || identifier == "arm64" {
       identifier = ProcessInfo().environment["SIMULATOR_MODEL_IDENTIFIER"] ?? "unknown"
       postfix = " (simulator)"
     }
@@ -138,7 +139,7 @@ public extension UIDevice {
     case "AppleTV11,1":                             model = "Apple TV 4K (2nd generation)\(postfix)"
     case "AppleTV14,1":                             model = "Apple TV 4K (3rd generation)\(postfix)"
     
-    default:                                        model = identifier
+    default:                                        model = "\(identifier)\(postfix)"
     }
     return model
   }
