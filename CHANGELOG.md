@@ -50,6 +50,8 @@
   20 s timeout. It now waits for exactly the requests still in flight (up to 120 s) while
   keeping the main run loop turning, by @rusel95.
 - A failure screenshot is taken at the failure, not when the upload gets its turn, by @rusel95.
+- The `device` attribute read `arm64` on Apple-silicon simulators; it now shows the simulated
+  model, by @rusel95.
 - **A device whose clock lags the shared launch's creator lost all its results.** ReportPortal
   rejects an item that starts before its launch, and the async v2 API drops it without an
   error — measured: half a second of lag was enough. With a shared launch UUID the agent now
