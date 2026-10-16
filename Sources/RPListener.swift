@@ -867,8 +867,12 @@ open class RPListener: NSObject, XCTestObservation {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
         }
 
-        XCTestObservationCenter.shared.removeTestObserver(self)
-        Logger.shared.info("🛑 Test observer removed - execution complete")
+        // Not while XCTest is still delivering this callback to its observers: removing one
+        // mid-delivery can skip XCTest's own, and xcodebuild then never hears the run finished.
+        DispatchQueue.main.async {
+            XCTestObservationCenter.shared.removeTestObserver(self)
+        }
+        Logger.shared.info("🛑 Reporting finished - execution complete")
     }
 
     // MARK: - SauceLabs Merge Support
