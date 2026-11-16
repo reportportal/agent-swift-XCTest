@@ -30,29 +30,21 @@ extension HTTPClientError {
 }
 
 /// Async/await API for ReportPortal communication (stateless)
-/// Uses OperationTracker for state management
 public final class ReportingService: Sendable {
 
     // MARK: - Properties
 
     private let httpClient: HTTPClient
-    /// Separate client pinned to the **v1** API. ReportPortal's launch *read* and *update*
-    /// endpoints (`GET launch/uuid/{uuid}`, `PUT launch/{id}/update`) only exist under
-    /// `/api/v1`, while `httpClient` is pinned to `/api/v2` (start/finish/merge). Used by
-    /// `patchLaunchAttributes` to back-fill attributes onto an orphan launch.
+    /// Separate client pinned to the **v1** API. ReportPortal's *read* endpoints
+    /// (`GET launch/uuid/{uuid}`, `GET item/…`) only exist under `/api/v1`, while `httpClient`
+    /// is pinned to `/api/v2` (start/finish/merge).
     private let httpClientV1: HTTPClient
     private let configuration: AgentConfiguration
-    private let operationTracker: OperationTracker
 
     // MARK: - Initialization
 
-    init(
-        configuration: AgentConfiguration,
-        httpClient: HTTPClient? = nil,
-        operationTracker: OperationTracker = OperationTracker.shared
-    ) {
+    init(configuration: AgentConfiguration) {
         self.configuration = configuration
-        self.operationTracker = operationTracker
         
         // Build V2 API base URL: https://reportportal.epam.com/api/v2/{project}
         // User provides: https://reportportal.epam.com
@@ -66,15 +58,9 @@ public final class ReportingService: Sendable {
             .appendingPathComponent("v1")
             .appendingPathComponent(configuration.projectName)
 
-        if let client = httpClient {
-            // Injected (tests): reuse the same client for both — unit tests don't hit v1 live.
-            self.httpClient = client
-            self.httpClientV1 = client
-        } else {
-            let authPlugin = AuthorizationPlugin(token: configuration.portalToken)
-            self.httpClient = HTTPClient(baseURL: baseURL, plugins: [authPlugin])
-            self.httpClientV1 = HTTPClient(baseURL: baseURLV1, plugins: [authPlugin])
-        }
+        let authPlugin = AuthorizationPlugin(token: configuration.portalToken)
+        self.httpClient = HTTPClient(baseURL: baseURL, plugins: [authPlugin])
+        self.httpClientV1 = HTTPClient(baseURL: baseURLV1, plugins: [authPlugin])
     }
 
     // MARK: - Launch Management
@@ -88,8 +74,8 @@ public final class ReportingService: Sendable {
     /// - Returns: Launch ID (UUID string from ReportPortal)
     ///
     /// ## V2 API Behavior:
-    /// - **Idempotent**: Multiple calls with same UUID return same launch
-    /// - **409 Conflict**: Expected when launch already exists (caller should handle gracefully)
+    /// - **Idempotent**: Multiple calls with same UUID report into the same launch. Reporting is
+    ///   asynchronous: a duplicate start gets a success response and is dropped server-side.
     /// - **Parallel-safe**: All workers can call simultaneously with same UUID
     func startLaunch(name: String, tags: [String], attributes: [[String: String]], uuid: String) async throws -> String {
         let endPoint = StartLaunchEndPoint(
@@ -106,15 +92,13 @@ public final class ReportingService: Sendable {
         return result.id
     }
 
-    /// Finish launch in ReportPortal
-    /// - Parameters:
-    ///   - launchID: Launch ID from LaunchUUID.value
-    ///   - status: Status to send (ReportPortal will calculate actual status from tests)
-    func finalizeLaunch(launchID: String, status: TestStatus) async throws {
+    /// Finish launch in ReportPortal. No status is sent: ReportPortal calculates it from the tests.
+    /// - Parameter launchID: Launch ID from LaunchUUID.value
+    func finalizeLaunch(launchID: String) async throws {
         do {
-            let endPoint = FinishLaunchEndPoint(launchID: launchID, status: status)
+            let endPoint = FinishLaunchEndPoint(launchID: launchID)
             let _: LaunchFinish = try await httpClient.callEndPoint(endPoint)
-            Logger.shared.info("Launch finalized: \(launchID) with status: \(status.rawValue)")
+            Logger.shared.info("Launch finalized: \(launchID)")
         } catch let error as HTTPClientError {
             if error.isLaunchAlreadyFinished {
                 Logger.shared.warning("⚠️ Launch finalization returned 409 — launch already finished (idempotent, non-fatal)")
@@ -124,25 +108,11 @@ public final class ReportingService: Sendable {
         }
     }
 
-    /// Back-fill attributes onto an existing launch.
-    ///
-    /// On real-device farms (SauceLabs), ReportPortal can auto-create a bare "orphan"
-    /// launch from the first test-item POST that references a launch UUID it hasn't seen
-    /// yet — a race the launch gate narrows but can't fully close across the network.
-    /// That orphan has none of our attributes (no `merge_group`), so the post-run merge
-    /// script — which finds launches by `merge_group` — can't see it. When `startLaunch`
-    /// then returns 409 (the orphan already holds our UUID), we resolve the orphan's
-    /// numeric id from its UUID and PUT the full attribute set onto it, making it
-    /// mergeable like a normally-created launch.
-    /// - Parameters:
-    ///   - uuid: The launch UUID (same one `startLaunch` used).
-    ///   - attributes: The full attribute set to apply (metadata + `merge_group` + `ci_run_id`).
-    func patchLaunchAttributes(uuid: String, attributes: [[String: String]]) async throws {
+    /// Start time of a launch as ReportPortal stored it. Throws while the launch does not exist
+    /// yet — v2 reporting is asynchronous, so a just-started launch can lag behind.
+    func launchStartTime(uuid: String) async throws -> Date? {
         let launch: Launch = try await httpClientV1.callEndPoint(GetLaunchByUuidEndPoint(uuid: uuid))
-        let _: LaunchUpdateResponse = try await httpClientV1.callEndPoint(
-            UpdateLaunchEndPoint(launchID: launch.id, attributes: attributes)
-        )
-        Logger.shared.info("📎 Back-filled \(attributes.count) attribute(s) onto existing launch \(uuid) (id: \(launch.id))")
+        return launch.startTime?.date
     }
 
     // MARK: - Suite Management
@@ -153,25 +123,17 @@ public final class ReportingService: Sendable {
     ///   - launchID: Parent launch ID
     /// - Returns: Suite item ID (UUID string)
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String {
-        let endPoint: StartItemEndPoint
-
-        if let rootSuiteID = operation.rootSuiteID {
-            // This is a child suite (test class) - parent is root suite
-            // Use .test for test classes (not .suite)
-            endPoint = StartItemEndPoint(
-                itemName: operation.suiteName,
-                parentID: rootSuiteID,
-                launchID: launchID,
-                type: .test  // Test class = type .test
-            )
-        } else {
-            // This is a root suite (bundle)
-            endPoint = StartItemEndPoint(
-                itemName: operation.suiteName,
-                launchID: launchID,
-                type: .suite  // Bundle = type .suite
-            )
+        if let sharedUUID = operation.sharedUUID {
+            return try await joinSharedSuite(operation: operation, uuid: sharedUUID, launchID: launchID)
         }
+
+        // A test class is a top-level item of the launch.
+        let endPoint = StartItemEndPoint(
+            itemName: operation.suiteName,
+            launchID: launchID,
+            type: .suite,
+            codeRef: operation.codeRef
+        )
 
         let result: Item = try await httpClient.callEndPoint(endPoint)
 
@@ -179,17 +141,61 @@ public final class ReportingService: Sendable {
         return result.id
     }
 
+    /// A suite shared by every process of the launch: reuse it when another process already
+    /// created it, otherwise create it under the shared uuid (a concurrent duplicate is dropped by
+    /// the server). Then read back the start time the server stored and never stamp a child
+    /// earlier: ReportPortal drops a child that starts before its parent, silently on the async
+    /// API, so a device whose clock lags the suite's creator would lose its tests.
+    private func joinSharedSuite(operation: SuiteOperation, uuid: String, launchID: String) async throws -> String {
+        if let start = try? await item(uuid: uuid).startTime?.date {
+            TimeHelper.clamp(notBefore: start)
+            Logger.shared.info("🔗 Joined shared suite '\(operation.suiteName)' (\(uuid))", correlationID: operation.correlationID)
+            return uuid
+        }
+
+        let endPoint = StartItemEndPoint(
+            itemName: operation.suiteName,
+            launchID: launchID,
+            type: .suite,
+            uuid: uuid,
+            codeRef: operation.codeRef
+        )
+        let _: Item = try await httpClient.callEndPoint(endPoint)
+
+        if await TimeHelper.clamp(toStoredStart: { try await self.item(uuid: uuid).startTime?.date }) != nil {
+            Logger.shared.info("🔗 Created shared suite '\(operation.suiteName)' (\(uuid))", correlationID: operation.correlationID)
+        } else {
+            Logger.shared.warning("⚠️ Could not read shared suite '\(operation.suiteName)' back; a lagging device clock may lose its tests", correlationID: operation.correlationID)
+        }
+        return uuid
+    }
+
+    /// An item as ReportPortal stored it. Throws while it does not exist.
+    private func item(uuid: String) async throws -> ItemResource {
+        try await httpClientV1.callEndPoint(GetItemByUuidEndPoint(uuid: uuid))
+    }
+
+    /// Uuids of a suite's tests that ReportPortal still shows as running, in any process.
+    func runningTests(inSuite uuid: String) async throws -> [String] {
+        let suite = try await item(uuid: uuid)
+        guard let id = suite.id, let launchID = suite.launchId else {
+            throw HTTPClientError.decodingError("Item \(uuid) has no id or launchId")
+        }
+        let running: ItemPage = try await httpClientV1.callEndPoint(
+            GetRunningChildrenEndPoint(parentID: id, launchID: launchID)
+        )
+        return try running.allUUIDs()
+    }
+
     /// Finish suite item in ReportPortal
     /// - Parameter operation: SuiteOperation with suite ID and final status
     func finishSuite(operation: SuiteOperation) async throws {
         let launchID = LaunchUUID.value
 
-        // Use suite status if available, otherwise default to passed
-        let status = operation.status ?? .passed
-
+        // Without an explicit status ReportPortal derives the suite's from its tests.
         let endPoint = try FinishItemEndPoint(
             itemID: operation.suiteID,
-            status: status,
+            status: operation.status,
             launchID: launchID
         )
 
@@ -210,7 +216,10 @@ public final class ReportingService: Sendable {
             itemName: operation.testName,
             parentID: operation.suiteID,
             launchID: launchID,
-            type: .step  // Individual test method = type .step
+            type: .step,  // Individual test method = type .step
+            attributes: operation.attributes,
+            codeRef: operation.codeRef,
+            retry: operation.retry
         )
 
         let result: Item = try await httpClient.callEndPoint(endPoint)
@@ -268,13 +277,7 @@ public final class ReportingService: Sendable {
         Logger.shared.debug("Log posted to item: \(itemID)", correlationID: correlationID)
     }
 
-    /// Post attachments to ReportPortal (async, non-blocking)
-    /// - Parameters:
-    ///   - attachments: Array of XCTAttachment from test
-    ///   - itemID: Test item ID to attach to
-    ///   - launchID: Launch ID
-    ///   - correlationID: Optional correlation ID for tracing
-    /// Post screenshot directly to ReportPortal (simpler than postAttachments)
+    /// Post a failure screenshot to a test item
     func postScreenshot(
         screenshotData: Data,
         filename: String,
@@ -301,100 +304,14 @@ public final class ReportingService: Sendable {
 
         Logger.shared.debug("Posted screenshot: \(filename)", correlationID: correlationID)
     }
-
-    func postAttachments(
-        attachments: [AttachmentPayload],
-        itemID: String,
-        launchID: String,
-        correlationID: UUID? = nil
-    ) async throws {
-        guard !attachments.isEmpty else {
-            Logger.shared.debug("No attachments to upload", correlationID: correlationID)
-            return
-        }
-
-        var fileAttachments: [FileAttachment] = []
-
-        // Convert AttachmentPayload to FileAttachment
-        for (index, attachment) in attachments.enumerated() {
-            // Skip attachments without data
-            guard let attachmentData = attachment.data else {
-                Logger.shared.warning("Attachment has no data: \(attachment.name ?? "unknown"), UTI: \(attachment.uniformTypeIdentifier)", correlationID: correlationID)
-                continue
-            }
-            
-            // Generate safe filename from attachment name or use timestamp
-            let timestamp = String(Int64(Date().timeIntervalSince1970 * 1000))
-            let baseName = attachment.name ?? "attachment_\(index)"
-            let sanitizedName = baseName.replacingOccurrences(of: " ", with: "_")
-
-            // Determine MIME type and extension based on uniformTypeIdentifier
-            let uti = attachment.uniformTypeIdentifier
-            let fileExtension: String
-            let mimeType: String
-
-            // Common attachment types
-            if uti.contains("image") || uti.contains("png") {
-                fileExtension = "png"
-                mimeType = "image/png"
-            } else if uti.contains("jpeg") || uti.contains("jpg") {
-                fileExtension = "jpg"
-                mimeType = "image/jpeg"
-            } else if uti.contains("text") {
-                fileExtension = "txt"
-                mimeType = "text/plain"
-            } else if uti.contains("json") {
-                fileExtension = "json"
-                mimeType = "application/json"
-            } else if uti.contains("xml") {
-                fileExtension = "xml"
-                mimeType = "application/xml"
-            } else {
-                fileExtension = "bin"
-                mimeType = "application/octet-stream"
-            }
-
-            // Build filename with timestamp and extension
-            let filename = "\(sanitizedName)_\(timestamp).\(fileExtension)"
-
-            // Create FileAttachment and add to array
-            let fileAttachment = FileAttachment(
-                data: attachmentData,
-                filename: filename,
-                mimeType: mimeType,
-                fieldName: "binary_part"
-            )
-            fileAttachments.append(fileAttachment)
-        }
-
-        guard !fileAttachments.isEmpty else {
-            Logger.shared.debug("No processable attachments after extraction", correlationID: correlationID)
-            return
-        }
-
-        // Upload all attachments in a single API call
-        let endPoint = PostLogEndPoint(
-            itemUuid: itemID,
-            launchUuid: launchID,
-            level: "info",
-            message: "Test attachments",
-            attachments: fileAttachments
-        )
-
-        let _: LogResponse = try await httpClient.callEndPoint(endPoint)
-
-        Logger.shared.info("Uploaded \(fileAttachments.count) attachments to item: \(itemID)", correlationID: correlationID)
-    }
 }
 
-// MARK: - Orphan-launch attribute back-fill (SauceLabs)
+// MARK: - Read endpoints (v1)
 //
-// These two endpoints support `patchLaunchAttributes(uuid:attributes:)`. They live here
-// (rather than in Sources/EndPoints/) so both SPM and the Xcode project compile them
-// without a project-file change.
+// They live here (rather than in Sources/EndPoints/) so both SPM and the Xcode project compile
+// them without a project-file change.
 
-/// `GET launch/uuid/{uuid}` — resolve a launch's numeric `id` from its UUID.
-/// (ReportPortal's update endpoint is keyed by the numeric id, not the UUID.)
+/// `GET launch/uuid/{uuid}` — read a launch, e.g. the start time ReportPortal stored.
 struct GetLaunchByUuidEndPoint: EndPoint {
     let method: HTTPMethod = .get
     let relativePath: String
@@ -404,23 +321,53 @@ struct GetLaunchByUuidEndPoint: EndPoint {
     }
 }
 
-/// `PUT launch/{id}/update` — replace a launch's attributes (used to back-fill
-/// `merge_group` and metadata onto an orphan launch so the post-run merge can find it).
-struct UpdateLaunchEndPoint: EndPoint {
-    let method: HTTPMethod = .put
+/// `GET item/uuid/{uuid}` — read an item (v1 only), e.g. to join a suite another process created.
+struct GetItemByUuidEndPoint: EndPoint {
+    let method: HTTPMethod = .get
     let relativePath: String
-    let parameters: [String: Any]
 
-    init(launchID: Int, attributes: [[String: String]]) {
-        relativePath = "launch/\(launchID)/update"
-        parameters = ["attributes": attributes]
+    init(uuid: String) {
+        relativePath = "item/uuid/\(uuid)"
     }
 }
 
-/// Lenient response for `PUT launch/{id}/update` (ReportPortal returns `{ "message": ... }`).
-/// All-optional so a differently-shaped success body still decodes.
-struct LaunchUpdateResponse: Decodable {
-    let message: String?
+/// `GET item?filter…` — the children of an item that are still running (v1 only).
+struct GetRunningChildrenEndPoint: EndPoint {
+    let method: HTTPMethod = .get
+    let relativePath = "item"
+    let encoding: ParameterEncoding = .url
+    let parameters: [String: Any]
+
+    init(parentID: Int, launchID: Int) {
+        parameters = [
+            "filter.eq.launchId": launchID,
+            "filter.eq.parentId": parentID,
+            "filter.eq.status": "IN_PROGRESS",
+            "page.size": 100
+        ]
+    }
+}
+
+/// The part of ReportPortal's item resource the agent reads.
+struct ItemResource: Decodable {
+    let id: Int?
+    let uuid: String?
+    let launchId: Int?
+    let startTime: ServerTime?
+}
+
+/// A page of items, as `GET item` returns it.
+struct ItemPage: Decodable {
+    let content: [ItemResource]
+    let page: Page?
+
+    /// The items' uuids. Throws when the server holds more than this page, so none is missed.
+    func allUUIDs() throws -> [String] {
+        guard (page?.totalElements ?? content.count) <= content.count else {
+            throw HTTPClientError.decodingError("\(content.count) of \(page?.totalElements ?? 0) items fit in one page")
+        }
+        return content.compactMap { $0.uuid }
+    }
 }
 
 // MARK: - ReportingServiceProtocol (ordering test seam)
@@ -433,14 +380,15 @@ struct LaunchUpdateResponse: Decodable {
 // it without a project-file change.
 protocol ReportingServiceProtocol: Sendable {
     func startLaunch(name: String, tags: [String], attributes: [[String: String]], uuid: String) async throws -> String
-    func patchLaunchAttributes(uuid: String, attributes: [[String: String]]) async throws
+    func launchStartTime(uuid: String) async throws -> Date?
     func startSuite(operation: SuiteOperation, launchID: String) async throws -> String
     func finishSuite(operation: SuiteOperation) async throws
+    func runningTests(inSuite uuid: String) async throws -> [String]
     func startTest(operation: TestOperation, launchID: String) async throws -> String
     func finishTest(operation: TestOperation) async throws
     func postLog(message: String, level: String, itemID: String, launchID: String, correlationID: UUID?) async throws
     func postScreenshot(screenshotData: Data, filename: String, itemID: String, launchID: String, correlationID: UUID?) async throws
-    func finalizeLaunch(launchID: String, status: TestStatus) async throws
+    func finalizeLaunch(launchID: String) async throws
 }
 
 extension ReportingService: ReportingServiceProtocol {}

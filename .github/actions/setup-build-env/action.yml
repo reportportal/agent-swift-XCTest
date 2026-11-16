@@ -10,4 +10,6 @@ runs:
 
     - uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '26.0'
+        # Follow the runner image: an exact pin breaks once the image drops that Xcode's
+        # simulator runtime (pod lib lint then finds no iOS destination).
+        xcode-version: latest-stable

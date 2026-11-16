@@ -22,8 +22,12 @@
 	<string>ReportPortalAgent.RPListener</string>
 	<key>PushTestDataToReportPortal</key>
 	<true/>
+	<key>ReportPortalCollapseRetries</key>
+	<true/>
 	<key>ReportPortalLaunchName</key>
 	<string>Demo_Launch</string>
+	<key>ReportPortalLaunchUUID</key>
+	<string>$(RP_LAUNCH_UUID)</string>
 	<key>ReportPortalProjectName</key>
 	<string>&lt;project name&gt;</string>
 	<key>ReportPortalTags</key>

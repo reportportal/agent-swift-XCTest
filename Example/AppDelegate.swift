@@ -51,3 +51,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
 }
+
+/// Holds the window UIKit loads from `Main.storyboard`: an app built with the iOS 27 SDK
+/// must use the scene life cycle, or it fails to launch.
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+  var window: UIWindow?
+
+}

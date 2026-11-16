@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
+### Added
+- **One launch per device-farm run:** `ReportPortalLaunchUUID` in the test bundle's `Info.plist`.
+  Real devices never see environment variables, but every shard and every farm retry gets the
+  compiled-in plist, so they all report into one launch and no post-run merge is needed. The
+  agent then leaves finishing that launch to one CI step after all shards
+  (`ReportPortalSkipFinish` defaults to on), by @rusel95.
+- **Retries in one row:** `ReportPortalCollapseRetries` / `RP_COLLAPSE_RETRIES` (opt-in). A
+  retried test is one row with the status of its last attempt and the earlier attempts nested
+  under it, also when the retry ran on another device, by @rusel95.
+- Tests and suites carry `codeRef` and `testCaseId`, so history follows a test across launches
+  (it starts over once after the upgrade). Tests in a shared launch carry `device` and `os`,
+  by @rusel95.
+
 ### Fixed
+- Failed runs showed as passed: the launch and suites were finished with an explicit `PASSED`.
+  They now finish without a status, so ReportPortal derives it from the tests, by @rusel95.
+- Skipped tests were reported as `PASSED`; they are `SKIPPED` now. ReportPortal then shows a
+  launch with skipped tests as failed, as with other agents, by @rusel95.
+- Requests could reach ReportPortal out of order: a suite finished before its last test, a test
+  before its start returned. Each test's requests now go out in order and a suite finishes after
+  its tests, by @rusel95.
+- Tests of a nested or `@objc(Name)` test class were reported late, interrupted or not at all,
+  by @rusel95.
+- Every test process waited 20 s at the end and logged a timeout; it now waits only for the
+  requests still in flight, by @rusel95.
+- A device whose clock lags the shared launch's creator lost its results; the agent never stamps
+  earlier than the start time ReportPortal stored, by @rusel95.
+- Reading a launch never worked (a GET carried a JSON body, epoch timestamps failed to decode).
+  The `device` attribute read `arm64` on Apple-silicon simulators. A failure screenshot is
+  taken at the failure, not when its upload gets its turn, by @rusel95.
 - **Random loss of all launch attributes (the real "N of 6 didn't merge" cause).** The
   start-launch and start-item bodies sent a legacy `"tags"` field alongside `"attributes"`.
   Server-side, ReportPortal's `StartRQ` declares `@JsonAlias({"attributes","tags"})` — both
@@ -12,11 +41,10 @@
   every keyed attribute (`merge_group`, `device`, `os`, …), making the launch invisible to
   the post-run merge. The legacy `"tags"` field is no longer sent (tags already reach RP as
   keyed `tag` attributes), by @rusel95.
-- Orphan-launch back-fill now targets the **v1** API. ReportPortal's launch read/update
-  endpoints (`GET launch/uuid/{uuid}`, `PUT launch/{id}/update`) only exist under `/api/v1`,
-  but the agent's client is pinned to `/api/v2` (start/finish/merge) — so the back-fill's two
-  calls were hitting v2 and failing (no-op). They now use a dedicated v1 client, so attributes
-  are actually applied to an orphan launch, by @rusel95.
+
+### Removed
+- The orphan-launch attribute back-fill on HTTP 409: ReportPortal's v2 API never answers a
+  launch start with 409, so it never ran, by @rusel95.
 
 ## [4.1.0] - 2026-06-09
 

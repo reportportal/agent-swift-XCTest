@@ -37,14 +37,31 @@ The **only** configuration that survives to the device is what is **compiled int
 > whichever appears last in the JSON — and Swift serializes dictionary keys in per-process random
 > order, so each shard was a coin flip: when `"tags"` landed last, it silently **replaced every
 > keyed attribute, including `merge_group`**, and the merge couldn't find that launch. The agent
-> no longer sends the legacy field, so every launch keeps its attributes deterministically. As
-> defense-in-depth, if `startLaunch` ever gets a 409 (a launch with its UUID already exists), the
-> agent back-fills the full attribute set onto that launch. **Use an agent build that includes
-> these fixes** — launches created by older builds can still randomly lose their attributes.
+> no longer sends the legacy field, so every launch keeps its attributes deterministically.
+> **Use an agent build that includes this fix** — launches created by older builds can still
+> randomly lose their attributes.
 
 ---
 
-## Quick Start
+## Two paths — pick one
+
+| | **Shared launch** (recommended) | **Post-run merge** (legacy) |
+|---|---|---|
+| How | `ReportPortalLaunchUUID` in the test bundle's `Info.plist`; every shard reports into one launch | `merge_group` attribute + a ~290-line script that queries and merges launches afterwards |
+| Farm retries | Re-run the same bundle ⇒ same launch; with `ReportPortalCollapseRetries` each retried test is one row, earlier attempts nested | Each retry is another launch to merge, every attempt a separate row |
+| CI needs | One `PUT /launch/{uuid}/finish` in an `if: always()` step at the end | `jq`, `curl`, the vendored merge script, discovery/settle polling |
+| Use it when | The agent is newer than 4.1.0 (has `ReportPortalLaunchUUID`) | Pinned to 4.1.0 or older |
+
+**Shared launch:** the whole recipe, including the CI step that finishes the launch, is in the
+README: [one launch on real devices](../README.md#one-launch-on-real-devices) and
+[retries in one row](../README.md#retries-in-one-row). No `merge_group`, no `PlistBuddy`, no merge
+script, no retry dedup script.
+
+The rest of this guide documents the **legacy post-run merge**.
+
+---
+
+## Quick Start (legacy post-run merge)
 
 ### Prerequisites
 

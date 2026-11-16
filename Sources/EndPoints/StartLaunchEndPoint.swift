@@ -19,8 +19,8 @@ import Foundation
 /// V2 Launch Start endpoint with mandatory UUID for idempotent launch creation
 /// 
 /// ## V2 API Behavior:
-/// - **Idempotent**: Multiple calls with same UUID return same launch
-/// - **409 Conflict**: Returns existing launch data (not an error!)
+/// - **Idempotent**: Multiple calls with same UUID report into the same launch (reporting is
+///   asynchronous: a duplicate start gets a success response and is dropped server-side)
 /// - **Parallel-safe**: All workers can call simultaneously with same UUID
 ///
 /// ## UUID Strategy:
