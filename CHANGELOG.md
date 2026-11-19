@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-19
+
 ### Added
 - **One launch per device-farm run:** `ReportPortalLaunchUUID` in the test bundle's `Info.plist`.
   Real devices never see environment variables, but every shard and every farm retry gets the
