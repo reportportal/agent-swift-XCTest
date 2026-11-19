@@ -88,7 +88,12 @@ final class HTTPClient: NSObject, URLSessionDelegate, @unchecked Sendable {
       let body = String(data: data, encoding: .utf8)
       // Truncate large response bodies to prevent log spam (max 1KB)
       let truncatedBody = truncateForLog(body ?? "no body", maxLength: 1024)
-      Logger.shared.error("HTTP error \(httpResponse.statusCode): \(truncatedBody)")
+      if endPoint.method == .get && httpResponse.statusCode == 404 {
+        // Expected: how the agent learns a shared launch or suite doesn't exist yet.
+        Logger.shared.debug("Not found (404): \(endPoint.relativePath)")
+      } else {
+        Logger.shared.error("HTTP error \(httpResponse.statusCode): \(truncatedBody)")
+      }
       throw HTTPClientError.httpError(statusCode: httpResponse.statusCode, body: body)
     }
 
@@ -144,6 +149,8 @@ final class HTTPClient: NSObject, URLSessionDelegate, @unchecked Sendable {
     // Handle different encoding types
     switch endPoint.encoding {
     case .json:
+      // URLSession rejects a GET that carries a body ("resource exceeds maximum size").
+      guard endPoint.method != .get else { break }
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       let data = try JSONSerialization.data(withJSONObject: endPoint.parameters, options: .prettyPrinted)
       request.httpBody = data

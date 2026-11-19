@@ -19,8 +19,8 @@ import Foundation
 /// V2 Launch Start endpoint with mandatory UUID for idempotent launch creation
 /// 
 /// ## V2 API Behavior:
-/// - **Idempotent**: Multiple calls with same UUID return same launch
-/// - **409 Conflict**: Returns existing launch data (not an error!)
+/// - **Idempotent**: Multiple calls with same UUID report into the same launch (reporting is
+///   asynchronous: a duplicate start gets a success response and is dropped server-side)
 /// - **Parallel-safe**: All workers can call simultaneously with same UUID
 ///
 /// ## UUID Strategy:
@@ -40,16 +40,23 @@ struct StartLaunchEndPoint: EndPoint {
   ///   - attributes: Custom metadata (device info, OS version, etc.)
   ///   - uuid: **REQUIRED** Launch UUID for idempotent creation
   init(launchName: String, tags: [String], mode: LaunchMode, attributes: [[String: String]] = [], uuid: String) {
+    // Do NOT add a legacy "tags" field here. Server-side, StartRQ declares
+    // @JsonAlias({"attributes","tags"}) — "tags" and "attributes" deserialize into the SAME
+    // property, and Jackson keeps whichever appears LAST in the JSON document. Swift
+    // dictionaries serialize in per-process random key order, so sending both made every
+    // shard a coin flip: when "tags" landed after "attributes", the keyless tag strings
+    // REPLACED all keyed attributes (merge_group, device, os, …) — the intermittent
+    // "launch lost all attributes / N of 6 didn't merge" bug. Tags already reach
+    // ReportPortal as keyed {"key":"tag"} attributes inside `attributes`.
     let params: [String: Any] = [
       "description": "",
       "mode": mode.rawValue,
       "name": launchName,
       "start_time": TimeHelper.currentTimeAsString(),
-      "tags": TagHelper.defaultTags + tags,
       "attributes": attributes,
       "uuid": uuid  // REQUIRED in V2 API
     ]
-    
+
     parameters = params
   }
 

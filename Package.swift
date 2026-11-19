@@ -21,6 +21,7 @@ let package = Package(
     name: "agent-swift-XCTest",
     defaultLocalization: "en",
     platforms: [
+        // iOS 15 / Swift 5.5 is the floor for native Swift Concurrency (no back-deploy).
         .iOS(.v15),
         .macOS(.v12),
         .tvOS(.v15),

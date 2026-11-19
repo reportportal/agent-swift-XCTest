@@ -16,7 +16,7 @@
 
 import Foundation
 
-/// Represents a test suite execution context, managing hierarchy and child test relationships.
+/// Represents a test suite execution context.
 struct SuiteOperation: Sendable {
     /// Unique identifier for this suite's lifecycle
     let correlationID: UUID
@@ -24,42 +24,29 @@ struct SuiteOperation: Sendable {
     /// ReportPortal item ID for this suite (mutable to set after API call)
     var suiteID: String
 
-    /// Parent root suite ID (nil for root)
-    let rootSuiteID: String?
-
     /// XCTest suite name (e.g., "MyTestCase")
     let suiteName: String
 
     /// Aggregated status from child tests - nil if suite hasn't started
     var status: TestStatus?
 
-    /// Suite start timestamp
-    let startTime: Date
+    /// Stable identity sent to ReportPortal (`Module.Class`).
+    var codeRef: String?
 
-    /// ReportPortal IDs of child test cases
-    var childTestIDs: [String]
-
-    /// Device info, bundle name, etc.
-    var metadata: [String: String]
+    /// Item uuid shared by every process of the launch when retries are collapsed; `nil` means
+    /// this process creates (and finishes) its own suite.
+    var sharedUUID: String?
 
     /// Initialize a new suite operation
     init(
         correlationID: UUID = UUID(),
         suiteID: String,
-        rootSuiteID: String? = nil,
         suiteName: String,
-        status: TestStatus? = nil,
-        startTime: Date = Date(),
-        childTestIDs: [String] = [],
-        metadata: [String: String] = [:]
+        status: TestStatus? = nil
     ) {
         self.correlationID = correlationID
         self.suiteID = suiteID
-        self.rootSuiteID = rootSuiteID
         self.suiteName = suiteName
         self.status = status
-        self.startTime = startTime
-        self.childTestIDs = childTestIDs
-        self.metadata = metadata
     }
 }

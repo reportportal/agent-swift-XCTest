@@ -20,8 +20,11 @@
 	<string>1</string>
 	<key>NSPrincipalClass</key>
 	<string>RPListener</string>
+	<!-- Pure unit tests (Summator / OperationTracker / SauceLabsSupport): no ReportPortal
+	     reporting. Keeping this NO avoids live network calls to ReportPortalURL and the
+	     finalize grace period when this bundle runs as part of the test plan. -->
 	<key>PushTestDataToReportPortal</key>
-	<true/>
+	<false/>
 	<key>ReportPortalLaunchName</key>
 	<string>Demo_Launch</string>
 	<key>ReportPortalProjectName</key>

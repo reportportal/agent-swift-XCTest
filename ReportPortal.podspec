@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name             = 'ReportPortal'
-    s.version          = '4.0.1'
+    s.version          = '4.1.0'
     s.summary          = 'Agent to push test results on Report Portal with parallel execution support'
 
     s.description      = <<-DESC
@@ -13,9 +13,9 @@ Pod::Spec.new do |s|
     s.author           = { 'ReportPortal Team' => 'support@reportportal.io' }
     s.source           = { :git => 'https://github.com/reportportal/agent-swift-XCTest.git', :tag => s.version.to_s }
 
-    s.ios.deployment_target = '18.6'
-    s.osx.deployment_target = '14.0'
-    s.tvos.deployment_target = '18.2'
+    s.ios.deployment_target = '15.0'
+    s.osx.deployment_target = '12.0'
+    s.tvos.deployment_target = '15.0'
     s.swift_version = '5.5'
     s.source_files = 'Sources/**/*.swift'
 
